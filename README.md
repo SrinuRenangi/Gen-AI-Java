@@ -125,7 +125,7 @@ ollama pull llama3.2
 | [Day 33](Phase_06_Spring_AI/Day_33_ChatClient_Fluent_Conversational_API/Day_33_ChatClient_Fluent_Conversational_API.md) | ChatClient — The Fluent Conversational API | ✅ Complete |
 | [Day 34](Phase_06_Spring_AI/Day_34_Prompt_Engineering_in_Java/Day_34_Prompt_Engineering_in_Java.md) | Prompt Engineering in Java | ✅ Complete |
 | [Day 35](Phase_06_Spring_AI/Day_35_Structured_Output_Java_Objects/Day_35_Structured_Output_Java_Objects.md) | Structured Output — LLMs That Return Java Objects | ✅ Complete |
-| [Day 36](Phase_06_Spring_AI/Day_36_Streaming_Responses/Day_36_Streaming_Responses.md) | Streaming Responses — The ChatGPT Typewriter Effect | ⬜ |
+| [Day 36](Phase_06_Spring_AI/Day_36_Streaming_Responses/Day_36_Streaming_Responses.md) | Streaming Responses — The ChatGPT Typewriter Effect | ✅ Complete |
 | [Day 37](Phase_06_Spring_AI/Day_37_Embedding_Models_Text_to_Vectors/Day_37_Embedding_Models_Text_to_Vectors.md) | Embedding Models — Turning Text into Vectors | ⬜ |
 | [Day 38](Phase_06_Spring_AI/Day_38_Vector_Stores_Semantic_Memory/Day_38_Vector_Stores_Semantic_Memory.md) | Vector Stores — Semantic Memory for Your App | ⬜ |
 | [Day 39](Phase_06_Spring_AI/Day_39_RAG_Retrieval_Augmented_Generation/Day_39_RAG_Retrieval_Augmented_Generation.md) | RAG — Retrieval-Augmented Generation | ⬜ |
