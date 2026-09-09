@@ -99,7 +99,7 @@ ollama pull llama3.2
 | Day | Topic | Status |
 | :---: | :--- | :---: |
 | [Day 21](Phase_04_Spring_Data_JPA_Database/Day_21_JPA_Hibernate_Foundations/Day_21_JPA_Hibernate_Foundations.md) | JPA & Hibernate Foundations | ✅ Complete |
-| [Day 22](Phase_04_Spring_Data_JPA_Database/Day_22_Spring_Data_Repositories_Queries/Day_22_Spring_Data_Repositories_Queries.md) | Spring Data Repositories & Query Methods | ⬜ |
+| [Day 22](Phase_04_Spring_Data_JPA_Database/Day_22_Spring_Data_Repositories_Queries/Day_22_Spring_Data_Repositories_Queries.md) | Spring Data Repositories & Query Methods | ✅ Complete |
 | [Day 23](Phase_04_Spring_Data_JPA_Database/Day_23_Entity_Relationships_Fetch_Strategies/Day_23_Entity_Relationships_Fetch_Strategies.md) | Entity Relationships & Fetch Strategies | ⬜ |
 | [Day 24](Phase_04_Spring_Data_JPA_Database/Day_24_Transactions_Concurrency_Auditing/Day_24_Transactions_Concurrency_Auditing.md) | Transactions, Concurrency & Auditing | ⬜ |
 | [Day 25](Phase_04_Spring_Data_JPA_Database/Day_25_Database_Migrations_Docker/Day_25_Database_Migrations_Docker.md) | Database Migrations (Flyway) & Docker | ⬜ |
