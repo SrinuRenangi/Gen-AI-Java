@@ -70,6 +70,20 @@ Without OOP, your program would consist of loose strings and detached arrays flo
 
 ---
 
+## 🧭 The Mid-Level Java Developer Bridge: OOP & JVM Memory Demystified
+
+If you've been writing Java for a while, you may know how to write a class and use `new`, but these core JVM concepts often cause sneaky production bugs:
+
+| Concept | What Most Developers Think | What the JVM Actually Does | Plain English Meaning |
+| :--- | :--- | :--- | :--- |
+| **`Stack` Memory** | "Just where Java runs stuff." | Fast LIFO memory allocated per thread. Holds primitive values (`int`, `boolean`) and reference addresses (`0x7A4F`). | Your personal office desk: cleared immediately when a method returns. |
+| **`Heap` Memory** | "Where everything else goes." | Massive shared memory area where all `new Object()` instances live. | The warehouse: objects stay there until the Garbage Collector cleans them up. |
+| **Pass-by-Value** | "Java passes objects by reference!" | **Java is strictly pass-by-value.** For objects, it copies the *memory address pointer*, not the object itself. | Giving someone a photocopy of your house address, not photocopying the actual house. |
+| **`==` vs `.equals()`** | "They both check if things are equal." | `==` checks if both sides have the **exact same memory address**. `.equals()` checks if the internal contents match. | `==` asks: *"Are these the exact same physical coin?"* `.equals()` asks: *"Do these two different coins have the same $1 value?"* |
+| **The `hashCode()` Contract** | "Something IDE auto-generates." | A fast integer bucket number used by `HashMap` and `HashSet` to locate items in $O(1)$ time. | A postal zip code: objects with equal contents MUST produce the exact same zip code. |
+
+---
+
 # 2. Anatomy of a Java Class
 
 A **Class** is the blueprint. An **Object** is the physical entity built from that blueprint.

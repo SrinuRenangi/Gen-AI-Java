@@ -84,6 +84,22 @@ In your application:
 
 ---
 
+## 🧭 The Mid-Level Java Developer Bridge: Spring AOP Demystified
+
+AOP has notoriously confusing academic vocabulary (Aspects, JoinPoints, Pointcuts, Advices). Here is the plain-English translation into concepts you already know:
+
+| AOP Academic Term | What You Did in Core Java | What Spring AOP Does | Plain English Meaning |
+| :--- | :--- | :--- | :--- |
+| **Cross-Cutting Concern** | Copy-pasting `System.currentTimeMillis()` and `logger.info()` into 50 different methods. | Centralizes repetitive tasks into one reusable class. | Tasks that "cut across" many classes (logging, security, metrics, transactions). |
+| **Aspect (`@Aspect`)** | A helper or interceptor class. | A Spring bean containing code that runs automatically around other methods. | The "Security Guard" standing at the door. |
+| **Join Point** | Any method execution in your program. | A specific moment in code execution where Spring could intervene. | Any door in the building. |
+| **Pointcut (`@Pointcut`)** | An `if` condition: *"If method name ends with 'Service' or has `@Audit`"*. | A pattern rule specifying *which* methods the aspect should intercept. | The list of doors the security guard actually watches. |
+| **Advice (`@Around`, `@Before`)** | Calling `before()` then `method()` then `after()`. | Code that executes before, after, or around the target method. | The action the guard takes (e.g., check ID badge before opening door). |
+| **Spring Proxy** | The Gang-of-Four Proxy Design Pattern. | Spring creates an invisible wrapper around your bean. When someone calls your bean, they actually call the wrapper first! | An executive assistant screening calls before forwarding them to the boss. |
+| **The Self-Invocation Trap** | Calling `this.helperMethod()` inside the same class. | **Bypasses the proxy!** Spring AOP advice will NOT run on internal method calls. | If the boss talks to themselves in their office, the assistant outside doesn't intercept it. |
+
+---
+
 # 2. The Spaghetti Code Problem in Production AI
 
 Look at an AI method polluted with manual cross-cutting concerns:
