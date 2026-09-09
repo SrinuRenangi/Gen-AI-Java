@@ -22,6 +22,7 @@ public class NomicEmbeddingModel implements EmbeddingModel {
         boolean isJava = lower.contains("java") || lower.contains("thread") || lower.contains("jvm") || lower.contains("spring");
         boolean isDatabase = lower.contains("sql") || lower.contains("database") || lower.contains("postgres") || lower.contains("vector");
         boolean isCooking = lower.contains("bake") || lower.contains("cookie") || lower.contains("recipe") || lower.contains("food");
+        boolean isPolicy = lower.contains("sla") || lower.contains("uptime") || lower.contains("benefit") || lower.contains("enrollment") || lower.contains("policy") || lower.contains("response time");
 
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
@@ -36,6 +37,8 @@ public class NomicEmbeddingModel implements EmbeddingModel {
                 } else if (isDatabase && i >= 250 && i < 500) {
                     baseVal += 0.8f;
                 } else if (isCooking && i >= 500) {
+                    baseVal += 0.8f;
+                } else if (isPolicy && i >= 100 && i < 350) {
                     baseVal += 0.8f;
                 }
                 vector[i] = baseVal;
