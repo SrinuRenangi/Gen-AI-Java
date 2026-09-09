@@ -59,6 +59,9 @@ By the end of today, you will master:
 - [7. Key Takeaways & Summary](#7-key-takeaways--summary)
 - [8. Practice Exercises & Full Solutions](#8-practice-exercises--full-solutions)
 - [9. Self-Check Quiz](#9-self-check-quiz)
+- [10. 🔥 Java 8 Masterclass: Top 15 Technical Interview Questions & Answers](#10--java-8-masterclass-top-15-technical-interview-questions--answers)
+  - [10.1 All Java 8 Features Summary](#101-all-java-8-features-summary)
+  - [10.2 Top 15 Interview Questions & In-Depth Answers](#102-top-15-interview-questions--in-depth-answers)
 
 ---
 
@@ -470,7 +473,305 @@ public class UsageAnalytics {
 
 ---
 
+# 10. 🔥 Java 8 Masterclass: Top 15 Technical Interview Questions & Answers
+
+If you are interviewing for any Java role (Junior, Mid-Level, or Senior), **Java 8 features are tested in 95%+ of all technical interviews**. Interviewers use these questions to gauge whether you understand modern functional paradigms or are still stuck writing procedural Java 7 code.
+
+Here is the definitive Senior Architect breakdown of the **Top 15 Java 8 Interview Questions**:
+
+---
+
+### 10.1 All Java 8 Features Summary (The 60-Second Interview Elevator Pitch)
+
+> **Interview Question 1**: *"Can you list the major features introduced in Java 8?"*
+
+**Best Answer**:
+*"Java 8 (released in March 2014) was the most revolutionary update in Java history because it shifted Java from a purely object-oriented language to a hybrid functional-OOP language. The major features include:*
+1. * **Lambda Expressions (`->`)**: Enables passing anonymous functions as first-class citizens.*
+2. * **Functional Interfaces & `@FunctionalInterface`**: Single Abstract Method (SAM) interfaces (`Predicate`, `Function`, `Consumer`, `Supplier`).*
+3. * **Stream API (`java.util.stream`)**: Declarative pipeline processing for collections with lazy evaluation and internal iteration.*
+4. * **Method References (`::`)**: Shorthand syntax for lambda expressions calling existing methods.*
+5. * **`Optional<T>`**: Container object to eliminate `NullPointerException` and represent nullable return values explicitly.*
+6. * **Default & Static Methods in Interfaces**: Allows adding new methods to interfaces without breaking existing implementing classes (backward compatibility).*
+7. * **New Date & Time API (`java.time`)**: Immutable, thread-safe date/time models (`LocalDate`, `LocalDateTime`, `Instant`) replacing broken `java.util.Date` and `Calendar`.*
+8. * **`CompletableFuture`**: Asynchronous, non-blocking reactive programming.*
+9. * **Base64 Encoding/Decoding**: Built-in `java.util.Base64` utility class.*
+10. * **Nashorn JavaScript Engine**: Embedded JS runtime (later deprecated in Java 11).*
+
+---
+
+### 10.2 Top 15 Interview Questions & In-Depth Answers
+
+---
+
+#### 💡 Q2: What is a Functional Interface? What are the "Big Four" standard interfaces?
+
+**Answer**:
+A **Functional Interface** is an interface that contains **exactly ONE abstract method** (known as the Single Abstract Method or SAM). It can have any number of `default` or `static` methods.
+
+The `@FunctionalInterface` annotation is optional, but best practice because it forces the compiler to throw an error if a second abstract method is added.
+
+The **Big Four** built-in functional interfaces in `java.util.function` are:
+
+| Interface | Method Signature | Purpose | Real-World Example |
+| :--- | :--- | :--- | :--- |
+| **`Predicate<T>`** | `boolean test(T t)` | Evaluates a condition; returns `true` or `false`. | `s -> s.length() > 5` (Used in `.filter()`) |
+| **`Function<T, R>`** | `R apply(T t)` | Transforms an input of type $T$ to an output of type $R$. | `doc -> doc.getText()` (Used in `.map()`) |
+| **`Consumer<T>`** | `void accept(T t)` | Consumes an input and performs an action (side-effect); returns nothing. | `s -> System.out.println(s)` (Used in `.forEach()`) |
+| **`Supplier<T>`** | `T get()` | Takes no input; produces/supplies a value of type $T$. | `() -> new ArrayList<>()` (Used in `.orElseGet()`) |
+
+> [!TIP]
+> **Two-Argument Variants**: Java 8 also provides `BiPredicate<T, U>`, `BiFunction<T, U, R>`, and `BiConsumer<T, U>` for operations requiring two inputs.
+> **Primitive Variants**: To avoid auto-boxing overhead, Java 8 provides `IntPredicate`, `LongFunction<R>`, `DoubleConsumer`, etc.
+
+---
+
+#### 💡 Q3: What is the difference between `Collection` and `Stream`?
+
+**Answer**:
+
+| Dimension | Collection (e.g., `List`, `Set`) | Stream (`java.util.stream.Stream`) |
+| :--- | :--- | :--- |
+| **Storage** | An in-memory data structure that **holds** elements. | A computational pipeline that **transports** and transforms data; stores zero elements! |
+| **Iteration** | **External iteration**: Developer writes explicit loops (`for (T item : list)`). | **Internal iteration**: The library manages traversal internally (`stream.forEach(...)`). |
+| **Reusability** | Can be traversed and iterated infinite times. | **Single-use only!** Once a terminal operation completes, the stream is consumed and closed. |
+| **Evaluation** | **Eager**: Elements are created, calculated, and stored immediately. | **Lazy**: Intermediate operations are not evaluated until a terminal operation is called. |
+| **Modification** | Can add or remove elements (`list.add()`). | Cannot modify the underlying source collection. |
+
+---
+
+#### 💡 Q4: What is the difference between Intermediate and Terminal Operations?
+
+**Answer**:
+- **Intermediate Operations** (e.g., `filter()`, `map()`, `sorted()`, `distinct()`):
+  - **Return type**: Always returns a new `Stream<T>`.
+  - **Execution**: **Lazy**. They do not execute immediately; they merely register an operation on the pipeline.
+- **Terminal Operations** (e.g., `collect()`, `forEach()`, `count()`, `reduce()`, `findFirst()`):
+  - **Return type**: A concrete result (e.g., `List`, `long`, `Optional`) or `void`.
+  - **Execution**: **Eager**. Triggers the actual processing of data through the entire pipeline. After execution, the stream is closed.
+
+```java
+// NOTHING happens here! No loop runs because there is no terminal operation:
+Stream<String> s = names.stream().filter(n -> {
+    System.out.println("Checking: " + n);
+    return n.startsWith("A");
+});
+
+// NOW the loop runs because .count() is a terminal operation:
+long total = s.count();
+```
+
+---
+
+#### 💡 Q5: What is the difference between `map()` and `flatMap()`? (The #1 Most Asked Stream Question!)
+
+**Answer**:
+- **`map()`**: Performs a **1-to-1** transformation. It takes each element $T$ and transforms it into a single output $R$. Output is `Stream<R>`.
+- **`flatMap()`**: Performs a **1-to-Many** transformation and **flattens** the nested structure. It maps each element $T$ into a `Stream<R>`, and then flattens all those individual streams into a single composite `Stream<R>`.
+
+```java
+// SCENARIO: A list of sentences, where each sentence contains words
+List<String> sentences = List.of("hello world", "java eight streams");
+
+// 1. Using map(): Results in Stream<String[]> (A stream of arrays - nested!)
+List<String[]> nested = sentences.stream()
+    .map(s -> s.split(" "))
+    .toList(); // List containing 2 String[] arrays!
+
+// 2. Using flatMap(): Results in Stream<String> (Flattened into individual words!)
+List<String> flattened = sentences.stream()
+    .flatMap(s -> Arrays.stream(s.split(" ")))
+    .toList(); // ["hello", "world", "java", "eight", "streams"]!
+```
+
+---
+
+#### 💡 Q6: Can a Stream be reused once operated upon? What happens if you try?
+
+**Answer**:
+**NO.** A stream can be operated upon only **once**. Once a terminal operation is called, the stream is considered consumed and closed.
+
+If you attempt to call another operation on a closed stream, the JVM throws:
+`java.lang.IllegalStateException: stream has already been operated upon or closed`.
+
+```java
+Stream<String> stream = List.of("a", "b", "c").stream();
+stream.forEach(System.out::println); // Terminal operation executed!
+
+// CRASH! Throws IllegalStateException:
+stream.forEach(System.out::println);
+```
+*To re-process, you must obtain a fresh stream by calling `list.stream()` again.*
+
+---
+
+#### 💡 Q7: What is the difference between `findFirst()` and `findAny()`?
+
+**Answer**:
+- **`findFirst()`**: Deterministic. Always returns the **first element** in the stream according to encounter order.
+- **`findAny()`**: Non-deterministic in parallel pipelines. Returns **any element** found that satisfies the condition, allowing parallel worker threads to return as fast as possible without coordinating which one came first.
+
+> [!NOTE]
+> In a **sequential stream**, `findFirst()` and `findAny()` will typically return the exact same element. The difference appears in **`parallelStream()`**, where `findAny()` is significantly faster because it returns whichever thread completes first!
+
+---
+
+#### 💡 Q8: What is the difference between `Optional.orElse()` and `Optional.orElseGet()`? (The Classic Eager Trap!)
+
+**Answer**:
+This is a favorite interview trap question:
+- **`orElse(defaultVal)`**: Evaluates the argument **EAGERLY**. Even if the `Optional` contains a value, the method inside `orElse(...)` is **ALWAYS executed**!
+- **`orElseGet(Supplier)`**: Evaluates the argument **LAZILY**. The `Supplier` lambda is executed **ONLY IF** the `Optional` is empty!
+
+```java
+// DANGEROUS TRAP:
+String cachedName = Optional.of("Alice")
+    .orElse(callExpensiveDatabaseQuery()); 
+// ⚠️ callExpensiveDatabaseQuery() RUNS EVEN THOUGH "Alice" IS PRESENT!
+
+// SAFE & FAST:
+String cachedName = Optional.of("Alice")
+    .orElseGet(() -> callExpensiveDatabaseQuery()); 
+// ✅ Database query NEVER runs because "Alice" is already present!
+```
+
+---
+
+#### 💡 Q9: Why did Java 8 introduce Default and Static Methods in Interfaces?
+
+**Answer**:
+The primary reason was **Backward Compatibility**.
+
+Before Java 8, if you added a new method to an interface (e.g., adding `.stream()` to `java.util.Collection`), **every single class in the entire world implementing `Collection` would fail to compile** until someone wrote an implementation for that new method!
+
+By adding **`default` methods** (methods with a concrete code body inside the interface), Java 8 was able to add `.stream()`, `.parallelStream()`, and `.forEach()` to `java.util.Collection` without breaking thousands of legacy libraries like Hibernate, Spring, or Google Guava!
+
+---
+
+#### 💡 Q10: What is the "Diamond Problem" with Default Methods, and how does Java 8 resolve it?
+
+**Answer**:
+If a class implements two interfaces that both declare a `default` method with the **identical signature**:
+
+```java
+interface InterfaceA {
+    default void log() { System.out.println("A"); }
+}
+interface InterfaceB {
+    default void log() { System.out.println("B"); }
+}
+
+// COMPILER ERROR! "Duplicate default methods named log..."
+class Service implements InterfaceA, InterfaceB {
+    // Java forces the developer to explicitly override and resolve the conflict:
+    @Override
+    public void log() {
+        InterfaceA.super.log(); // Explicitly choose A (or write custom code)
+    }
+}
+```
+**Rule**: If there is a conflict, the class **must** override the method and explicitly choose which interface's method to invoke using `InterfaceName.super.method()`.
+
+---
+
+#### 💡 Q11: What does "Effectively Final" mean in the context of Lambdas?
+
+**Answer**:
+A local variable defined outside a lambda and accessed *inside* the lambda must be either declared `final` or be **effectively final**.
+
+"Effectively final" means the variable's value is **never modified after initialization**, even if the `final` keyword is omitted.
+
+```java
+int count = 10; // Not marked final, but never reassigned -> Effectively Final!
+Runnable r = () -> System.out.println(count); // Compiles fine!
+
+int badCount = 10;
+badCount = 20; // Reassigned!
+// COMPILER ERROR: "Local variable badCount defined in an enclosing scope must be final or effectively final"
+Runnable r2 = () -> System.out.println(badCount);
+```
+**Why?** Lambdas capture a copy of local variables on the Stack. If local variables could be mutated concurrently, it would create unpredictable race conditions and stack synchronization bugs.
+
+---
+
+#### 💡 Q12: How does `Collectors.groupingBy()` work? How do you count items per group?
+
+**Answer**:
+`Collectors.groupingBy()` is the SQL `GROUP BY` equivalent for Java Streams.
+
+```java
+List<String> words = List.of("apple", "banana", "apple", "cherry", "banana", "apple");
+
+// 1. Grouping into Map<String, List<String>>:
+Map<String, List<String>> grouped = words.stream()
+    .collect(Collectors.groupingBy(Function.identity()));
+
+// 2. Grouping with Downstream Collector: Map<String, Long> (Word Frequency Count!)
+Map<String, Long> wordCounts = words.stream()
+    .collect(Collectors.groupingBy(
+        Function.identity(), 
+        Collectors.counting() // Downstream collector!
+    ));
+// Result: {apple=3, banana=2, cherry=1}
+```
+
+---
+
+#### 💡 Q13: What are Short-Circuiting Operations in Streams?
+
+**Answer**:
+A **short-circuiting operation** is an operation that does not need to examine all elements of a stream to produce a result:
+- **Short-circuiting Terminal Operations**:
+  - `anyMatch(Predicate)`: Returns `true` as soon as the first matching element is found.
+  - `allMatch(Predicate)`: Returns `false` as soon as the first non-matching element is found.
+  - `noneMatch(Predicate)`: Returns `false` as soon as the first matching element is found.
+  - `findFirst()` / `findAny()`: Stops traversal as soon as an element is located.
+- **Short-circuiting Intermediate Operations**:
+  - `limit(n)`: Truncates the stream after $n$ elements, ignoring all remaining elements.
+
+> [!TIP]
+> Short-circuiting allows streams to safely process **infinite streams** (`Stream.iterate(1, n -> n + 1).limit(10)`).
+
+---
+
+#### 💡 Q14: Why was the new Java 8 Date and Time API (`java.time`) introduced?
+
+**Answer**:
+Legacy `java.util.Date` and `java.util.Calendar` had catastrophic architectural design flaws:
+1. **Mutability**: `Date` objects were mutable. If a service returned a `Date`, another thread could mutate it (`date.setTime(...)`), creating multi-threaded corruption.
+2. **Not Thread-Safe**: `SimpleDateFormat` was notorious for throwing concurrency exceptions when shared across threads.
+3. **Bizarre Indexing**: Months were 0-indexed (`0 = January`, `11 = December`), while days were 1-indexed, causing endless off-by-one bugs!
+4. **Poor Separation of Concerns**: A `Date` represented both a date, a time, and a timezone simultaneously.
+
+**Java 8 Solution (`java.time` based on Joda-Time)**:
+- **Immutable & Thread-Safe**: All classes (`LocalDate`, `LocalTime`, `LocalDateTime`, `Instant`) are `final` and unmodifiable.
+- **Clean Separation**: `LocalDate` (2026-09-10), `LocalTime` (14:30), `Instant` (machine epoch timestamp UTC).
+- **Sensible Indexing**: Months are 1-12 (`Month.JANUARY = 1`).
+
+---
+
+#### 💡 Q15: Live Coding Challenge: How do you find the 2nd Highest Number in a List?
+
+**Answer**:
+This is a standard coding screen test in senior interviews:
+
+```java
+List<Integer> numbers = List.of(5, 9, 11, 2, 9, 21, 21, 14);
+
+int secondHighest = numbers.stream()
+    .distinct()                          // 1. Remove duplicate 21s!
+    .sorted(Comparator.reverseOrder())   // 2. Sort descending: [21, 14, 11, 9, 5, 2]
+    .skip(1)                             // 3. Skip the highest (21)
+    .findFirst()                         // 4. Grab the next element (14)
+    .orElseThrow(() -> new IllegalArgumentException("List does not have at least 2 unique numbers"));
+
+System.out.println("Second highest: " + secondHighest); // Prints: 14
+```
+
+---
+
 <p align="center">
   <b>Congratulations on completing Day 06! 🎉</b><br>
+  You have now mastered both the functional mechanics of the <b>Stream API</b> and the top <b>Java 8 Technical Interview questions</b>!<br>
   Tomorrow on <b>Day 07</b>, we conquer <b>Concurrency & Virtual Threads (Project Loom)</b>: The Java 21 superpower that allows a single server to handle 10,000 concurrent LLM streaming connections!
 </p>
