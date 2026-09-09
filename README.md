@@ -83,7 +83,7 @@ ollama pull llama3.2
 | [Day 13](Phase_02_Spring_Core_and_DI/Day_13_AOP_Cross_Cutting_Concerns/Day_13_AOP_Cross_Cutting_Concerns.md) | AOP — Cross-Cutting Concerns | ✅ Complete |
 | [Day 14](Phase_02_Spring_Core_and_DI/Day_14_Actuator_Production_Readiness/Day_14_Actuator_Production_Readiness.md) | Spring Boot Actuator & Production Readiness | ✅ Complete |
 
-### 🟡 Phase 3: Spring Web — Building REST APIs (Days 15–20)
+### 🟢 Phase 3: Spring Web — Building REST APIs (Days 15–20)
 
 | Day | Topic | Status |
 | :---: | :--- | :---: |
@@ -92,7 +92,7 @@ ollama pull llama3.2
 | [Day 17](Phase_03_Spring_Web_REST_APIs/Day_17_Exception_Handling_Global_Strategy/Day_17_Exception_Handling_Global_Strategy.md) | Exception Handling & Global Error Strategy | ✅ Complete |
 | [Day 18](Phase_03_Spring_Web_REST_APIs/Day_18_Async_Streaming_SSE/Day_18_Async_Streaming_SSE.md) | Async APIs, Streaming & SSE | ✅ Complete |
 | [Day 19](Phase_03_Spring_Web_REST_APIs/Day_19_API_Documentation_OpenAPI/Day_19_API_Documentation_OpenAPI.md) | API Documentation & OpenAPI | ✅ Complete |
-| [Day 20](Phase_03_Spring_Web_REST_APIs/Day_20_Testing_REST_APIs/Day_20_Testing_REST_APIs.md) | Testing REST APIs End-to-End | ⬜ |
+| [Day 20](Phase_03_Spring_Web_REST_APIs/Day_20_Testing_REST_APIs/Day_20_Testing_REST_APIs.md) | Testing REST APIs End-to-End | ✅ Complete |
 
 ### 🟡 Phase 4: Spring Data JPA & Database Mastery (Days 21–26)
 
