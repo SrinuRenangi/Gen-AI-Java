@@ -129,7 +129,7 @@ ollama pull llama3.2
 | [Day 37](Phase_06_Spring_AI/Day_37_Embedding_Models_Text_to_Vectors/Day_37_Embedding_Models_Text_to_Vectors.md) | Embedding Models — Turning Text into Vectors | ✅ Complete |
 | [Day 38](Phase_06_Spring_AI/Day_38_Vector_Stores_Semantic_Memory/Day_38_Vector_Stores_Semantic_Memory.md) | Vector Stores — Semantic Memory for Your App | ✅ Complete |
 | [Day 39](Phase_06_Spring_AI/Day_39_RAG_Retrieval_Augmented_Generation/Day_39_RAG_Retrieval_Augmented_Generation.md) | RAG — Retrieval-Augmented Generation | ✅ Complete |
-| [Day 40](Phase_06_Spring_AI/Day_40_Advanced_RAG_Query_ReRanking/Day_40_Advanced_RAG_Query_ReRanking.md) | Advanced RAG — Query Transformation & Re-Ranking | ⬜ |
+| [Day 40](Phase_06_Spring_AI/Day_40_Advanced_RAG_Query_ReRanking/Day_40_Advanced_RAG_Query_ReRanking.md) | Advanced RAG — Query Transformation & Re-Ranking | ✅ Complete |
 | [Day 41](Phase_06_Spring_AI/Day_41_Tool_Calling_LLMs_Execute_Java/Day_41_Tool_Calling_LLMs_Execute_Java.md) | Tool Calling — LLMs That Execute Java Methods | ⬜ |
 | [Day 42](Phase_06_Spring_AI/Day_42_Multimodal_AI_Vision_Audio_Images/Day_42_Multimodal_AI_Vision_Audio_Images.md) | Multimodal AI — Vision, Audio & Images | ⬜ |
 
