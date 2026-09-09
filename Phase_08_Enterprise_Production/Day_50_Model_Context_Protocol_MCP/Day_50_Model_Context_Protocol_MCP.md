@@ -56,6 +56,20 @@ Until late 2024, the Generative AI ecosystem was stuck in the pre-USB-C era:
 
 ---
 
+## 🧭 The Mid-Level Java Developer Bridge: Model Context Protocol (MCP) Demystified
+
+If you've spent years building REST APIs, OpenAPI/Swagger docs, and microservices, here is how MCP fits into your existing world:
+
+| Standard Backend Concept | MCP Equivalent | Plain English Meaning |
+| :--- | :--- | :--- |
+| **REST / HTTP Endpoint** | **MCP Tool** (`tools/call`) | A Java method that the AI can discover and execute to take action (e.g. check order status, reboot server). |
+| **Swagger / OpenAPI Spec** | **`tools/list`** Handshake | When the client boots, the MCP server replies with a list of available tools and their JSON schemas so the AI knows what it can do. |
+| **Static File / GET Endpoint** | **MCP Resource** (`resources/read`) | A read-only stream of data (like server logs, DB schema, or customer profile) that the AI can read into context. |
+| **Prompt Template** | **MCP Prompt** (`prompts/get`) | Pre-packaged prompt instructions stored on the server so users get standardized outputs. |
+| **Transport Layer** | `stdio` (Local CLI process) or `SSE` (HTTP Server-Sent Events) | How messages travel between the AI client and your Java service. |
+
+---
+
 ## 2. The MCP Architectural Triad
 
 MCP cleanly decouples AI model execution from external tool execution through three distinct architectural roles:

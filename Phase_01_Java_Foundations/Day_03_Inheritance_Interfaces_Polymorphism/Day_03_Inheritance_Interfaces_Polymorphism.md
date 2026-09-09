@@ -84,6 +84,21 @@ In software:
 
 ---
 
+## 🧭 The Mid-Level Java Developer Bridge: Abstract Class vs. Interface Demystified
+
+Every Java interview asks: *"What is the difference between an Abstract Class and an Interface?"* Here is how enterprise developers actually decide in production:
+
+| Dimension | Abstract Class (`abstract class`) | Interface (`interface`) | Plain English Rule |
+| :--- | :--- | :--- | :--- |
+| **Relationship** | **"IS-A"** relationship (`Dog is an Animal`). | **"CAN-DO"** capability (`Dog can Run`, `Document can BePrinted`). | Inheritance is identity; Interfaces are skills. |
+| **Instance Fields** | Can have mutable instance state (`protected int tokenCount;`). | **Cannot have instance state.** Only `public static final` constants. | If you need fields to hold data, use an Abstract Class. |
+| **Inheritance Limit**| A class can extend **only ONE** abstract class. | A class can implement **UNLIMITED** interfaces (`implements A, B, C`). | Solves the Diamond Problem: no conflicting parent variables. |
+| **Default Methods (Java 8+)** | Standard method with a body. | Can have `default` methods with code bodies! | Lets framework creators add new methods without breaking everyone's code. |
+| **Polymorphism in Spring** | Rarely used as dependency injection types. | **The golden standard.** Inject `ChatModel`, not `OpenAiChatModel`. | Write your code against the contract, not the vendor. |
+| **Java 21 Pattern Matching** | `if (obj instanceof String s)` | Auto-casts `obj` into `s` on the fly! | No more ugly manual casting: `String s = (String) obj;`! |
+
+---
+
 # 2. Inheritance (`extends`): Hierarchies and Code Reuse
 
 Inheritance allows a child class (subclass) to inherit the state (fields) and behavior (methods) of a parent class (superclass).

@@ -79,6 +79,22 @@ A REST API is simply a standardized set of postal conventions over TCP/IP socket
 
 ---
 
+## 🧭 The Mid-Level Java Developer Bridge: Spring Web & REST Demystified
+
+If you've built standard Java console apps or old JSP/servlets, Spring Web MVC makes building APIs effortless:
+
+| Concept | What It Does Under the Hood | Plain English Meaning |
+| :--- | :--- | :--- |
+| **`DispatcherServlet`** | The front controller servlet mapped to `/`. Catches every incoming HTTP request. | The receptionist in the lobby who reads the visitor's badge and guides them to the right room. |
+| **`@RestController`** | Combines `@Controller` + `@ResponseBody`. | *"Every method in this class returns raw data (JSON), never an HTML web page."* |
+| **`@GetMapping`** | Read operation. Safe and idempotent. | *"Give me data."* (Like looking up an AI conversation history). |
+| **`@PostMapping`** | Create operation. Sends data in request body. | *"Create or generate something new."* (Like sending a prompt to an LLM). |
+| **`@PathVariable`** | Extracts `/prompts/{id}` from the URL path. | Picking out the room number from the address hallway. |
+| **`@RequestBody`** | Jackson automatically converts the incoming HTTP JSON payload into your Java Record or DTO. | Opening the postal envelope and translating the letter into a Java object. |
+| **Status Codes** | 200 (OK), 201 (Created), 400 (Bad Input), 404 (Not Found), 500 (Server Bug). | Standard universal hand signals: 2xx = Success, 4xx = User's fault, 5xx = Our code broke! |
+
+---
+
 # 2. The HTTP Protocol Deep Dive
 
 ### 2.1 The HTTP Request & Response Anatomy
