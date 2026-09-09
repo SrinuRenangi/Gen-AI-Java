@@ -113,7 +113,7 @@ ollama pull llama3.2
 | [Day 28](Phase_05_Spring_Security/Day_28_JWT_Authentication/Day_28_JWT_Authentication.md) | JWT Authentication from Scratch | ✅ Complete |
 | [Day 29](Phase_05_Spring_Security/Day_29_RBAC_Method_Level_Security/Day_29_RBAC_Method_Level_Security.md) | Role-Based Access Control (RBAC) | ✅ Complete |
 | [Day 30](Phase_05_Spring_Security/Day_30_OAuth2_Social_Login/Day_30_OAuth2_Social_Login.md) | OAuth2 & Social Login | ✅ Complete |
-| [Day 31](Phase_05_Spring_Security/Day_31_Rate_Limiting_CORS_API_Security/Day_31_Rate_Limiting_CORS_API_Security.md) | Rate Limiting, CORS & API Security | ⬜ |
+| [Day 31](Phase_05_Spring_Security/Day_31_Rate_Limiting_CORS_API_Security/Day_31_Rate_Limiting_CORS_API_Security.md) | Rate Limiting, CORS & API Security | ✅ Complete |
 
 ### 🔴 Phase 6: Spring AI — Enterprise AI Framework (Days 32–42)
 
