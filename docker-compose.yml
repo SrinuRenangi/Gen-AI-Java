@@ -1,0 +1,54 @@
+# ============================================================
+#  Java Gen AI Masterclass — Local Development Infrastructure
+#  Run: docker-compose up -d
+# ============================================================
+
+services:
+  # ----------------------------------------------------------
+  #  PostgreSQL + pgvector (Vector Database)
+  #  Used in: Day 26 (pgvector), Day 38-40 (Vector Stores/RAG)
+  # ----------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: genai-postgres
+    environment:
+      POSTGRES_DB: genai_course
+      POSTGRES_USER: genai
+      POSTGRES_PASSWORD: genai_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U genai -d genai_course"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------
+  #  Ollama (Local LLM Runtime — 100% Free, No API Keys!)
+  #  Used in: Day 32+ (Spring AI), Day 43+ (LangChain4j)
+  #
+  #  After starting, pull a model:
+  #    docker exec -it genai-ollama ollama pull llama3.2
+  #    docker exec -it genai-ollama ollama pull nomic-embed-text
+  # ----------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: genai-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    # Uncomment below for NVIDIA GPU support:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+volumes:
+  postgres_data:
+  ollama_data:
