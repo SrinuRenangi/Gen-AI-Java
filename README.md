@@ -149,7 +149,7 @@ ollama pull llama3.2
 
 | Day | Topic | Status |
 | :---: | :--- | :---: |
-| [Day 50](Phase_08_Enterprise_Production/Day_50_Model_Context_Protocol_MCP/Day_50_Model_Context_Protocol_MCP.md) | Model Context Protocol (MCP) in Java | ⬜ |
+| [Day 50](Phase_08_Enterprise_Production/Day_50_Model_Context_Protocol_MCP/Day_50_Model_Context_Protocol_MCP.md) | Model Context Protocol (MCP) in Java | ✅ Complete |
 | [Day 51](Phase_08_Enterprise_Production/Day_51_Prompt_Injection_AI_Security/Day_51_Prompt_Injection_AI_Security.md) | Prompt Injection Defense & AI Security | ⬜ |
 | [Day 52](Phase_08_Enterprise_Production/Day_52_Observability_OpenTelemetry_Langfuse/Day_52_Observability_OpenTelemetry_Langfuse.md) | Observability — OpenTelemetry & Langfuse | ⬜ |
 | [Day 53](Phase_08_Enterprise_Production/Day_53_Caching_Rate_Limiting_Cost_Optimization/Day_53_Caching_Rate_Limiting_Cost_Optimization.md) | Caching, Rate Limiting & Cost Optimization | ⬜ |
