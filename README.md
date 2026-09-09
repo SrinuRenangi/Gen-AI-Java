@@ -111,7 +111,7 @@ ollama pull llama3.2
 | :---: | :--- | :---: |
 | [Day 27](Phase_05_Spring_Security/Day_27_Security_Fundamentals_Architecture/Day_27_Security_Fundamentals_Architecture.md) | Security Fundamentals & Architecture | ✅ Complete |
 | [Day 28](Phase_05_Spring_Security/Day_28_JWT_Authentication/Day_28_JWT_Authentication.md) | JWT Authentication from Scratch | ✅ Complete |
-| [Day 29](Phase_05_Spring_Security/Day_29_RBAC_Method_Level_Security/Day_29_RBAC_Method_Level_Security.md) | Role-Based Access Control (RBAC) | ⬜ |
+| [Day 29](Phase_05_Spring_Security/Day_29_RBAC_Method_Level_Security/Day_29_RBAC_Method_Level_Security.md) | Role-Based Access Control (RBAC) | ✅ Complete |
 | [Day 30](Phase_05_Spring_Security/Day_30_OAuth2_Social_Login/Day_30_OAuth2_Social_Login.md) | OAuth2 & Social Login | ⬜ |
 | [Day 31](Phase_05_Spring_Security/Day_31_Rate_Limiting_CORS_API_Security/Day_31_Rate_Limiting_CORS_API_Security.md) | Rate Limiting, CORS & API Security | ⬜ |
 
