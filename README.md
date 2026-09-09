@@ -76,12 +76,12 @@ ollama pull llama3.2
 
 | Day | Topic | Status |
 | :---: | :--- | :---: |
-| [Day 09](Phase_02_Spring_Core_and_DI/Day_09_Problem_Spring_Solves_Dependency_Hell/Day_09_Problem_Spring_Solves_Dependency_Hell.md) | The Problem Spring Solves — Dependency Hell | ⬜ |
-| [Day 10](Phase_02_Spring_Core_and_DI/Day_10_Spring_IoC_Container_Bean_Lifecycle/Day_10_Spring_IoC_Container_Bean_Lifecycle.md) | Spring IoC Container & Bean Lifecycle | ⬜ |
-| [Day 11](Phase_02_Spring_Core_and_DI/Day_11_Dependency_Injection_In_Depth/Day_11_Dependency_Injection_In_Depth.md) | Dependency Injection In-Depth | ⬜ |
-| [Day 12](Phase_02_Spring_Core_and_DI/Day_12_Spring_Boot_Auto_Configuration/Day_12_Spring_Boot_Auto_Configuration.md) | Spring Boot Auto-Configuration Magic | ⬜ |
-| [Day 13](Phase_02_Spring_Core_and_DI/Day_13_AOP_Cross_Cutting_Concerns/Day_13_AOP_Cross_Cutting_Concerns.md) | AOP — Cross-Cutting Concerns | ⬜ |
-| [Day 14](Phase_02_Spring_Core_and_DI/Day_14_Actuator_Production_Readiness/Day_14_Actuator_Production_Readiness.md) | Spring Boot Actuator & Production Readiness | ⬜ |
+| [Day 09](Phase_02_Spring_Core_and_DI/Day_09_Problem_Spring_Solves_Dependency_Hell/Day_09_Problem_Spring_Solves_Dependency_Hell.md) | The Problem Spring Solves — Dependency Hell | ✅ Complete |
+| [Day 10](Phase_02_Spring_Core_and_DI/Day_10_Spring_IoC_Container_Bean_Lifecycle/Day_10_Spring_IoC_Container_Bean_Lifecycle.md) | Spring IoC Container & Bean Lifecycle | ✅ Complete |
+| [Day 11](Phase_02_Spring_Core_and_DI/Day_11_Dependency_Injection_In_Depth/Day_11_Dependency_Injection_In_Depth.md) | Dependency Injection In-Depth | ✅ Complete |
+| [Day 12](Phase_02_Spring_Core_and_DI/Day_12_Spring_Boot_Auto_Configuration/Day_12_Spring_Boot_Auto_Configuration.md) | Spring Boot Auto-Configuration Magic | ✅ Complete |
+| [Day 13](Phase_02_Spring_Core_and_DI/Day_13_AOP_Cross_Cutting_Concerns/Day_13_AOP_Cross_Cutting_Concerns.md) | AOP — Cross-Cutting Concerns | ✅ Complete |
+| [Day 14](Phase_02_Spring_Core_and_DI/Day_14_Actuator_Production_Readiness/Day_14_Actuator_Production_Readiness.md) | Spring Boot Actuator & Production Readiness | ✅ Complete |
 
 ### 🟡 Phase 3: Spring Web — Building REST APIs (Days 15–20)
 
