@@ -138,7 +138,7 @@ ollama pull llama3.2
 | Day | Topic | Status |
 | :---: | :--- | :---: |
 | [Day 43](Phase_07_LangChain4j/Day_43_LangChain4j_Introduction_AiServices/Day_43_LangChain4j_Introduction_AiServices.md) | LangChain4j Introduction & AiServices | ✅ Complete |
-| [Day 44](Phase_07_LangChain4j/Day_44_Memory_Conversation_Management/Day_44_Memory_Conversation_Management.md) | Memory & Conversation Management | ⬜ |
+| [Day 44](Phase_07_LangChain4j/Day_44_Memory_Conversation_Management/Day_44_Memory_Conversation_Management.md) | Memory & Conversation Management | ✅ Complete |
 | [Day 45](Phase_07_LangChain4j/Day_45_Structured_Extraction_Guardrails/Day_45_Structured_Extraction_Guardrails.md) | Structured Extraction & Guardrails | ⬜ |
 | [Day 46](Phase_07_LangChain4j/Day_46_RAG_Pipeline_in_LangChain4j/Day_46_RAG_Pipeline_in_LangChain4j.md) | RAG Pipeline in LangChain4j | ⬜ |
 | [Day 47](Phase_07_LangChain4j/Day_47_Advanced_RAG_Chunking_ReRanking/Day_47_Advanced_RAG_Chunking_ReRanking.md) | Advanced RAG — Chunking, Scoring & Re-Ranking | ⬜ |
