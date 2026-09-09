@@ -121,7 +121,7 @@ ollama pull llama3.2
 
 | Day | Topic | Status |
 | :---: | :--- | :---: |
-| [Day 32](Phase_06_Spring_AI/Day_32_Introduction_to_Spring_AI/Day_32_Introduction_to_Spring_AI.md) | Introduction to Spring AI — The Big Picture | ⬜ |
+| [Day 32](Phase_06_Spring_AI/Day_32_Introduction_to_Spring_AI/Day_32_Introduction_to_Spring_AI.md) | Introduction to Spring AI — The Big Picture | ✅ Complete |
 | [Day 33](Phase_06_Spring_AI/Day_33_ChatClient_Fluent_Conversational_API/Day_33_ChatClient_Fluent_Conversational_API.md) | ChatClient — The Fluent Conversational API | ⬜ |
 | [Day 34](Phase_06_Spring_AI/Day_34_Prompt_Engineering_in_Java/Day_34_Prompt_Engineering_in_Java.md) | Prompt Engineering in Java | ⬜ |
 | [Day 35](Phase_06_Spring_AI/Day_35_Structured_Output_Java_Objects/Day_35_Structured_Output_Java_Objects.md) | Structured Output — LLMs That Return Java Objects | ⬜ |
