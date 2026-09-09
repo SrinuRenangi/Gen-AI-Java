@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  # Enterprise Spring AI Application
+  ai-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: enterprise-ai-backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"   # API Gateway
+      - "8081:8081"   # Actuator Metrics
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-pgvector:5432/enterprise_ai
+      - SPRING_DATASOURCE_USERNAME=ai_user
+      - SPRING_DATASOURCE_PASSWORD=ai_secure_pass_2026
+      - SPRING_DATA_REDIS_HOST=redis-cache
+      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_AI_OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SPRING_AI_OLLAMA_BASE_URL=http://ollama-service:11434
+    depends_on:
+      postgres-pgvector:
+        condition: service_healthy
+      redis-cache:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # PostgreSQL with pgvector extension
+  postgres-pgvector:
+    image: pgvector/pgvector:pg16
+    container_name: postgres-pgvector
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: enterprise_ai
+      POSTGRES_USER: ai_user
+      POSTGRES_PASSWORD: ai_secure_pass_2026
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai_user -d enterprise_ai"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache for Semantic & Exact Match Caching
+  redis-cache:
+    image: redis:7-alpine
+    container_name: redis-cache
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Local Open-Weight LLM Inference Service (Ollama)
+  ollama-service:
+    image: ollama/ollama:latest
+    container_name: ollama-service
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+
+volumes:
+  pgdata:
+  ollama_models:
