@@ -91,7 +91,7 @@ ollama pull llama3.2
 | [Day 16](Phase_03_Spring_Web_REST_APIs/Day_16_Validation_DTOs_Response_Design/Day_16_Validation_DTOs_Response_Design.md) | Request Validation, DTOs & Response Design | ✅ Complete |
 | [Day 17](Phase_03_Spring_Web_REST_APIs/Day_17_Exception_Handling_Global_Strategy/Day_17_Exception_Handling_Global_Strategy.md) | Exception Handling & Global Error Strategy | ✅ Complete |
 | [Day 18](Phase_03_Spring_Web_REST_APIs/Day_18_Async_Streaming_SSE/Day_18_Async_Streaming_SSE.md) | Async APIs, Streaming & SSE | ✅ Complete |
-| [Day 19](Phase_03_Spring_Web_REST_APIs/Day_19_API_Documentation_OpenAPI/Day_19_API_Documentation_OpenAPI.md) | API Documentation & OpenAPI | ⬜ |
+| [Day 19](Phase_03_Spring_Web_REST_APIs/Day_19_API_Documentation_OpenAPI/Day_19_API_Documentation_OpenAPI.md) | API Documentation & OpenAPI | ✅ Complete |
 | [Day 20](Phase_03_Spring_Web_REST_APIs/Day_20_Testing_REST_APIs/Day_20_Testing_REST_APIs.md) | Testing REST APIs End-to-End | ⬜ |
 
 ### 🟡 Phase 4: Spring Data JPA & Database Mastery (Days 21–26)
