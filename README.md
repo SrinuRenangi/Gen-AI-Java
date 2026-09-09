@@ -142,7 +142,7 @@ ollama pull llama3.2
 | [Day 45](Phase_07_LangChain4j/Day_45_Structured_Extraction_Guardrails/Day_45_Structured_Extraction_Guardrails.md) | Structured Extraction & Guardrails | ✅ Complete |
 | [Day 46](Phase_07_LangChain4j/Day_46_RAG_Pipeline_in_LangChain4j/Day_46_RAG_Pipeline_in_LangChain4j.md) | RAG Pipeline in LangChain4j | ✅ Complete |
 | [Day 47](Phase_07_LangChain4j/Day_47_Advanced_RAG_Chunking_ReRanking/Day_47_Advanced_RAG_Chunking_ReRanking.md) | Advanced RAG — Chunking, Scoring & Re-Ranking | ✅ Complete |
-| [Day 48](Phase_07_LangChain4j/Day_48_Tool_Execution_Function_Calling/Day_48_Tool_Execution_Function_Calling.md) | Tool Execution & Function Calling | ⬜ |
+| [Day 48](Phase_07_LangChain4j/Day_48_Tool_Execution_Function_Calling/Day_48_Tool_Execution_Function_Calling.md) | Tool Execution & Function Calling | ✅ Complete |
 | [Day 49](Phase_07_LangChain4j/Day_49_Building_ReAct_Agent_in_Java/Day_49_Building_ReAct_Agent_in_Java.md) | Building a ReAct Agent in Java | ⬜ |
 
 ### 🟣 Phase 8: Enterprise Production & Deployment (Days 50–55)
