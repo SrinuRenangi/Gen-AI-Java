@@ -52,6 +52,8 @@ By the end of today, you will master:
 - [7. Key Takeaways & Summary](#7-key-takeaways--summary)
 - [8. Practice Exercises & Full Solutions](#8-practice-exercises--full-solutions)
 - [9. Self-Check Quiz](#9-self-check-quiz)
+- [10. 🔥 Java 8 Optional & Records Interview Masterclass](#10--java-8-optional--records-interview-masterclass)
+  - [10.1 Top 7 Interview Questions & In-Depth Answers](#101-top-7-interview-questions--in-depth-answers)
 
 ---
 
@@ -484,7 +486,117 @@ public class DocumentMetadataExtractor {
 
 ---
 
+# 10. 🔥 Java 8 Optional & Records Interview Masterclass
+
+Interviewers test `Optional<T>` relentlessly to separate developers who write defensive, modern Java from those who still spray `if (x != null)` and cause NPEs.
+
+Here are the **Top 7 Optional & Records Interview Questions**:
+
+---
+
+### 10.1 Top 7 Interview Questions & In-Depth Answers
+
+#### 💡 Q1: What was the primary motivation for introducing `Optional<T>` in Java 8?
+**Answer**:
+According to Java Language Architect Brian Goetz:
+> *"Optional is intended to provide a limited mechanism for library method return types where there needed to be a clear way to represent 'no result', and using `null` for which was overwhelmingly likely to cause errors."*
+
+`Optional` was **NOT** created to replace every single reference in Java, nor to replace null checks everywhere. It was created specifically as a **method return type** to force callers to explicitly handle absent return values at compile time.
+
+---
+
+#### 💡 Q2: What is the difference between `Optional.of(value)` and `Optional.ofNullable(value)`?
+**Answer**:
+- **`Optional.of(value)`**: Requires that `value` is strictly non-null. If you pass `null`, it immediately throws `NullPointerException` (fail-fast behavior).
+- **`Optional.ofNullable(value)`**: Safe factory. If `value` is non-null, it returns `Optional.of(value)`. If `value` is `null`, it safely returns `Optional.empty()`.
+
+```java
+String name = null;
+Optional.of(name);         // 💥 Throws NullPointerException immediately!
+Optional.ofNullable(name); // ✅ Returns Optional.empty() safely.
+```
+
+---
+
+#### 💡 Q3: Why should `Optional` NEVER be used as a Class Field or Method Parameter?
+**Answer**:
+This is a standard senior interview question with three major technical reasons:
+1. **Not Serializable**: `Optional` does NOT implement `java.io.Serializable`. If you place an `Optional` field inside a class, serialization frameworks (Jackson, JPA entities, RMI, Redis caches) will fail or throw exceptions.
+2. **Memory Overhead**: An `Optional` is an extra object allocation on the Heap containing a reference to the actual object. Using it for fields doubles pointer chasing and GC overhead.
+3. **Clumsy API Design**: Forcing callers to pass `Optional.ofNullable(arg)` as method arguments pollutes calling code:
+   ```java
+   // ❌ BAD:
+   public void process(String id, Optional<Integer> maxRetries);
+   // Forces caller to write: process("123", Optional.of(3)) or process("123", Optional.empty());
+   
+   // ✅ GOOD: Use Method Overloading instead!
+   public void process(String id, int maxRetries);
+   public void process(String id) { process(id, 3); }
+   ```
+
+---
+
+#### 💡 Q4: What is the difference between `Optional.map()` and `Optional.flatMap()`?
+**Answer**:
+- **`map()`**: Used when the mapping function returns a plain object ($U$). `map()` automatically wraps the returned value in an `Optional<U>`.
+- **`flatMap()`**: Used when the mapping function **itself returns an `Optional<U>`**. If you used `map()`, you would end up with a nested `Optional<Optional<U>>`. `flatMap()` flattens the nested optional into a single `Optional<U>`.
+
+```java
+record User(String name, Optional<Address> address) {}
+record Address(String city) {}
+
+Optional<User> user = Optional.of(new User("Alice", Optional.of(new Address("Seattle"))));
+
+// 1. Using map(): Result is Optional<Optional<Address>> (Nested! Messy!)
+Optional<Optional<Address>> nested = user.map(User::address);
+
+// 2. Using flatMap(): Result is Optional<Address> (Cleanly flattened!)
+Optional<Address> flattened = user.flatMap(User::address);
+String city = flattened.map(Address::city).orElse("Unknown City");
+```
+
+---
+
+#### 💡 Q5: Why is `optional.get()` considered a dangerous anti-pattern?
+**Answer**:
+Calling `optional.get()` directly without checking `optional.isPresent()` throws `NoSuchElementException` if the value is missing. This completely defeats the purpose of using `Optional`, replacing a `NullPointerException` with a `NoSuchElementException`!
+
+**Idiomatic Replacements**:
+- Use `.orElse(defaultValue)` for constant defaults.
+- Use `.orElseGet(() -> computeDefault())` for lazy expensive fallbacks.
+- Use `.orElseThrow(() -> new EntityNotFoundException("..."))` for failing fast with custom exceptions.
+- Use `.ifPresent(val -> ...)` or `.ifPresentOrElse(...)` to execute side effects.
+
+---
+
+#### 💡 Q6: What is the difference between `Optional.ifPresent()` (Java 8) and `Optional.ifPresentOrElse()` (Java 9)?
+**Answer**:
+- **`ifPresent(Consumer)` (Java 8)**: Executes the consumer ONLY if the value is present; does nothing if empty.
+- **`ifPresentOrElse(Consumer, Runnable)` (Java 9)**: Provides an `if-else` branching mechanism: executes the `Consumer` if present, OR executes the `Runnable` if empty!
+
+```java
+Optional<String> token = getToken();
+
+// Java 9+ idiomatic branch:
+token.ifPresentOrElse(
+    t -> System.out.println("Processing with token: " + t),
+    () -> System.out.println("No token available. Using guest access.")
+);
+```
+
+---
+
+#### 💡 Q7: How do Java Records (Java 16/21) complement Java 8 `Optional`?
+**Answer**:
+Records provide **immutable, pure data containers** with zero boilerplate. In enterprise architectures (especially Spring AI):
+- A Record represents the state contract (e.g., `AiResponse(String text, int tokens)`).
+- Getter methods in records are direct accessors without the `get` prefix (`response.text()`).
+- Optional return types on record accessors or domain helpers (e.g., `public Optional<String> firstChoice()`) communicate potential absence cleanly while keeping the record itself 100% compact and immutable.
+
+---
+
 <p align="center">
   <b>Congratulations on completing Day 05! 🎉</b><br>
   Tomorrow on <b>Day 06</b>, we unlock <b>Functional Programming & Stream API</b>: Lambdas, Method References, and Data Pipelines that transform millions of document tokens in parallel!
 </p>
+
