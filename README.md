@@ -126,7 +126,7 @@ ollama pull llama3.2
 | [Day 34](Phase_06_Spring_AI/Day_34_Prompt_Engineering_in_Java/Day_34_Prompt_Engineering_in_Java.md) | Prompt Engineering in Java | ✅ Complete |
 | [Day 35](Phase_06_Spring_AI/Day_35_Structured_Output_Java_Objects/Day_35_Structured_Output_Java_Objects.md) | Structured Output — LLMs That Return Java Objects | ✅ Complete |
 | [Day 36](Phase_06_Spring_AI/Day_36_Streaming_Responses/Day_36_Streaming_Responses.md) | Streaming Responses — The ChatGPT Typewriter Effect | ✅ Complete |
-| [Day 37](Phase_06_Spring_AI/Day_37_Embedding_Models_Text_to_Vectors/Day_37_Embedding_Models_Text_to_Vectors.md) | Embedding Models — Turning Text into Vectors | ⬜ |
+| [Day 37](Phase_06_Spring_AI/Day_37_Embedding_Models_Text_to_Vectors/Day_37_Embedding_Models_Text_to_Vectors.md) | Embedding Models — Turning Text into Vectors | ✅ Complete |
 | [Day 38](Phase_06_Spring_AI/Day_38_Vector_Stores_Semantic_Memory/Day_38_Vector_Stores_Semantic_Memory.md) | Vector Stores — Semantic Memory for Your App | ⬜ |
 | [Day 39](Phase_06_Spring_AI/Day_39_RAG_Retrieval_Augmented_Generation/Day_39_RAG_Retrieval_Augmented_Generation.md) | RAG — Retrieval-Augmented Generation | ⬜ |
 | [Day 40](Phase_06_Spring_AI/Day_40_Advanced_RAG_Query_ReRanking/Day_40_Advanced_RAG_Query_ReRanking.md) | Advanced RAG — Query Transformation & Re-Ranking | ⬜ |
