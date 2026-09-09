@@ -80,6 +80,20 @@ Supported vector stores in Spring AI include:
 
 ---
 
+## 🧭 The Mid-Level Java Developer Bridge: How Vector Stores Work in Spring AI
+
+If you've spent your career using `JpaRepository` with SQL queries, working with a `VectorStore` in Spring AI is remarkably familiar:
+
+| If You Know In Spring Data JPA... | Spring AI `VectorStore` Equivalent | Plain English Meaning |
+| :--- | :--- | :--- |
+| **`@Entity User`** | **`org.springframework.ai.document.Document`** | The unit of data: holds the text chunk, metadata (`Map<String, Object>`), and embedding vector. |
+| **`repository.saveAll(list)`** | **`vectorStore.add(List<Document>)`** | Automatically embeds the text chunks and saves them into the vector database. |
+| **`SELECT * ... ORDER BY ... LIMIT 5`** | **`vectorStore.similaritySearch(SearchRequest.query(...).withTopK(5))`** | Returns the 5 most semantically similar paragraphs to the user's question. |
+| **`WHERE tenant_id = 'acme'`** | **`.withFilterExpression("tenant == 'acme'")`** | Metadata filter: filters results by customer/security constraints before vector ranking. |
+| **Swappable DB Drivers** | Switch from Postgres to Redis in `pom.xml` | Just like swapping MySQL for Postgres, your Java code calling `VectorStore` never changes! |
+
+---
+
 ## The Spring AI `Document` Model
 
 In Spring AI, the atomic unit of semantic memory is the **`Document`**:

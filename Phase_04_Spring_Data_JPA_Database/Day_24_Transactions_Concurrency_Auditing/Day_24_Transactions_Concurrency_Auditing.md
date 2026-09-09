@@ -79,6 +79,20 @@ Transactions provide a mathematical guarantee that a multi-step workflow either 
 
 ---
 
+## 🧭 The Mid-Level Java Developer Bridge: How `@Transactional` Actually Works
+
+Almost every Java developer puts `@Transactional` on their services, but subtle misunderstandings cause silent data corruption:
+
+| `@Transactional` Concept | What Junior/Mid Developers Think | What Spring Actually Does | Plain English Rule |
+| :--- | :--- | :--- | :--- |
+| **How It Starts** | "The database handles it magically." | Spring creates an AOP proxy that calls `conn.setAutoCommit(false)`. | An invisible wrapper starts the transaction before your code runs and calls `commit()` after it returns. |
+| **When It Rolls Back** | "It rolls back on ANY exception!" | **False!** By default, Spring rolls back ONLY on `RuntimeException` and `Error`. Checked exceptions (`IOException`, `Exception`) are **COMMITTED** unless you specify `rollbackFor = Exception.class`! | Always write `@Transactional(rollbackFor = Exception.class)`! |
+| **The `try-catch` Trap** | Swallowing the error with `catch (Exception e) { log.error(e); }`. | Because you hid the exception from Spring, Spring assumes everything succeeded and **commits partial data**! | If you catch an exception, either rethrow it or call `TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()`. |
+| **The Self-Invocation Trap** | Method `public void a()` calls `this.b()` (where `b` has `@Transactional`). | **Bypasses the proxy!** Method `b()` runs with **NO transaction** at all! | Put transactional methods in a separate `@Service` bean so Spring's proxy can intercept the call. |
+| **Optimistic Locking (`@Version`)** | Needing heavy database table locks (`SELECT FOR UPDATE`). | Adds an integer `@Version` field to the entity. Automatically checks version on update. | Like Google Docs: if someone else edited the document while you were typing, Spring alerts you instead of overwriting their work! |
+
+---
+
 ## 3. ACID Guarantees in Enterprise AI Platforms
 
 | Property | Definition | Gen AI Platform Application |
