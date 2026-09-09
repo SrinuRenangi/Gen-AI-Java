@@ -151,7 +151,7 @@ ollama pull llama3.2
 | :---: | :--- | :---: |
 | [Day 50](Phase_08_Enterprise_Production/Day_50_Model_Context_Protocol_MCP/Day_50_Model_Context_Protocol_MCP.md) | Model Context Protocol (MCP) in Java | ✅ Complete |
 | [Day 51](Phase_08_Enterprise_Production/Day_51_Prompt_Injection_AI_Security/Day_51_Prompt_Injection_AI_Security.md) | Prompt Injection Defense & AI Security | ✅ Complete |
-| [Day 52](Phase_08_Enterprise_Production/Day_52_Observability_OpenTelemetry_Langfuse/Day_52_Observability_OpenTelemetry_Langfuse.md) | Observability — OpenTelemetry & Langfuse | ⬜ |
+| [Day 52](Phase_08_Enterprise_Production/Day_52_Observability_OpenTelemetry_Langfuse/Day_52_Observability_OpenTelemetry_Langfuse.md) | Observability — OpenTelemetry & Langfuse | ✅ Complete |
 | [Day 53](Phase_08_Enterprise_Production/Day_53_Caching_Rate_Limiting_Cost_Optimization/Day_53_Caching_Rate_Limiting_Cost_Optimization.md) | Caching, Rate Limiting & Cost Optimization | ⬜ |
 | [Day 54](Phase_08_Enterprise_Production/Day_54_Docker_CICD_Cloud_Deployment/Day_54_Docker_CICD_Cloud_Deployment.md) | Docker, CI/CD & Cloud Deployment | ⬜ |
 | [Day 55](Phase_08_Enterprise_Production/Day_55_Capstone_Enterprise_AI_Platform/Day_55_Capstone_Enterprise_AI_Platform.md) | Capstone — Enterprise AI Platform Architecture | ⬜ |
