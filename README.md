@@ -94,7 +94,7 @@ ollama pull llama3.2
 | [Day 19](Phase_03_Spring_Web_REST_APIs/Day_19_API_Documentation_OpenAPI/Day_19_API_Documentation_OpenAPI.md) | API Documentation & OpenAPI | ✅ Complete |
 | [Day 20](Phase_03_Spring_Web_REST_APIs/Day_20_Testing_REST_APIs/Day_20_Testing_REST_APIs.md) | Testing REST APIs End-to-End | ✅ Complete |
 
-### 🟡 Phase 4: Spring Data JPA & Database Mastery (Days 21–26)
+### 🟢 Phase 4: Spring Data JPA & Database Mastery (Days 21–26)
 
 | Day | Topic | Status |
 | :---: | :--- | :---: |
@@ -103,7 +103,7 @@ ollama pull llama3.2
 | [Day 23](Phase_04_Spring_Data_JPA_Database/Day_23_Entity_Relationships_Fetch_Strategies/Day_23_Entity_Relationships_Fetch_Strategies.md) | Entity Relationships & Fetch Strategies | ✅ Complete |
 | [Day 24](Phase_04_Spring_Data_JPA_Database/Day_24_Transactions_Concurrency_Auditing/Day_24_Transactions_Concurrency_Auditing.md) | Transactions, Concurrency & Auditing | ✅ Complete |
 | [Day 25](Phase_04_Spring_Data_JPA_Database/Day_25_Database_Migrations_Docker/Day_25_Database_Migrations_Docker.md) | Database Migrations (Flyway) & Docker | ✅ Complete |
-| [Day 26](Phase_04_Spring_Data_JPA_Database/Day_26_PostgreSQL_pgvector_Vector_Database/Day_26_PostgreSQL_pgvector_Vector_Database.md) | PostgreSQL pgvector — Your Vector Database | ⬜ |
+| [Day 26](Phase_04_Spring_Data_JPA_Database/Day_26_PostgreSQL_pgvector_Vector_Database/Day_26_PostgreSQL_pgvector_Vector_Database.md) | PostgreSQL pgvector — Your Vector Database | ✅ Complete |
 
 ### 🟠 Phase 5: Spring Security (Days 27–31)
 
