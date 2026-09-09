@@ -31,6 +31,8 @@ By the end of today, you will master:
 
 ---
 
+![Java Execution Pipeline and Ecosystem Architecture](assets/day01_java_ecosystem.jpg)
+
 ## 🗺️ Table of Contents
 
 - [1. Why Java for Generative AI?](#1-why-java-for-generative-ai)
