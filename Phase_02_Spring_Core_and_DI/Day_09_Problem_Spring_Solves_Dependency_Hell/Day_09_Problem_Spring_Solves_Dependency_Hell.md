@@ -54,10 +54,21 @@ By the end of today, you will master:
 
 # 1. Real-World Analogy: The Overwhelmed Master Chef
 
+If you have a solid understanding of core Java (classes, methods, constructors, `new`), Spring Boot can sometimes feel confusing because of all the annotations. 
+
+Let's start by answering the one big question every core Java developer has:
+> *"Why do I need a framework to create objects? What is wrong with `new CustomerService()`?"*
+
+Let's look at this architectural comparison:
+
+![Spring IoC Container vs Tight Coupling](assets/day09_spring_ioc.jpg)
+
+### 💡 The Restaurant Analogy
+
 Imagine you hire a world-renowned Master Chef to run a Michelin-starred restaurant.
 
 ```
-                  THE RESTAURANT WITHOUT INVERSION OF CONTROL
+                  THE RESTAURANT WITHOUT INVERSION OF CONTROL (MANUAL 'NEW')
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ 1. The Chef must wake up at 4:00 AM and drive to the farm to harvest wheat. │
 │ 2. The Chef must personally butcher a cow for the steaks.                   │
@@ -67,7 +78,7 @@ Imagine you hire a world-renowned Master Chef to run a Michelin-starred restaura
 │ Result: The Chef has zero time to actually COOK! The restaurant collapses.  │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       vs.
-                     THE RESTAURANT WITH INVERSION OF CONTROL
+                     THE RESTAURANT WITH INVERSION OF CONTROL (SPRING IOC)
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ 1. The General Manager (The Spring IoC Container) manages everything.       │
 │ 2. The General Manager hires suppliers, delivers clean vegetables, fixes    │
@@ -82,6 +93,18 @@ In software:
 - **The Chef** is your **Business Service** (e.g., `CustomerSupportAgent`).
 - **The Ingredients & Tools** are your **Dependencies** (e.g., `ChatModel`, `VectorStore`, `DatabaseConnection`).
 - **The General Manager** is **The Spring Framework**.
+
+---
+
+### 💡 The Plain-English Spring Glossary (No Jargon!)
+
+| Spring Jargon | What It ACTUALLY Means in Plain English |
+| :--- | :--- |
+| **Bean** | Just an ordinary Java object created and held in memory by Spring. If Spring creates `new UserService()`, that instance is called a "Bean". |
+| **IoC (Inversion of Control)** | Flipping control: instead of you typing `new Database()`, you let the framework create it and give it to you. |
+| **DI (Dependency Injection)** | Handing an object what it needs through its constructor, rather than letting it build its own tools. |
+| **ApplicationContext** | Spring's central brain/container. It's essentially a `Map<String, Object>` where Spring stores all initialized Beans. |
+| **`@Component` / `@Service`** | A post-it note on your class telling Spring: *"Hey Spring, please create an instance of this class and manage it in your registry."* |
 
 ---
 

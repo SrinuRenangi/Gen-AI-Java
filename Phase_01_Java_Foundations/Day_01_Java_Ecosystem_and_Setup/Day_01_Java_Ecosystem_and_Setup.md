@@ -89,7 +89,23 @@ However, in the **enterprise world**—where banks (Goldman Sachs, JPMorgan), fi
 
 # 2. The Java Mental Model: How Code Runs
 
-To write effective Java, you must understand what happens when you press "Run". 
+To write effective modern Java and build enterprise AI backends, you must understand what happens when you press "Run". 
+
+![Java Execution Pipeline and Ecosystem Architecture](assets/day01_java_ecosystem.jpg)
+
+### 💡 The Plain-English Translation (No Jargon!)
+
+If you've been doing core Java (classes, methods, loops), some ecosystem words sound overly academic. Here is what they actually mean in plain, everyday English:
+
+| Jargon Term | What It ACTUALLY Means in Plain English | Real-World Equivalent |
+| :--- | :--- | :--- |
+| **JDK** | The complete developer toolkit. Contains the compiler (`javac`), runner (`java`), and tools. | The entire mechanic's workshop with all tools and cranes. |
+| **JRE** | The runtime environment needed just to execute a Java app. | A car that's ready to drive (has the engine and fuel tank). |
+| **JVM** | The software engine that reads `.class` bytecode and runs it on your CPU. | The physical engine under the car's hood. |
+| **Bytecode (`.class`)** | An intermediate, universal language that isn't human code and isn't raw machine code. | A sheet of universal musical notes that any musician in any country can play. |
+| **JIT Compiler** | A smart assistant inside the JVM that spots code you run frequently and turns it into lightning-fast machine code on the fly. | A chef memorizing a popular recipe so they don't have to read the cookbook every single order. |
+
+---
 
 ### 2.1 Python vs. Java Execution Model
 

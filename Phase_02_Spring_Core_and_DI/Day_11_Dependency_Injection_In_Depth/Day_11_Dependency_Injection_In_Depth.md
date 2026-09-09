@@ -57,6 +57,8 @@ By the end of today, you will master:
 
 # 1. Real-World Analogy: The Universal Power Strip & Voltage Selectors
 
+![Spring Dependency Injection Methods and Bean Selection](assets/day11_constructor_vs_field_injection.jpg)
+
 Imagine traveling international hotels with a high-end laptop.
 
 ```
@@ -73,6 +75,25 @@ Imagine traveling international hotels with a high-end laptop.
 - If you don't care about special voltage, the room automatically routes power through the **default socket** (`@Primary`).
 - If your device specifically requires high voltage for high-speed charging, you plug into the explicitly labeled socket (`@Qualifier("euGrid")`).
 - If you travel between countries, you don't buy a brand new laptop—you just toggle the **country profile switch** (`@Profile("us")` vs `@Profile("eu")`)!
+
+---
+
+## 🧭 The Mid-Level Java Developer Bridge: Why Stop Using `@Autowired` on Fields?
+
+As a mid-level Java developer, the easiest thing to do in Spring was always:
+```java
+@Autowired
+private MyService myService;
+```
+It feels short and convenient! So why do senior tech leads and audit officers reject it in code reviews?
+
+| Dependency Injection Style | How It Looks | Why It's Good or Bad | Plain English Meaning |
+| :--- | :--- | :--- | :--- |
+| **Field Injection** (`@Autowired` on field) | `private @Autowired AiService ai;` | ❌ **Dangerous**: Can't make field `final`. If you write a unit test (`new MyClass()`), `ai` is `null` and crashes with `NullPointerException`. | Secretly sneaking dependencies in through the back window using reflection. |
+| **Constructor Injection** (The Standard) | `public MyClass(AiService ai) { this.ai = ai; }` | ✅ **Best Practice**: Fields are `final`. Clean unit tests without Spring container (`new MyClass(mockAi)`). App fails fast at startup if missing. | Walking through the front door: you cannot create the object without giving it what it needs. |
+| **`@Primary`** | `@Primary @Service class OpenAiService` | Tells Spring: *"If someone asks for `AiService` without specifying a name, give them this default."* | The default HDMI cable plugged into TV. |
+| **`@Qualifier("name")`** | `@Qualifier("ollamaService")` | Tells Spring: *"Give me specifically the bean named 'ollamaService'."* | Specifying HDMI Port 2 explicitly. |
+| **`@Value("${my.prop}")`** | `@Value("${openai.api-key}")` | Injects a string or number directly from `application.yml` or OS environment variable. | Reading an environment config setting without writing file I/O. |
 
 ---
 

@@ -25,6 +25,8 @@ Today, you will master **Embedding Models** in Java 21 and Spring AI:
 
 ## Real-World Analogy: GPS Coordinates for Human Thought
 
+![How Text Vector Embeddings Work](assets/day37_vector_embeddings.jpg)
+
 Imagine trying to explain where the Eiffel Tower is located:
 
 ```
@@ -49,6 +51,21 @@ Imagine trying to explain where the Eiffel Tower is located:
 |    "Chocolate Cookies" points in a completely perpendicular direction (Cosine Score: 0.02)!       |
 +---------------------------------------------------------------------------------------------------+
 ```
+
+---
+
+## 🧭 The Mid-Level Java Developer Bridge: SQL `LIKE` vs. Vector Search
+
+In standard backend Java, when a user searches for a product or document, you write SQL queries:
+`SELECT * FROM products WHERE description LIKE '%dog%'`.
+
+| Feature | Traditional SQL Search (`LIKE '%foo%'`) | Vector Embedding Search (`Cosine Similarity`) | Plain English Meaning |
+| :--- | :--- | :--- | :--- |
+| **How It Matches** | Exact character-by-character string matching. | Meaning & conceptual intent matching. | SQL matches spelling; vectors match meaning. |
+| **Synonyms & Slang** | Searching for "puppy" returns **0 results** if the column says "dog". | Searching for "puppy" finds "dog", "canine", and "hound" at 95%+ similarity! | Understands that different words mean the exact same concept. |
+| **What a "Vector" Is** | Sounds intimidating, like high-school calculus. | It's just a Java `float[]` or `List<Double>` of numbers. | An array of numbers that positions an idea on an imaginary map. |
+| **Cosine Similarity** | Sounds like complex trigonometry. | A math formula that measures the angle between two vectors (score 0.0 to 1.0). | 1.0 = identical meaning; 0.0 = completely unrelated. |
+| **Spring AI Abstraction** | `JdbcTemplate` / `JpaRepository` | `EmbeddingModel.embed("my text")` returns `float[]`. | In Spring AI, generating vectors is a single method call! |
 
 ---
 

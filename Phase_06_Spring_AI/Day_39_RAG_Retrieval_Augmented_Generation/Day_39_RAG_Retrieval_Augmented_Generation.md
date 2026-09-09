@@ -26,6 +26,8 @@ Today, you will master production **RAG** in Java 21 and Spring AI:
 
 ## Real-World Analogy: Open-Book Exam vs. Closed-Book Exam
 
+![Spring AI Retrieval-Augmented Generation Architecture](assets/day39_rag_pipeline.jpg)
+
 Imagine taking a doctoral-level medical board exam:
 
 ```
@@ -49,6 +51,21 @@ Imagine taking a doctoral-level medical board exam:
 
 - **Fine-Tuning** is like sending an employee to school for 6 months: expensive, slow, and their knowledge is frozen the day they graduate.
 - **RAG** is giving that employee an instant search engine to your company's live knowledge base: updated in real time, 100% verifiable, and zero cloud training costs!
+
+---
+
+## 🧭 The Mid-Level Java Developer Bridge: How RAG Maps to Standard Java Architecture
+
+If RAG sounds like an obscure AI machine learning acronym, here is how it maps directly to classic Java enterprise web services:
+
+| RAG Term | Classic Java Web Architecture Equivalent | Plain English Meaning |
+| :--- | :--- | :--- |
+| **Ingestion Pipeline** | Batch ETL job (Spring Batch) reading CSVs/PDFs into a database. | Slurping documents, splitting them into paragraphs, and saving them. |
+| **Chunking** | Splitting a large text file into smaller substrings (e.g. 500 characters). | Breaking a 100-page manual into bite-sized paragraphs so search stays accurate. |
+| **Vector Store** | A PostgreSQL database table with a special column (`vector(1536)`). | A database table optimized for similarity queries instead of `id = ?`. |
+| **Retrieval** | A SQL query: `SELECT * FROM chunks ORDER BY similarity DESC LIMIT 3`. | Finding the 3 most relevant paragraphs to the user's question. |
+| **Augmentation (Context Stuffing)**| Creating a prompt string: `String prompt = "Context: " + docs + "\nQuestion: " + userQ;` | Gluing the found paragraphs into the prompt so the LLM has the answers right in front of it. |
+| **`QuestionAnswerAdvisor`** | A Spring HTTP Filter or AOP interceptor (`@Around`). | Automatically intercepts your `ChatClient` call, runs vector search, injects context, and passes it to the LLM. |
 
 ---
 

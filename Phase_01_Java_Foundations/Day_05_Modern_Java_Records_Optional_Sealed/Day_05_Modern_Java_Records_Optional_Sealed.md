@@ -57,6 +57,8 @@ By the end of today, you will master:
 
 # 1. Real-World Analogy: The Sealed Passport vs. The Editable Notebook
 
+![Modern Java 21 Records vs Traditional JavaBeans and Optional](assets/day05_records_optional.jpg)
+
 ```
         THE TRADITIONAL CLASS (Editable Notebook)
         ┌─────────────────────────────────────────────────────────────┐
@@ -72,6 +74,23 @@ By the end of today, you will master:
 ```
 
 When an LLM extracts an invoice, calculates an embedding vector, or processes a payment, you do **not** want other parts of your code mutating that data accidentally. You want a **tamper-proof, immutable record**.
+
+---
+
+## 🧭 The Mid-Level Java Developer Bridge: JavaBeans vs. Modern Records
+
+If you are a mid-level Java developer, you have probably written hundreds of classes like this:
+1. Declare private fields: `private String name; private double price;`
+2. Alt + Insert (or Lombok `@Data`): Generate 2 Getters, 2 Setters, `equals()`, `hashCode()`, and `toString()`.
+3. End up with 60 lines of code just to carry two values.
+
+| Concept | Traditional Core Java (Old Way) | Modern Java 21 (New Way) | Plain English Meaning |
+| :--- | :--- | :--- | :--- |
+| **Data Carrier** | Class with 50 lines of getters/setters/equals/hashCode | `public record Product(String name, double price) {}` | A single line that auto-generates constructor, accessors, `equals()`, and `hashCode()`. |
+| **Field Access** | `product.getName()` | `product.name()` | In records, getter methods drop the `get` prefix and just use the field name. |
+| **Immutability** | Must remember to make all fields `private final` and remove setters | Built-in! All record fields are `final` by default. | Cannot be modified after creation — thread-safe and tamper-proof. |
+| **Missing Values** | Return `null`, then do 10 `if (x != null)` checks | Return `Optional<Product>` | A gift box that is either full or empty, forcing the caller to handle absence safely. |
+| **Multi-line Strings** | `"line1\n" + "line2\n" + "line3"` | `"""` Text Block `"""` | Write multi-line prompts and JSON exactly as they look without `\n` or `\"`. |
 
 ---
 

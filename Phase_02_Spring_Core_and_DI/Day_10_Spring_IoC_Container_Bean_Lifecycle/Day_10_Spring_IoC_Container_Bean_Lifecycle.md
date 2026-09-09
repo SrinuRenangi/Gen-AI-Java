@@ -54,6 +54,8 @@ By the end of today, you will master:
 
 # 1. Real-World Analogy: The 5-Star Luxury Hotel
 
+![Spring Framework Bean Lifecycle and IoC Container](assets/day10_bean_lifecycle.jpg)
+
 Imagine checking into the Burj Al Arab or the Ritz-Carlton.
 
 ```
@@ -78,6 +80,22 @@ In your Spring AI application:
 - **`ChatClient`** is the swimming pool (Singleton: shared by all users).
 - **`ConversationState`** is the private room key (Prototype / Session: private per user).
 - **`@PostConstruct`** warms up local Ollama models before users start sending prompts!
+
+---
+
+## 🧭 The Mid-Level Java Developer Bridge: Stereotypes & Lifecycle Demystified
+
+If you've only written core Java, Spring's annotations might look like black magic. Here is the exact translation into concepts you already know:
+
+| Spring Term / Annotation | What You Did in Core Java | What Spring Does For You | Plain English Meaning |
+| :--- | :--- | :--- | :--- |
+| **`@Component`** | `MyClass obj = new MyClass();` | Scans classpath, finds this class, creates an instance, keeps it in memory. | *"Hey Spring, manage this class for me."* |
+| **`@Service`** | Same as `@Component`, but holds business logic. | Identical to `@Component`, but marks business logic (makes code clear to teammates and tools). | *"This bean does calculations, orchestrates AI, and applies business rules."* |
+| **`@Repository`** | DAO class with JDBC/SQL queries. | Identical to `@Component`, but also catches SQL exceptions and wraps them in Spring's clean `DataAccessException`. | *"This bean talks to databases or vector stores."* |
+| **Singleton Scope (Default)** | You wrote a static variable `private static MyClass instance;` | Spring makes **exactly one** instance when the app boots and shares it across all threads. | 1 object reused everywhere. Memory efficient! |
+| **Prototype Scope** | `new MyClass()` called every time | Spring creates a brand-new object each time a class asks for it. | Fresh instance per request. |
+| **`@PostConstruct`** | Code placed right after `new MyClass()` inside your `main` method. | Runs automatically **immediately after** Spring creates the bean and injects all dependencies. | Perfect place to load AI model files or check database connection. |
+| **`@PreDestroy`** | A shutdown hook or `Runtime.getRuntime().addShutdownHook(...)`. | Runs automatically right before the application stops or the bean is garbage collected. | Close database sockets, flush cached chat history to disk. |
 
 ---
 

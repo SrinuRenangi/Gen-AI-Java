@@ -112,6 +112,44 @@ A traditional Java thread (`new Thread()`) is a direct wrapper around an **Opera
 
 # 3. Virtual Threads (Project Loom) Explained
 
+Let's look at how Java 21 changes concurrency forever:
+
+![Traditional Platform Threads vs Java 21 Virtual Threads](assets/day07_virtual_threads.jpg)
+
+### 💡 The Mid-Level Java Developer Bridge: How Your Concurrency Code Changes
+
+In Core Java, you were taught to be terrified of creating threads:
+> *"Never do `new Thread()`! Always use an `ExecutorService` with a fixed pool of 50 or 100 threads, or your server will crash with `OutOfMemoryError: unable to create native thread`!"*
+
+Here is the exact code change in Java 21:
+
+#### The Old Core Java Way (Heavy OS Pool):
+```java
+// OLD WAY: You must limit to 50 threads because each thread costs 1MB of RAM!
+// If 51 requests arrive, request #51 sits in a queue waiting.
+ExecutorService executor = Executors.newFixedThreadPool(50);
+```
+
+#### The Modern Java 21 Way (Virtual Threads):
+```java
+// MODERN WAY: Each virtual thread costs ~1KB of RAM!
+// You can spawn 100,000 virtual threads without breaking a sweat!
+ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+```
+
+---
+
+### 💡 Plain-English Glossary: Virtual Threads Demystified
+
+| Term | Plain-English Translation | Real-World Analogy |
+| :--- | :--- | :--- |
+| **Platform Thread (OS Thread)** | A heavy thread allocated directly by Windows/Linux. Costs 1MB to 2MB RAM. | A massive semi-truck. Great for hauling, but takes up an entire highway lane. |
+| **Virtual Thread** | A featherweight thread created in Java heap memory. Costs ~1KB RAM. | A person on a bicycle. You can fit 1,000 bicycles in the space of one semi-truck. |
+| **Carrier Thread** | The underlying OS thread (usually equal to your CPU cores, e.g. 8 or 16) that physically runs virtual threads. | The highway lane that bicycles ride on. |
+| **Mounting & Unmounting** | When your code makes an LLM network call or `Thread.sleep()`, the JVM immediately parks the virtual thread and assigns the carrier thread to work on another user! | Stepping off the bicycle while waiting at a red light so someone else can use the lane. |
+
+---
+
 ### 3.1 How Virtual Threads Work Under the Hood
 
 Virtual threads are **user-space threads** managed entirely by the **Java Virtual Machine (JVM)**, completely detached from the operating system kernel.

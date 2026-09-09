@@ -21,6 +21,8 @@
 
 ## 1. Real-World Analogy: The Brilliant Advisor in a Sensory-Deprivation Booth
 
+![Understanding LLM Tool Calling and Function Execution in Spring AI](assets/day41_tool_calling.jpg)
+
 Imagine an enterprise hiring the world's most gifted operations consultant. She has memorized every business textbook, knows 40 languages fluently, and can compose flawless corporate memoranda in seconds.
 
 However, management placed her inside a soundproof, glass sensory-deprivation booth with:
@@ -57,6 +59,20 @@ However, management placed her inside a soundproof, glass sensory-deprivation bo
 2. She speaks into the intercom: *"Please call `getWeather(city='London')`."*
 3. The executive assistant (your Java runtime) physically makes the API call, reads the gauge, and speaks back through the speaker: *"`14°C, light drizzle`"*.
 4. She integrates that live observation into a polished, natural language answer for the user.
+
+---
+
+## 🧭 The Mid-Level Java Developer Bridge: How Tool Calling Works in Pure Java
+
+Many developers think "Tool Calling" means the AI is executing arbitrary code on their server. **That is a myth!** The LLM never touches your code or server.
+
+| Tool Calling Step | What Java Does | Plain English Translation |
+| :--- | :--- | :--- |
+| **1. Define Tool** | Write a standard `@Bean public Function<OrderReq, OrderResp> getOrderStatus() { ... }` | You write a normal Java method just like you always do. |
+| **2. Document Tool** | Add `@Description("Lookup shipping status by order ID")` | Tells the LLM *when* and *why* it should ask to call this method. |
+| **3. LLM Chooses** | LLM responds with JSON: `{"tool": "getOrderStatus", "args": {"orderId": "123"}}` | The LLM sends a request: *"Please run this method for me with this input."* |
+| **4. Java Executes** | Spring AI intercepts the JSON, deserializes arguments, calls your Java bean, and gets the return object. | Your Spring service runs safely on your server, queries your DB, and gets the result. |
+| **5. Synthesize** | Spring AI sends the return object back to the LLM; LLM formats a nice English sentence for the human. | The user gets an accurate, live answer without the LLM ever touching your database directly. |
 
 ---
 

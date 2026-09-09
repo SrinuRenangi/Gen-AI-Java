@@ -27,6 +27,8 @@ Today, you will master:
 
 ## Real-World Analogy: The Executive Assistant & The Briefing Dossier
 
+![Spring AI ChatClient Fluent Conversational Architecture](assets/day33_chatclient_architecture.jpg)
+
 Imagine a Fortune 500 CEO preparing for high-stakes business meetings:
 
 ```
@@ -50,6 +52,20 @@ Imagine a Fortune 500 CEO preparing for high-stakes business meetings:
 |    executive binder matching a precise table of contents!                                         |
 +---------------------------------------------------------------------------------------------------+
 ```
+
+---
+
+## 🧭 The Mid-Level Java Developer Bridge: From `RestClient` to `ChatClient`
+
+If you have ever called a REST API in Spring Boot using `RestClient` or `WebClient`, **you already know how `ChatClient` works!** It uses the exact same builder pattern:
+
+| In Spring Web (`RestClient`) | In Spring AI (`ChatClient`) | Plain English Meaning |
+| :--- | :--- | :--- |
+| `restClient.get()` | `chatClient.prompt()` | Start building the request. |
+| `.uri("/users/{id}", 42)` | `.user(u -> u.text("Hello {name}").param("name", "Alice"))` | Substitute parameters safely into templates without messy string concatenation. |
+| `ClientHttpRequestInterceptor` | `RequestResponseAdvisor` | Intercept the request before it leaves your JVM (e.g. to log it or redact sensitive PII). |
+| `.retrieve().body(User.class)` | `.call().entity(UserRecord.class)` | Ask the AI to parse the response straight into a Java Record DTO! |
+| `.retrieve().body(String.class)` | `.call().content()` | Extract the raw text string response. |
 
 ---
 
