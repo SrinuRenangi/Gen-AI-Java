@@ -8,6 +8,23 @@
 
 ---
 
+Welcome back to Day 47! Yesterday, you built your very first LangChain4j RAG pipeline. That's a huge milestone. But in real-world production, naive RAG hits a wall: vector similarity is great at finding text that *sounds* related, but it often misses the exact needle in the haystack—or worse, slices a crucial sentence right in half!
+
+Today, we level up to **Advanced RAG**. We're going to transform our pipeline into an Olympic-grade retrieval engine using intelligent recursive chunking, two-stage retrieval with cross-encoder re-ranking, and query routing. If these terms sound intimidating, don't sweat it—we'll demystify each one with friendly, everyday analogies before touching code.
+
+---
+
+> 💡 **New Word Alert! Plain English Definitions for Today's Concepts**
+>
+> - **Bi-Encoder**: A search technique where questions and document chunks are converted into vector numbers *independently*. Think of it like a quick keyword scanner or automated sports timer—it can blitz through a million items in milliseconds to give you the top 20 candidates, but its score is coarse.
+> - **Cross-Encoder (`ScoringModel`)**: A high-precision AI model that reads the user's question AND a document chunk *together at the same time*, analyzing every single nuance and word relationship. It's much slower than a bi-encoder, so you only unleash it on the top 10–20 finalists.
+> - **Re-Ranking**: The process of taking the rough top 20 results from vector search and re-ordering them with a cross-encoder so the true best answer shoots right to position #1.
+> - **Rank Inversion**: The exact moment when a document that was buried at candidate #18 in vector search gets evaluated by the re-ranker and wins the #1 gold medal spot!
+> - **Recursive Chunking & Sliding Overlap**: Instead of blindly cutting a document every 500 characters (which might slice a password exception rule right down the middle), recursive chunking splits at natural paragraph (`\n\n`) and sentence (`.`) boundaries. Overlap keeps a small 50-character buffer between chunks so no meaning is severed.
+> - **Query Routing**: An intelligent switchboard. Instead of dumping every company manual into one giant vector bucket, you route HR questions to the HR store, and Java bug questions to the DevOps store!
+
+---
+
 ## What Will You Learn Today?
 
 - **The Chunking Dilemma**: Why naive character-based text slicing ruins semantic embeddings, and how recursive splitting with sliding overlap preserves conversational meaning.
@@ -375,6 +392,19 @@ public class CodeQueryClassifier {
 
 ---
 
+## 9. Day 47 Mentor Wrap-Up: You've Mastered Precision Search!
+
+Take a breath and appreciate how far you've come! Today you moved beyond standard "toy" RAG into enterprise-grade retrieval engineering:
+1. You understand why naive character chunking breaks code and policy documents, and how recursive splitting with sliding overlap protects semantic continuity.
+2. You mastered the Olympic qualifier analogy: Bi-Encoders give you blazing speed across millions of chunks, while Cross-Encoders give you master-judge precision on the top 20 candidates.
+3. You saw how `ReRankingContentRetriever` in LangChain4j fixes rank inversion so the LLM gets the cleanest, most pinpoint accurate context possible.
+4. You wired up domain query routers to send questions directly to specialized stores instead of getting lost in a monolithic haystack.
+
+Tomorrow in **Day 48: Tool Execution & Function Calling**, we give our AI models hands! You'll learn how to let an LLM call your real Java methods, fetch live data from APIs, and run calculations. See you there!
+
+---
+
 | Previous Day | Course Hub | Next Day |
 |:---|:---:|---:|
 | [Day 46: RAG Pipeline in LangChain4j](../Day_46_RAG_Pipeline_in_LangChain4j/Day_46_RAG_Pipeline_in_LangChain4j.md) | [All 60 Days Overview](../../README.md) | [Day 48: Tool Execution & Function Calling](../Day_48_Tool_Execution_Function_Calling/Day_48_Tool_Execution_Function_Calling.md) |
+
