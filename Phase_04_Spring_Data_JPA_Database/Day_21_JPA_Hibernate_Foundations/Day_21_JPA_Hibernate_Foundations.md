@@ -10,6 +10,29 @@
 
 ---
 
+## Friendly Welcome: Giving Your AI System Long-Term Memory
+
+Hey there, friend! Welcome to Day 21—and welcome to **Phase 4: Spring Data JPA & Databases**!
+
+Up until now, our Spring Boot applications have lived entirely in the moment. When a user sent a prompt, we answered it, streamed tokens back, and once the HTTP request was done, poof! Everything held in memory vanished into thin air. If our server restarted or crashed, all conversation history, prompt templates, and user token records disappeared forever.
+
+In the real world, you cannot run an AI product like that. You need permanent, durable storage. You need a **database**!
+
+Today, we are going to learn how Java talks to relational databases (like PostgreSQL) using **JPA (Jakarta Persistence API)** and **Hibernate**. We'll demystify how Java turns standard classes into database tables, and how Hibernate secretly tracks your changes so you don't have to write hundreds of repetitive SQL `INSERT` and `UPDATE` statements by hand!
+
+---
+
+> 💡 **New Word Alert! Key Concepts for Today**
+>
+> - **Database (PostgreSQL)**: A super reliable, high-speed filing cabinet on your disk where data is saved permanently, even if your server restarts or loses power.
+> - **ORM (Object-Relational Mapping)**: The magical bridge between Java and SQL. Java loves objects (`User user = new User()`), while databases love flat 2D spreadsheet tables with rows and columns. ORM translates between the two worlds automatically!
+> - **JPA (Jakarta Persistence API)**: The standard rulebook/specification in Java for how ORM should work. It defines annotations like `@Entity`, `@Table`, and `@Id`.
+> - **Hibernate**: The actual workhorse engine that implements the JPA rulebook. It handles generating SQL, running queries, managing database connections, and tracking object changes.
+> - **Persistence Context & First-Level Cache (L1 Cache)**: Hibernate's private scratchpad in RAM for a single request. When you load an entity from the database, Hibernate holds it here so multiple lookups don't keep hitting the database.
+> - **Dirty Checking**: Hibernate's superpower! If you change a property on a managed Java object (`prompt.setName("New Name")`), Hibernate compares it against the original snapshot and automatically generates an SQL `UPDATE` statement when the transaction commits. No manual `save()` required!
+
+---
+
 ## Table of Contents
 
 1. [Why This Day Matters for a 3-Year Enterprise Gen AI Engineer](#1-why-this-day-matters-for-a-3-year-enterprise-gen-ai-engineer)
@@ -24,6 +47,7 @@
 10. [Step-by-Step Compilation & Execution](#10-step-by-step-compilation--execution)
 11. [Hands-On Exercises (With Complete Solutions)](#11-hands-on-exercises-with-complete-solutions)
 12. [Self-Check Quiz](#12-self-check-quiz)
+13. [Day 21 Wrap-Up & What's Next](#13-day-21-wrap-up--whats-next)
 
 ---
 
@@ -512,8 +536,17 @@ PromptEntity managedPrompt = em.merge(detachedPrompt);
 
 ---
 
-### What's Next?
+## 13. Day 21 Wrap-Up & What's Next
 
-Now that you understand the underlying mechanics of JPA, `EntityManager`, and Hibernate's Persistence Context, how do you query, filter, and page data without writing raw boilerplate boilerplate JDBC or low-level `EntityManager` code?
+What an incredible start to Phase 4! You've unlocked how Java applications bridge the gap between temporary objects in memory and permanent tables in PostgreSQL.
 
-Proceed to **[Day 22: Spring Data Repositories & Query Methods](../Day_22_Spring_Data_Repositories_Queries/Day_22_Spring_Data_Repositories_Queries.md)** to master `JpaRepository`, dynamic query derivation, custom `@Query` annotations, and JPQL vs native PostgreSQL queries!
+Here are the big ideas to carry with you:
+- **JPA is the Rulebook, Hibernate is the Engine**: JPA gives you standard annotations like `@Entity` and `@Id`; Hibernate does the heavy lifting of running SQL queries and managing connections.
+- **The Persistence Context is a Scratchpad**: Inside a transaction, Hibernate holds loaded entities in its First-Level Cache so you never make duplicate database calls for the same ID.
+- **Dirty Checking is Magic**: When an entity is `MANAGED`, simply calling `prompt.setName("New Title")` automatically updates PostgreSQL when the transaction commits. You don't have to keep calling `repository.save()`!
+
+### What's Coming Up Next?
+Writing `EntityManager` queries by hand works, but having to type `em.createQuery(...)` for every single CRUD operation gets old fast.
+
+Tomorrow in **[Day 22: Spring Data Repositories & Queries](../Day_22_Spring_Data_Repositories_Queries/Day_22_Spring_Data_Repositories_Queries.md)**, we'll unleash the true superpower of **Spring Data JPA**. You'll see how you can write a simple Java interface with *zero lines of implementation code*, and Spring will magically create `findById()`, `save()`, and even custom queries like `findByModelAndTemperatureLessThan(...)` automatically! See you tomorrow!
+
