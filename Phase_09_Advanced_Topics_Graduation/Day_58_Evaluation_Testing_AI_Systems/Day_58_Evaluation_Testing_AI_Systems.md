@@ -1,5 +1,34 @@
 # Day 58: Evaluation & Testing AI Systems — The RAG Triad & LLM-as-a-Judge in Java 21
 
+## Quantitative Testing, Hallucination Detection, and CI/CD Quality Gates
+
+| Previous Day | Course Hub | Next Day |
+|:---|:---:|---:|
+| [Day 57: Multi-Agent Orchestration](../Day_57_Multi_Agent_Orchestration/Day_57_Multi_Agent_Orchestration.md) | [All 60 Days Overview](../../README.md) | [Day 59: Vector Database Deep Dive & Optimization](../Day_59_Vector_Database_Deep_Dive/Day_59_Vector_Database_Deep_Dive.md) |
+
+---
+
+Welcome to Day 58! In traditional Java programming, unit testing is simple: `assertEquals(4, calculator.add(2, 2))`. If the numbers match, the build passes.
+
+But in Generative AI, testing presents a fascinating puzzle: **How do you write an automated unit test when the AI's answer is natural language that varies slightly on every single run?**
+
+Far too many development teams fall into the trap of the **"Vibe Check"**—a developer tries two prompts in their IDE, thinks *"Yeah, looks reasonable"*, and merges the pull request. Two weeks later, a tiny prompt tweak causes the model to hallucinate false refund policies, costing the company thousands of dollars.
+
+Today, you will learn how senior AI engineers replace subjective vibe checks with **objective, repeatable, quantitative testing**. You will master the **RAG Triad** (Context Relevance, Groundedness, and Answer Relevance), build an automated **LLM-as-a-Judge** scoring engine in Java 21, and wire up quality gates that automatically fail your Maven builds if hallucinations are detected. Let's start with our testing vocabulary:
+
+---
+
+> 💡 **New Word Alert! Plain English Definitions for Today's Concepts**
+>
+> - **Vibe Check**: Subjectively eyeballing a couple of AI responses instead of running automated, mathematical test suites. In enterprise AI, vibe checks are a recipe for silent bugs and compliance disasters.
+> - **The RAG Triad**: The three golden dimensions used to mathematically grade any RAG pipeline:
+>   1. *Context Relevance*: Did your vector database retrieve clean, focused context, or did it pull in 5 pages of irrelevant fluff?
+>   2. *Groundedness (Faithfulness)*: Is every single claim in the AI's answer 100% backed by the retrieved documents, or did the model invent fake details (hallucinate)?
+>   3. *Answer Relevance*: Did the AI answer the exact question the user asked, or did it wander off-topic?
+> - **LLM-as-a-Judge**: Using an impartial, high-capability model (like GPT-4o) with a strict grading prompt to read your application's answers and score them from `0.0` to `1.0` during automated Maven tests.
+> - **Harmonic Mean**: A mathematical average that heavily penalizes weak links. If an answer is completely relevant ($1.0$) but 100% hallucinated ($0.0$), the harmonic score immediately crashes to $0.0$, guaranteeing the build fails!
+> - **Golden Test Dataset**: A curated collection of standard user questions, verified source documents, and expected reference answers used to benchmark your AI every time code is updated.
+
 ---
 
 ## 1. Real-World Analogy: The Pharmaceutical Quality Assurance Lab & The Triple-Judge Olympic Panel
@@ -410,3 +439,22 @@ public class ProductionGroundednessGuard {
 - C) Vibe checks are prohibited by Java 21.
 - D) Vibe checks require an AWS subscription.
 *Answer: B. Vibe checks are unrepeatable, unquantifiable, and leave production applications vulnerable to silent hallucinations.*
+
+---
+
+## 13. Day 58 Mentor Wrap-Up: You Put Science Behind AI Quality!
+
+What a game-changing transformation! You just graduated from subjective "looks fine to me" guessing to rigorous, mathematical AI quality assurance:
+
+1. **The Pharmaceutical Lab Analogy**: Just like FDA spectrometry assays, the RAG Triad independently evaluates raw ingredients (Context Relevance), purity (Groundedness), and efficacy (Answer Relevance).
+2. **Harmonic Mean Defense**: You mathematically guaranteed that zero tolerance for hallucinations is baked into your composite metric.
+3. **Automated CI/CD Quality Gates**: You can now run automated regression tests with LLM-as-a-judge inside your Maven builds, catching prompt drift and knowledge decay before any user is affected.
+
+Tomorrow in **Day 59: Vector Database Deep Dive & Optimization**, we pull back the curtain on high-scale vector indexing! How do you search across 50 million embeddings in under 10 milliseconds? You'll learn HNSW graphs, IVFFlat, and quantization tuning! See you tomorrow for our penultimate day!
+
+---
+
+| Previous Day | Course Hub | Next Day |
+|:---|:---:|---:|
+| [Day 57: Multi-Agent Orchestration](../Day_57_Multi_Agent_Orchestration/Day_57_Multi_Agent_Orchestration.md) | [All 60 Days Overview](../../README.md) | [Day 59: Vector Database Deep Dive & Optimization](../Day_59_Vector_Database_Deep_Dive/Day_59_Vector_Database_Deep_Dive.md) |
+
