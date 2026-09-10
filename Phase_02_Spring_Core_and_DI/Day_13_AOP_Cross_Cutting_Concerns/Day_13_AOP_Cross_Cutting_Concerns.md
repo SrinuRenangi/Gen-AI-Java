@@ -35,6 +35,18 @@ By the end of today, you will clearly understand:
 
 ---
 
+> 💡 **New Word Alert! Plain English Definitions for Today's Concepts**
+>
+> - **Cross-Cutting Concern**: Repetitive "plumbing" code that cuts across many unrelated classes—like logging, timing method execution, checking security, or handling retries.
+> - **Aspect-Oriented Programming (AOP)**: A programming style where you pull that repetitive plumbing out of your business methods and put it into a single clean class called an **Aspect**.
+> - **Aspect (`@Aspect`)**: The dedicated Java class holding your reusable plumbing logic.
+> - **Join Point**: A candidate moment in your program's execution where plumbing could be inserted (e.g. when a method is called).
+> - **Pointcut**: The search filter or expression telling Spring *which* methods should get intercepted (e.g. *"Intercept every method annotated with `@TrackTokens`"*).
+> - **Advice**: The actual code that runs. You can run advice `@Before` the method, `@After` it finishes, or `@Around` it (surrounding it to measure how many milliseconds it took).
+> - **Dynamic Proxy**: The invisible wrapper object Spring generates behind the scenes. When a caller invokes your service, it actually speaks to the proxy first, which executes the aspect, then forwards the call to your real code.
+
+---
+
 ## 🗺️ Table of Contents
 
 - [1. Real-World Analogy: Airport Security Checkpoints](#1-real-world-analogy-airport-security-checkpoints)

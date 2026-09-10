@@ -36,6 +36,17 @@ By the end of today, you will clearly understand:
 
 ---
 
+> 💡 **New Word Alert! Plain English Definitions for Today's Concepts**
+>
+> - **Auto-Configuration**: Spring Boot's ability to inspect the libraries you added to Maven and automatically wire up sensible, working beans without you writing a single line of setup code.
+> - **Starter (`spring-boot-starter-*`)**: A curated "combo meal" dependency. Instead of hunting down 15 separate jar libraries for web or AI, you add one starter, and Maven pulls in everything needed.
+> - **`@ConditionalOnClass`**: An internal `if` statement: *"Create this AI client bean ONLY IF the OpenAI SDK library is present on the classpath!"*
+> - **`@ConditionalOnProperty`**: An internal `if` statement: *"Create this bean ONLY IF the user turned it on in `application.yml` (e.g. `ai.enabled=true`)!"*
+> - **`@ConditionalOnMissingBean`**: Spring's polite default rule: *"Create this standard default bean ONLY IF the developer hasn't created their own custom version."* It makes overriding Spring defaults effortless!
+> - **Conditions Evaluation Report**: A diagnostic report you get by running with `--debug` that reveals exactly which auto-configured beans passed or failed their conditional checks during startup.
+
+---
+
 ## 🗺️ Table of Contents
 
 - [1. Real-World Analogy: The Luxury Apartment with Smart Furnishing](#1-real-world-analogy-the-luxury-apartment-with-smart-furnishing)

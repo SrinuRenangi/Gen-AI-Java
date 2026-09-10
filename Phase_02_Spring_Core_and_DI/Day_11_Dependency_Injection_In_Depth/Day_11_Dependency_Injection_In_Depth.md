@@ -32,6 +32,18 @@ By the end of today, you will clearly understand:
 
 ---
 
+> 💡 **New Word Alert! Plain English Definitions for Today's Concepts**
+>
+> - **Constructor Injection**: Handing all required helper objects into your class's constructor. This is the enterprise gold standard because it makes fields `final` (immutable) and allows you to test the class in plain JUnit without needing Spring!
+> - **Field Injection (`@Autowired` on fields)**: Slapping `@Autowired` directly onto a private variable. Senior architects avoid this because it hides what the class needs and prevents easy unit testing.
+> - **Bean Ambiguity**: What happens when you ask Spring for a `ChatModel`, but you defined *two* of them (`OpenAiModel` and `OllamaModel`). Spring halts and asks: *"Which one do you want?"*
+> - **`@Primary`**: The default answer to bean ambiguity. It tells Spring: *"If nobody specifies which one they want, use this one!"*
+> - **`@Qualifier("name")`**: The explicit name tag. It tells Spring: *"Give me the exact bean named 'ollamaModel', not the default!"*
+> - **`@ConfigurationProperties`**: A mechanism that automatically reads structured settings from `application.yml` and maps them into a clean, type-safe Java Record.
+> - **Spring Profile (`@Profile`)**: A master environment switch (e.g. `dev`, `staging`, `prod`) that selectively activates different beans depending on whether you're coding on your laptop or running in the cloud.
+
+---
+
 ## 🗺️ Table of Contents
 
 - [1. Real-World Analogy: The Universal Power Strip & Voltage Selectors](#1-real-world-analogy-the-universal-power-strip--voltage-selectors)

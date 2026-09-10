@@ -35,6 +35,16 @@ By the end of today, you will clearly understand:
 
 ---
 
+> 💡 **New Word Alert! Plain English Definitions for Today's Concepts**
+>
+> - **Spring Boot Actuator**: The built-in dashboard of gauges, sensors, and dials inside your Spring Boot app. It exposes ready-to-use HTTP endpoints (like `/actuator/health`) so you can monitor your running app in production.
+> - **Health Indicator (`HealthIndicator`)**: A small diagnostic routine you write in Java to test if a specific subsystem is working. For example, an `AiModelHealthIndicator` pings your AI model every 30 seconds to make sure it's responding with `UP` status.
+> - **Liveness Probe**: A check that asks: *"Is the JVM process running, or is it frozen/deadlocked?"* If it fails, Kubernetes terminates the container and reboots a fresh one.
+> - **Readiness Probe**: A check that asks: *"Is the vector database connected and warmed up?"* If it's still booting, the cloud load balancer holds traffic so users never receive an error page.
+> - **Micrometer**: The universal metrics translator. Just as SLF4J is a standard facade for logging, Micrometer lets you record counters, timers, and token usage and export them to monitoring tools like Prometheus and Grafana.
+
+---
+
 ## 🗺️ Table of Contents
 
 - [1. Real-World Analogy: The Fighter Jet Cockpit Display](#1-real-world-analogy-the-fighter-jet-cockpit-display)

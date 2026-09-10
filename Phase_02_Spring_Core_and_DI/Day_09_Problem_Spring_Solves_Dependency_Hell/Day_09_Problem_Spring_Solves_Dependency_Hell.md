@@ -32,6 +32,17 @@ By the end of today, you will clearly understand:
 
 ---
 
+> 💡 **New Word Alert! Plain English Definitions for Today's Concepts**
+>
+> - **Dependency**: Any helper object that another object needs to do its job. For example, if your `OrderService` needs a `DatabaseClient` to save orders, `DatabaseClient` is a dependency of `OrderService`.
+> - **Dependency Hell**: The chaotic tangle that happens when every single class uses the `new` keyword to create its own helpers. If one constructor changes, dozens of classes break across your entire project!
+> - **Inversion of Control (IoC)**: Flipping control upside-down. Instead of your classes taking control and creating everything with `new`, an external manager (the Spring IoC container) creates all objects and connects them together.
+> - **Dependency Injection (DI)**: The delivery truck. It's the act of Spring handing ("injecting") the ready-to-use helper objects directly into your class's constructor.
+> - **Spring Bean**: Don't let the name confuse you! A "Bean" is simply an ordinary Java object that was created by Spring and lives inside Spring's container map.
+> - **Hollywood Principle**: *"Don't call us, we'll call you."* Instead of your code calling `new`, Spring calls your constructor and gives you what you need.
+
+---
+
 ## 🗺️ Table of Contents
 
 - [1. Real-World Analogy: The Overwhelmed Master Chef](#1-real-world-analogy-the-overwhelmed-master-chef)

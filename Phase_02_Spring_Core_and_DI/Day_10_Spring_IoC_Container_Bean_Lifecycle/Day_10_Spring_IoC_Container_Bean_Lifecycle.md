@@ -29,6 +29,21 @@ By the end of today, you will clearly understand:
 
 ---
 
+> 💡 **New Word Alert! Plain English Definitions for Today's Concepts**
+>
+> - **`ApplicationContext`**: The master brain and central directory of your Spring application. It holds all active beans in memory, wires their dependencies, and controls their lifecycles.
+> - **Stereotype Annotations**: Badges you pin on your classes so Spring recognizes them during startup:
+>   - `@Component`: The generic badge (*"Hey Spring, manage this class as a bean!"*).
+>   - `@Service`: The business badge (*"I hold business logic, AI prompts, and calculations!"*).
+>   - `@Repository`: The database badge (*"I talk to PostgreSQL, pgvector, or Redis, and translate database errors into Spring exceptions!"*).
+> - **Bean Scope**: Who gets to share this object?
+>   - *Singleton (Default)*: Exactly ONE shared instance for the entire application (e.g. your OpenAI client).
+>   - *Prototype*: A fresh, brand-new object created every single time it's requested (e.g. a user's isolated chat session memory).
+> - **`@PostConstruct`**: An initialization hook. Spring calls this method automatically *after* dependencies are injected, perfect for warming up a local AI model or verifying database connections.
+> - **`@PreDestroy`**: A cleanup hook. Spring calls this right before shutdown, perfect for closing sockets and flushing logs.
+
+---
+
 ## 🗺️ Table of Contents
 
 - [1. Real-World Analogy: The 5-Star Luxury Hotel](#1-real-world-analogy-the-5-star-luxury-hotel)
