@@ -58,6 +58,8 @@ By the end of today, you will master:
 - [9. Key Takeaways & Summary](#9-key-takeaways--summary)
 - [10. Practice Exercises & Full Solutions](#10-practice-exercises--full-solutions)
 - [11. Self-Check Quiz](#11-self-check-quiz)
+- [12. 🔥 Java 8 Collections & HashMap Interview Masterclass](#12--java-8-collections--hashmap-interview-masterclass)
+  - [12.1 Top 5 Java 8 Collection Interview Questions](#121-top-5-java-8-collection-interview-questions)
 
 ---
 
@@ -540,7 +542,91 @@ public class ContextPassageSelector {
 
 ---
 
+# 12. 🔥 Java 8 Collections & HashMap Interview Masterclass
+
+Java 8 transformed the Java Collections Framework. If an interviewer asks you about collections and you only know `get()` and `put()`, you will be flagged as an entry-level developer. 
+
+Here are the **Top 5 Java 8 Collection Questions** asked in every enterprise interview:
+
+---
+
+### 12.1 Top 5 Java 8 Collection Interview Questions
+
+#### 💡 Q1: What happens internally to a `HashMap` under hash collisions in Java 8+?
+**Answer**:
+In Java 7, collisions in a bucket were stored as a singly linked list ($O(N)$ lookup time). Malicious attackers could exploit hash collisions (HashDoS attack) to degrade HashMap lookups from $O(1)$ to $O(N)$, causing 100% CPU denial-of-service.
+
+**Java 8 Solution**:
+- **Treeification**: When a single bucket reaches **`TREEIFY_THRESHOLD = 8`** elements AND the total table capacity is at least **64**, the bucket converts from a singly linked list (`Node`) into a balanced **Red-Black Tree (`TreeNode`)**.
+- **Lookup Performance**: Time complexity drops from $O(N)$ to **$O(\log N)$**.
+- **Untreeification**: If elements are removed and the bucket drops to **`UNTREEIFY_THRESHOLD = 6`**, it converts back to a linked list to save memory.
+
+---
+
+#### 💡 Q2: What is the difference between `Map.putIfAbsent()` and `Map.computeIfAbsent()`? (The Classic Eager Trap!)
+**Answer**:
+This is a favorite interview trap:
+- **`putIfAbsent(key, value)`**: The `value` expression is evaluated **EAGERLY** every time, even if the key is already present!
+- **`computeIfAbsent(key, Function)`**: The lambda function is evaluated **LAZILY** only if the key is absent or mapped to `null`!
+
+```java
+Map<String, List<String>> userRoles = new HashMap<>();
+
+// ❌ WASTEFUL: new ArrayList<>() is allocated EVERY single call even if "admin" already exists!
+userRoles.putIfAbsent("admin", new ArrayList<>());
+
+// ✅ HIGH PERFORMANCE: new ArrayList<>() is ONLY allocated if "admin" does not exist!
+userRoles.computeIfAbsent("admin", k -> new ArrayList<>()).add("ROLE_SUPERUSER");
+```
+
+---
+
+#### 💡 Q3: How does `Map.merge()` work and when should you use it?
+**Answer**:
+`Map.merge(key, value, BiFunction)` is the most concise way to update values when a key already exists (e.g., token frequency counting or price aggregation):
+
+```java
+// Word count old way (Java 7):
+Integer count = map.get(word);
+if (count == null) {
+    map.put(word, 1);
+} else {
+    map.put(word, count + 1);
+}
+
+// Word count modern way (Java 8 Map.merge):
+map.merge(word, 1, Integer::sum);
+// If word is absent: inserts 1.
+// If word is present: runs Integer.sum(oldValue, 1) and updates the map!
+```
+
+---
+
+#### 💡 Q4: What is the difference between a "Fail-Fast" and a "Fail-Safe" iterator?
+**Answer**:
+- **Fail-Fast** (e.g., `ArrayList`, `HashSet`, `HashMap`):
+  - Traverses the underlying collection directly while tracking a internal modification counter (`modCount`).
+  - If another thread (or the same thread without using `iterator.remove()`) structurally modifies the collection during traversal, it immediately throws **`ConcurrentModificationException`**.
+- **Fail-Safe / Weakly Consistent** (e.g., `CopyOnWriteArrayList`, `ConcurrentHashMap`):
+  - Operates on a cloned snapshot or handles concurrent updates gracefully without throwing `ConcurrentModificationException`.
+
+---
+
+#### 💡 Q5: How do you safely remove elements from a Collection while iterating?
+**Answer**:
+- **In Java 7**: You had to explicitly obtain an `Iterator` and call `iterator.remove()` (a standard `for-each` loop threw `ConcurrentModificationException`).
+- **In Java 8+**: Use the built-in **`Collection.removeIf(Predicate)`** method:
+  ```java
+  List<String> promptTokens = new ArrayList<>(List.of("start", "", "prompt", null, "end"));
+  
+  // Clean one-liner in Java 8+:
+  promptTokens.removeIf(token -> token == null || token.isBlank());
+  ```
+
+---
+
 <p align="center">
   <b>Congratulations on completing Day 04! 🎉</b><br>
   Tomorrow on <b>Day 05</b>, we explore <b>Modern Java: Records, Optional & Sealed Types</b> — The Java 21 superpowers that make Generative AI pipelines clean, expressive, and immune to NullPointerExceptions!
 </p>
+
