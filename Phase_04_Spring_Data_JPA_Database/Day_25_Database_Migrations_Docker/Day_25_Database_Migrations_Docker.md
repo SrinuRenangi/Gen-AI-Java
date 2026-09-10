@@ -10,6 +10,30 @@
 
 ---
 
+## Friendly Welcome: Git for Your Database & Painless Docker
+
+Hey there, friend! Welcome to Day 25.
+
+Have you ever wondered how engineering teams at Netflix, Spotify, or OpenAI upgrade their database schemas across hundreds of servers without losing customer data or causing downtime?
+
+Up until now, we've relied on Hibernate's `ddl-auto=update` setting. While that's convenient for quick afternoon experiments, in a real company, **doing that in production is strictly forbidden**. If Hibernate automatically drops or alters a column in a production table holding 10 million chat records, you can't hit "Undo"!
+
+Today, we are going to learn the professional way to manage databases:
+1. **Flyway**: An automated database migration tool that acts like **Git commits for your database**. Every table creation or column addition is written as a numbered, versioned SQL script (`V1__init.sql`, `V2__add_users.sql`).
+2. **Docker & Docker Compose**: Instead of spending two days struggling to install PostgreSQL and compile the `pgvector` AI extension natively on your laptop, Docker spins up a complete, isolated database container in 30 seconds with one simple command!
+
+---
+
+> 💡 **New Word Alert! Key Concepts for Today**
+>
+> - **Database Migration**: A step-by-step, versioned SQL script that safely evolves your database schema from one version to the next.
+> - **Flyway**: An open-source database migration tool. When your Spring Boot app starts, Flyway checks a table called `flyway_schema_history`, sees which SQL files haven't run yet, and applies them one by one in exact numerical order.
+> - **Checksum (SHA-256)**: A digital fingerprint of each migration file. If a developer secretly edits an old migration script after it has already run, Flyway detects that the fingerprint changed and halts application startup to prevent corrupting your environments!
+> - **Docker Container**: An isolated, lightweight runtime environment that packages an application (like PostgreSQL or an AI model) and all its dependencies. It runs identically on your laptop, a teammate's MacBook, and AWS cloud servers.
+> - **Docker Compose (`docker-compose.yml`)**: A single configuration file that lets you define and launch multiple services (like PostgreSQL + pgvector + Ollama) all at once with `docker compose up -d`.
+
+---
+
 ## Table of Contents
 
 1. [Why This Day Matters for a 3-Year Enterprise Gen AI Engineer](#1-why-this-day-matters-for-a-3-year-enterprise-gen-ai-engineer)
@@ -27,6 +51,7 @@
 9. [Step-by-Step Compilation & Execution](#9-step-by-step-compilation--execution)
 10. [Hands-On Exercises (With Complete Solutions)](#10-hands-on-exercises-with-complete-solutions)
 11. [Self-Check Quiz](#11-self-check-quiz)
+12. [Day 25 Wrap-Up & What's Next](#12-day-25-wrap-up--whats-next)
 
 ---
 
@@ -480,10 +505,18 @@ spring.flyway.baseline-description=Existing_Production_Baseline
 
 ---
 
-### What's Next?
+## 12. Day 25 Wrap-Up & What's Next
 
-We now have version-controlled schema migrations and a fully containerized local development environment running PostgreSQL with `pgvector` and Ollama.
+You've just taken a massive step from writing "student code" to writing real **enterprise-grade infrastructure**!
 
-How do we actually store high-dimensional text embeddings in PostgreSQL, calculate cosine similarity distances, and build fast HNSW indexes for our RAG pipelines?
+Remember these golden rules:
+- **Never use `ddl-auto=update` in production**: Rely on Flyway for deterministic, version-controlled schema evolution.
+- **Migrations are immutable**: Once a versioned SQL script (`V1__...`) has run, never edit its contents; create a `V2__...` script for new changes.
+- **Docker eliminates "It works on my machine"**: A clean `docker-compose.yml` gives your entire team the exact same PostgreSQL database with `pgvector` pre-installed and ready in seconds.
 
-Proceed to the grand finale of Phase 4: **[Day 26: PostgreSQL pgvector — Your Vector Database](../Day_26_PostgreSQL_pgvector_Vector_Database/Day_26_PostgreSQL_pgvector_Vector_Database.md)**!
+### What's Coming Up Next?
+We have Docker running PostgreSQL. We have Flyway ready to run SQL migrations. 
+
+Now comes the grand finale of Phase 4: **[Day 26: PostgreSQL pgvector — Your Vector Database](../Day_26_PostgreSQL_pgvector_Vector_Database/Day_26_PostgreSQL_pgvector_Vector_Database.md)**!
+Tomorrow, you'll learn how to turn PostgreSQL into a high-speed AI Vector Database. You'll store high-dimensional embeddings directly in database rows, search for documents by semantic meaning using cosine distance (`<=>`), and build lightning-fast HNSW vector indexes. You're going to love it!
+
