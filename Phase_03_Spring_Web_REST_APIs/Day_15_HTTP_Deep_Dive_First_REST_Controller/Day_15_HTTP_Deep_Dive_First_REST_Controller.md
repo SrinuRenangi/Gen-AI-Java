@@ -14,21 +14,35 @@
 
 ## 📌 What Will You Learn Today?
 
-Welcome to **Phase 3: Spring Web — Building Production REST APIs**!
+Hey friend! Welcome to Day 15, and congratulations on reaching an exciting new milestone in our course: **Phase 3: Spring Web — Building Production REST APIs**! 🎉
 
-You now understand core Java 21, Spring IoC, Dependency Injection, and AOP. But your AI system cannot live inside a command-line script—it must be exposed to the world so web browsers, mobile apps, frontend developers, and enterprise microservices can interact with your models.
+In Phases 1 and 2, you built a rock-solid foundation in modern Java 21, Object-Oriented Design, and Spring Core Dependency Injection. But an AI system can't just live inside a local command-line script—it needs to connect to the outside world so web browsers, mobile apps, and frontend developers can talk to your backend!
 
-Every ChatGPT interface, customer support widget, and AI agent communicates over **HTTP REST APIs**.
+Every time you type a prompt into ChatGPT, use an AI customer support widget, or click "Generate Summary" on a website, your computer is talking to a backend server using **HTTP REST APIs**.
 
-Today, we dive into the HTTP protocol from the ground up and build our first production-grade REST API: **A Prompt Library Management Service** that allows AI teams to store, version, retrieve, and delete system prompt templates.
+Today, we're going to demystify web communication from the ground up and build our very first production-grade REST API: **A Prompt Library Service** that lets AI teams create, look up, update, and delete prompt templates.
 
-By the end of today, you will master:
-- ✅ **The HTTP Protocol**: Request-Response lifecycle, Headers, Verbs, and Status Codes.
-- ✅ **Idempotency**: Why `GET`, `PUT`, and `DELETE` are idempotent, but `POST` is not.
-- ✅ **`@RestController` vs. `@Controller`**: Why modern APIs use `@RestController`.
-- ✅ **URL Mapping Annotations**: `@GetMapping`, `@PostMapping`, `@PutMapping`, `@DeleteMapping`.
-- ✅ **Extracting Request Data**: `@PathVariable`, `@RequestParam`, `@RequestBody`, `@RequestHeader`.
-- ✅ **Hands-on Capstone**: Building an in-memory **Prompt Library CRUD REST API**.
+Today, you and I will master:
+- **The HTTP Protocol in Plain English**: How requests and responses fly back and forth across the internet.
+- **HTTP Verbs & Idempotency**: Why `GET`, `PUT`, and `DELETE` are safe to retry, while `POST` creates brand-new data every time.
+- **`@RestController` in Spring Boot**: Why modern APIs use `@RestController` to return clean JSON data instead of messy HTML web pages.
+- **Routing Requests with Annotations**: `@GetMapping`, `@PostMapping`, `@PutMapping`, and `@DeleteMapping`.
+- **Extracting Data from Requests**: Grabbing parameters with `@PathVariable`, `@RequestParam`, and `@RequestBody`.
+- **Building a Real Prompt Library API**: Writing an in-memory CRUD (Create, Read, Update, Delete) REST API from scratch!
+
+---
+
+> 💡 **New Word Alert: REST & Web Terms Demystified**
+>
+> 1. **REST API (Representational State Transfer)**: A standardized, universal way for computer programs to talk to each other over the internet using ordinary web rules (HTTP). Think of it like a restaurant menu: the client orders something from the menu, and the server prepares and delivers it!
+> 2. **Endpoint**: A specific web URL on your server (like `https://api.myai.com/v1/prompts/42`) that performs a specific action.
+> 3. **HTTP Verbs**: The action words of the web:
+>    - `GET`: "Please give me this data." (Read-only, like looking up a saved prompt).
+>    - `POST`: "Please create this new item." (Like submitting a brand new prompt).
+>    - `PUT`: "Please replace or update this existing item."
+>    - `DELETE`: "Please remove this item."
+> 4. **Idempotency**: An action that produces the exact same result no matter how many times you repeat it. For example, pressing an elevator call button 1 time or 10 times still brings the elevator to your floor! `GET`, `PUT`, and `DELETE` are idempotent; `POST` is not.
+> 5. **`@RestController`**: A Spring Boot annotation that tells Java: *"Every method in this class returns pure, raw data (like JSON), never an HTML web page."*
 
 ---
 
@@ -79,7 +93,7 @@ A REST API is simply a standardized set of postal conventions over TCP/IP socket
 
 ---
 
-## 🧭 The Mid-Level Java Developer Bridge: Spring Web & REST Demystified
+## 🧭 The Plain English Bridge: Spring Web & REST Demystified
 
 If you've built standard Java console apps or old JSP/servlets, Spring Web MVC makes building APIs effortless:
 
@@ -381,7 +395,13 @@ public class PromptRenderExtension {
 
 ---
 
-<p align="center">
-  <b>Congratulations on completing Day 15! 🎉</b><br>
-  Tomorrow on <b>Day 16</b>, we master <b>Request Validation, DTOs & Response Design</b>: Bean Validation (<code>@NotNull</code>, <code>@Size</code>), RFC 7807 Problem Details, and why you never expose database entities to the outside world!
-</p>
+## Day 15 Summary & Next Steps
+
+Awesome work today! You just made the jump from standalone console Java into the world of connected web applications:
+1. **The Web Demystified**: You learned how HTTP requests, verbs, and status codes work together.
+2. **Built Your First REST API**: You wrote a real `@RestController` that handles GET, POST, PUT, and DELETE.
+3. **Data Extraction**: You used `@PathVariable`, `@RequestParam`, and `@RequestBody` to grab whatever information you need from the web.
+4. **Hands-On Prompt Library**: You built an in-memory CRUD service for managing system prompts!
+
+👉 **Tomorrow in Day 16: Request Validation, DTOs & Response Design** — What happens when a user sends invalid data or a blank prompt? Tomorrow, we'll learn Bean Validation (`@NotNull`, `@Size`), standard RFC 7807 error responses, and why you should always protect your internal data models using DTOs! See you tomorrow! 🚀
+
