@@ -14,17 +14,17 @@
 
 ## 📌 What Will You Learn Today?
 
-Yesterday, we built our own 60-line Dependency Injection container and demystified how reflection discovers and wires objects. Today, we step into the official **Spring Framework IoC Container** (`ApplicationContext`) and master how enterprise applications manage the complete lifecycle of AI components.
+Hey there, friend! Welcome to Day 10. Yesterday, we built our own 60-line Dependency Injection container and demystified how reflection works. Today, we step into the official **Spring Framework IoC Container** (`ApplicationContext`) and master how enterprise applications manage the complete lifecycle of AI components!
 
-You will learn why Spring has different annotations (`@Component`, `@Service`, `@Repository`), how Spring automatically scans your packages, how **Bean Scopes** prevent race conditions in AI chatbots, and how lifecycle hooks (`@PostConstruct` and `@PreDestroy`) allow you to pre-load embedding models into memory and cleanly disconnect database sockets.
+You will learn why Spring has different annotations (`@Component`, `@Service`, `@Repository`), how Spring automatically scans your packages, how **Bean Scopes** prevent race conditions in AI chatbots, and how lifecycle hooks (`@PostConstruct` and `@PreDestroy`) allow you to pre-load embedding models into memory and cleanly disconnect database connections.
 
-By the end of today, you will master:
-- ✅ **The `ApplicationContext`**: Spring's enterprise bean registry and engine.
-- ✅ **Stereotype Annotations**: The semantic difference between `@Component`, `@Service`, and `@Repository`.
-- ✅ **Component Scanning (`@ComponentScan`)**: How Spring reads the classpath and discovers beans.
-- ✅ **Bean Scopes**: `singleton` vs. `prototype` (and web scopes `request` / `session`).
+By the end of today, you will clearly understand:
+- ✅ **The `ApplicationContext`**: Spring's central bean registry and engine.
+- ✅ **Stereotype Annotations**: The simple difference between `@Component`, `@Service`, and `@Repository`.
+- ✅ **Component Scanning (`@ComponentScan`)**: How Spring searches your packages and discovers beans automatically.
+- ✅ **Bean Scopes**: `singleton` (shared by everyone) vs. `prototype` (fresh copy every time).
 - ✅ **The 7-Step Bean Lifecycle Pipeline**: From constructor invocation to `@PreDestroy` cleanup.
-- ✅ **Lifecycle Hooks in Action**: Using `@PostConstruct` to warm up local LLM weights or initialize vector indexes.
+- ✅ **Lifecycle Hooks in Action**: Using `@PostConstruct` to warm up local AI models or verify vector databases on boot.
 - ✅ **Circular Dependencies**: What causes them and how modern Spring Boot prevents them.
 
 ---
@@ -83,7 +83,7 @@ In your Spring AI application:
 
 ---
 
-## 🧭 The Mid-Level Java Developer Bridge: Stereotypes & Lifecycle Demystified
+## 🧭 The Plain English Bridge: Stereotypes & Lifecycle Demystified
 
 If you've only written core Java, Spring's annotations might look like black magic. Here is the exact translation into concepts you already know:
 
@@ -454,6 +454,7 @@ public class SelfTestingVectorStore {
 ---
 
 <p align="center">
-  <b>Congratulations on completing Day 10! 🎉</b><br>
-  Tomorrow on <b>Day 11</b>, we master <b>Dependency Injection In-Depth</b>: Constructor vs Field Injection, <code>@Qualifier</code>, <code>@Primary</code>, and externalizing AI configurations with <code>@ConfigurationProperties</code>!
+  <b>Awesome job finishing Day 10! 🎉</b><br>
+  You now have a crystal-clear mental model of Spring's Bean lifecycle, component scanning, and scopes.<br>
+  Tomorrow on <b>Day 11</b>, we master <b>Dependency Injection In-Depth</b>: Constructor vs Field Injection, <code>@Qualifier</code>, <code>@Primary</code>, and externalizing AI configurations with <code>@ConfigurationProperties</code>! Keep going strong!
 </p>
