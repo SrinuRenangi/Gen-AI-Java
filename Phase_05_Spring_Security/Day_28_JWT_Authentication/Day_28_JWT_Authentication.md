@@ -10,6 +10,32 @@
 
 ---
 
+## Friendly Welcome: The Digital Passport for Your API
+
+Hey there, friend! Welcome to Day 28.
+
+Imagine you go to a giant amusement park. At the front entrance, you show your ID, pay for admission, and the clerk snaps a waterproof VIP wristband onto your wrist with an official holographic wax seal.
+
+Now, every time you want to ride a roller coaster or buy a funnel cake, does the ride operator have to make a phone call to the front gate to ask: *"Hey, did customer #1234 pay for entry?"*
+
+Of course not! If they did that for every visitor, the park would grind to a halt. Instead, the operator simply glances at your wristband, sees the holographic seal is unbroken and hasn't expired, and waves you right onto the coaster!
+
+In modern web and AI engineering, that holographic wristband is a **JSON Web Token (JWT)**. Instead of forcing your server to store millions of sessions in memory or query PostgreSQL on every single prompt, the client brings its own tamper-proof digital passport with every request!
+
+---
+
+> 💡 **New Word Alert! Key Concepts for Today**
+>
+> - **JSON Web Token (JWT)**: A compact string composed of three parts separated by dots (`header.payload.signature`) that carries verified user identity data inside an HTTP header (`Authorization: Bearer <token>`).
+> - **Base64Url Encoding**: A standard way to convert binary data into plain, URL-safe ASCII letters and numbers. *(Crucial reminder: Base64 is NOT encryption! Anyone can paste a JWT into [jwt.io](https://jwt.io) and read the text. Never put passwords or confidential secrets inside a token!)*
+> - **Claims**: Individual key-value attributes stored inside the token payload, such as `sub` (subject / user ID), `role` (`ROLE_USER`), `exp` (expiration timestamp), and custom fields like `tenantId`.
+> - **HMAC-SHA256 Signature**: The cryptographic wax seal. The server signs the header and payload using a secret key. If anyone tries to change `"role": "USER"` to `"role": "ADMIN"`, the signature immediately invalidates and Spring rejects the request.
+> - **Access Token vs. Refresh Token**:
+>   - **Access Token**: Short-lived (e.g. 15 minutes), used on every API call.
+>   - **Refresh Token**: Long-lived (e.g. 7 days), securely stored; when the access token expires, your frontend secretly exchanges the refresh token for a brand-new access token without interrupting the user.
+
+---
+
 ## Table of Contents
 
 1. [Why This Day Matters for a 3-Year Enterprise Gen AI Engineer](#1-why-this-day-matters-for-a-3-year-enterprise-gen-ai-engineer)
@@ -27,6 +53,7 @@
 8. [Step-by-Step Compilation & Execution](#8-step-by-step-compilation--execution)
 9. [Hands-On Exercises (With Complete Solutions)](#9-hands-on-exercises-with-complete-solutions)
 10. [Self-Check Quiz](#10-self-check-quiz)
+11. [Day 28 Wrap-Up & What's Next](#11-day-28-wrap-up--whats-next)
 
 ---
 
@@ -433,8 +460,21 @@ public class SecurityUtils {
 
 ---
 
-### What's Next?
+## 11. Day 28 Wrap-Up & What's Next
 
-We can now authenticate users and verify cryptographic tokens. But once a user is authenticated, how do we restrict access to specific AI models, prompt actions, and administrative operations at the Java method level?
+What an empowering day! You just built the industry-standard stateless authentication mechanism used by Google, Netflix, and OpenAI.
 
-Proceed to **[Day 29: Role-Based Access Control (RBAC) & Method-Level Security (`@PreAuthorize`, `@Secured`, SpEL)](../Day_29_RBAC_Method_Level_Security/Day_29_RBAC_Method_Level_Security.md)**!
+Here are the key principles to remember:
+- **Stateless means scalable**: The server never stores session state in RAM; every Kubernetes pod can verify the incoming JWT locally in 0.05 milliseconds.
+- **Base64 is NOT encryption**: Anyone can read the payload; never store passwords, API secrets, or credit cards inside a JWT.
+- **The Signature guarantees integrity**: If anyone tampers with a single character in the payload, the HMAC-SHA256 signature breaks and Spring Security blocks the request.
+- **Short-lived access tokens (15m)**: Keep access tokens short-lived and use refresh tokens to rotate them securely.
+
+### What's Coming Up Next?
+Now that we can verify *who* the user is, how do we control *what* they are allowed to do?
+- Can a standard user invoke our expensive GPT-4o model, or only free local models?
+- Can a customer edit another customer's prompt template?
+- How do we protect individual Java service methods with annotations like `@PreAuthorize`?
+
+Tomorrow in **[Day 29: Role-Based Access Control (RBAC) & Method-Level Security (`@PreAuthorize`, `@Secured`, SpEL)](../Day_29_RBAC_Method_Level_Security/Day_29_RBAC_Method_Level_Security.md)**, we'll master fine-grained permissions and method-level guards!
+
