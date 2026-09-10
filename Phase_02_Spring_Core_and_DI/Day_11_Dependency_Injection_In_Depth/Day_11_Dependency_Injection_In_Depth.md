@@ -14,21 +14,21 @@
 
 ## 📌 What Will You Learn Today?
 
-In Day 09 and Day 10, you learned *why* Dependency Injection exists and how the `ApplicationContext` manages bean lifecycles. But in real-world Generative AI applications, you will quickly face complex architectural questions:
+Hey there, friend! Welcome to Day 11. In Day 09 and Day 10, you saw *why* Dependency Injection exists and how Spring manages bean lifecycles. But in real-world Generative AI applications, you will immediately run into common practical situations:
 
-- What if your app has **two different beans** that implement `ChatModel` (e.g., `OpenAiChatModel` for customer-facing chats and `OllamaChatModel` for internal summarization)? How does Spring know which one to inject without throwing `NoUniqueBeanDefinitionException`?
-- Where should API keys and temperatures be stored? Hardcoded in Java? In `application.yml`? Environment variables?
-- How do you switch between **local free testing** on your laptop and **cloud deployment on AWS** with zero code changes?
+- What if your app has **two different beans** that implement `ChatModel` (e.g., `OpenAiChatModel` for high-end customer chats and `OllamaChatModel` for cheap background summarization)? How does Spring know which one to inject without getting confused?
+- Where should secret API keys and temperatures live? Definitely not hardcoded in Java!
+- How do you switch between **free local testing on your laptop** and **cloud deployment in production** with zero code changes?
 
 Today, we master the exact tools senior architects use to answer these questions cleanly.
 
-By the end of today, you will master:
-- ✅ **The 3 DI Methods**: Constructor vs. Setter vs. Field Injection (and why field `@Autowired` is an anti-pattern).
-- ✅ **Resolving Ambiguity**: `@Primary` vs. `@Qualifier("beanName")`.
-- ✅ **Injecting Configuration**: `@Value("${property}")` for quick scalar properties.
-- ✅ **Type-Safe Configuration**: `@ConfigurationProperties` paired with modern **Java Records**.
-- ✅ **Spring Profiles (`@Profile`)**: Seamlessly switching between `dev` (Ollama) and `prod` (OpenAI).
-- ✅ **Multi-Model Routing Architecture**: Designing an intelligent AI router that switches models based on task complexity.
+By the end of today, you will clearly understand:
+- ✅ **The 3 DI Methods**: Constructor vs. Setter vs. Field Injection (and why Constructor Injection is king).
+- ✅ **Resolving Bean Ambiguity**: Using `@Primary` (the default) vs. `@Qualifier("beanName")` (the specific choice).
+- ✅ **Injecting Configuration**: Grabbing quick values from YAML using `@Value("${property}")`.
+- ✅ **Type-Safe Configuration**: Combining `@ConfigurationProperties` with modern **Java Records** for bulletproof settings.
+- ✅ **Spring Profiles (`@Profile`)**: Seamlessly switching between `dev` (free local Ollama) and `prod` (cloud OpenAI).
+- ✅ **Multi-Model Routing Architecture**: Building a smart AI router that picks the right model based on prompt complexity!
 
 ---
 
@@ -78,7 +78,7 @@ Imagine traveling international hotels with a high-end laptop.
 
 ---
 
-## 🧭 The Mid-Level Java Developer Bridge: Why Stop Using `@Autowired` on Fields?
+## 🧭 The Plain English Bridge: Why Constructor Injection Wins
 
 As a mid-level Java developer, the easiest thing to do in Spring was always:
 ```java
@@ -465,6 +465,7 @@ public record VectorStoreProperties(
 ---
 
 <p align="center">
-  <b>Congratulations on completing Day 11! 🎉</b><br>
-  Tomorrow on <b>Day 12</b>, we demystify <b>Spring Boot Auto-Configuration Magic</b>: How Spring Boot reads your mind via Classpath Scanning, Conditionals, and Starter Dependencies!
+  <b>Awesome job finishing Day 11! 🎉</b><br>
+  You now know how to cleanly inject dependencies, handle multiple AI models with <code>@Primary</code> and <code>@Qualifier</code>, and manage environments with Profiles.<br>
+  Tomorrow on <b>Day 12</b>, we demystify <b>Spring Boot Auto-Configuration Magic</b>: How Spring Boot reads your setup and configures AI models for you automatically! Keep up the great pace!
 </p>
