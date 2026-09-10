@@ -56,6 +56,8 @@ By the end of today, you will master:
 - [7. Key Takeaways & Summary](#7-key-takeaways--summary)
 - [8. Practice Exercises & Full Solutions](#8-practice-exercises--full-solutions)
 - [9. Self-Check Quiz](#9-self-check-quiz)
+- [10. 🔥 Java 8 CompletableFuture vs. Java 21 Virtual Threads Interview Masterclass](#10--java-8-completablefuture-vs-java-21-virtual-threads-interview-masterclass)
+  - [10.1 Top 7 Concurrency Interview Questions & In-Depth Answers](#101-top-7-concurrency-interview-questions--in-depth-answers)
 
 ---
 
@@ -482,7 +484,119 @@ public class BatchEmbeddingSimulator {
 
 ---
 
+---
+
+# 10. 🔥 Java 8 CompletableFuture vs. Java 21 Virtual Threads Interview Masterclass
+
+Concurrency is one of the highest-weight topics in technical interviews. Interviewers will test your depth on Java 8's asynchronous `CompletableFuture` API and how Java 21's Virtual Threads revolutionize modern concurrency.
+
+Here are the **Top 7 Concurrency Interview Questions**:
+
+---
+
+### 10.1 Top 7 Concurrency Interview Questions & In-Depth Answers
+
+#### 💡 Q1: Why was `CompletableFuture` introduced in Java 8 to replace Java 5's `Future<T>`?
+**Answer**:
+Java 5's standard `Future<T>` had severe architectural limitations:
+1. **Blocking by Nature**: The only way to retrieve a value was `future.get()`, which blocks the calling thread until completion.
+2. **No Chaining or Pipelining**: You could not trigger an action automatically when the future finished without manually polling or blocking.
+3. **Cannot Combine Multiple Futures**: There was no native way to say: *"When Future A and Future B both complete, combine them and run Future C."*
+4. **No Exception Handling Pipeline**: No functional way to catch exceptions (`.exceptionally()`, `.handle()`).
+
+**Java 8 Solution**: `CompletableFuture<T>` introduced non-blocking callback chaining, reactive composition (`thenApply`, `thenCompose`, `thenCombine`), and explicit manual completion (`future.complete(val)`).
+
+---
+
+#### 💡 Q2: What is the difference between `supplyAsync()` and `runAsync()`?
+**Answer**:
+- **`CompletableFuture.supplyAsync(Supplier<U>)`**: Takes a `Supplier<U>` (which returns a value) and runs it asynchronously. Returns `CompletableFuture<U>`.
+- **`CompletableFuture.runAsync(Runnable)`**: Takes a `Runnable` (which returns `void`) and runs it asynchronously. Returns `CompletableFuture<Void>`.
+
+```java
+// Produces a result:
+CompletableFuture<String> dataFuture = CompletableFuture.supplyAsync(() -> fetchVectorFromDb());
+
+// Performs a background fire-and-forget task (logging, metrics):
+CompletableFuture<Void> logFuture = CompletableFuture.runAsync(() -> sendMetricsToDatadog());
+```
+
+---
+
+#### 💡 Q3: What is the difference between `thenApply()`, `thenCompose()`, and `thenCombine()`? (The Big Three!)
+**Answer**:
+This is tested in almost every senior Java interview:
+
+| Method | Analogy | Input Function | Purpose | Return Type |
+| :--- | :--- | :--- | :--- | :--- |
+| **`thenApply()`** | Like Stream `map()` | `Function<T, U>` | Synchronous transformation of the completed result. | `CompletableFuture<U>` |
+| **`thenCompose()`** | Like Stream `flatMap()` | `Function<T, CompletableFuture<U>>` | Chains dependent async operations where step 2 depends on step 1 and returns another Future. Prevents nested `CompletableFuture<CompletableFuture<U>>`. | `CompletableFuture<U>` |
+| **`thenCombine()`** | Parallel Fork-Join | `BiFunction<T, U, V>` | Executes two independent futures concurrently and combines their outputs when both finish. | `CompletableFuture<V>` |
+
+```java
+// 1. thenApply: Map String to Integer
+CompletableFuture<Integer> length = CompletableFuture.supplyAsync(() -> "hello")
+    .thenApply(String::length);
+
+// 2. thenCompose: Chain another async task (avoid nesting!)
+CompletableFuture<String> summary = CompletableFuture.supplyAsync(() -> fetchArticle(id))
+    .thenCompose(article -> callLlmSummaryAsync(article));
+
+// 3. thenCombine: Run two LLM calls in parallel and merge results
+CompletableFuture<String> fast = CompletableFuture.supplyAsync(() -> callLlama());
+CompletableFuture<String> deep = CompletableFuture.supplyAsync(() -> callGpt4o());
+CompletableFuture<String> merged = fast.thenCombine(deep, (r1, r2) -> "Fast: " + r1 + " | Deep: " + r2);
+```
+
+---
+
+#### 💡 Q4: What is the difference between `future.get()` and `future.join()`?
+**Answer**:
+- **`get()`**: Throws **checked exceptions** (`InterruptedException`, `ExecutionException`). Requires clumsy `try-catch` blocks. Supports a timeout: `get(5, TimeUnit.SECONDS)`.
+- **`join()`**: Throws an **unchecked exception** (`CompletionException`). Specifically designed for functional pipelines and Stream operations where checked exceptions cannot be thrown:
+  ```java
+  List<String> results = futures.stream()
+      .map(CompletableFuture::join) // Clean! No checked exception handling required!
+      .toList();
+  ```
+
+---
+
+#### 💡 Q5: What thread pool does `CompletableFuture` use by default? What is the production danger?
+**Answer**:
+By default, `CompletableFuture.supplyAsync(...)` runs on **`ForkJoinPool.commonPool()`**.
+
+**The Production Danger**:
+The common pool is shared across the **entire JVM** and has a fixed thread pool size equal to `Runtime.getRuntime().availableProcessors() - 1` (e.g., 7 threads on an 8-core CPU).
+If a developer runs **blocking I/O operations** (like slow LLM REST API calls or JDBC database queries) on the default pool, all common pool threads become blocked. **This starves the entire JVM**, causing other unrelated parts of your application (parallel streams, background tasks) to completely freeze!
+
+**Best Practice**: Always supply a custom `Executor` (or Java 21's Virtual Thread executor):
+```java
+ExecutorService aiExecutor = Executors.newVirtualThreadPerTaskExecutor();
+CompletableFuture.supplyAsync(() -> callOpenAI(prompt), aiExecutor);
+```
+
+---
+
+#### 💡 Q6: What is the difference between `CompletableFuture.allOf()` and `CompletableFuture.anyOf()`?
+**Answer**:
+- **`allOf(Future<?>... cfs)`**: Waits for **ALL** futures to complete. Returns `CompletableFuture<Void>`. To collect results, you map over the original futures and call `.join()`.
+- **`anyOf(Future<?>... cfs)`**: Waits for the **FIRST** future to finish (speculative execution / race condition). Returns `CompletableFuture<Object>` containing the fastest result.
+
+---
+
+#### 💡 Q7: If Java 21 has Virtual Threads, is `CompletableFuture` obsolete?
+**Answer**:
+**NO, but its primary role has changed:**
+- **What Virtual Threads Replaced**: Virtual threads make traditional synchronous, blocking code ultra-efficient without thread starvation. You no longer need reactive programming (WebFlux, RxJava) or complex callback chains just to handle thousands of concurrent requests.
+- **Where `CompletableFuture` Remains Essential**:
+  1. **Async Fan-Out / Fan-In**: Firing 5 parallel LLM queries and combining them (`allOf`, `anyOf`, `thenCombine`).
+  2. **Event-Driven Architectures**: Passing a future between decoupled services to be completed asynchronously when a Kafka or WebSocket event arrives (`future.complete(event)`).
+
+---
+
 <p align="center">
   <b>Congratulations on completing Day 07! 🎉</b><br>
   Tomorrow on <b>Day 08</b>, we complete Phase 1 with <b>I/O, Modern HTTP Client, Jackson JSON & Testing (JUnit 5 + Mockito)</b>: The ultimate toolkit for calling real LLM REST APIs!
 </p>
+
