@@ -7,6 +7,33 @@
 
 ---
 
+## Friendly Welcome: Locking the Cockpit Door
+
+Hey there, friend! Welcome to Day 29.
+
+Yesterday, we gave our users digital passport wristbands (JWTs). That gets them through the front entrance gate of the airport terminal.
+
+Now ask yourself: Once Alice is inside the airport terminal, can she just stroll onto any random airplane and walk into the cockpit to fly the plane?
+
+Of course not! Getting through the airport gate only proves *who you are*. To get into the cockpit, you need flight credentials and a security badge that says `ROLE_CAPTAIN`.
+
+In our AI applications, we have basic features (like asking a question to a small, free local model) and very expensive, sensitive features (like running GPT-4o on a huge dataset or deleting vector indexes).
+
+Today, we are going to learn **Method-Level Security** and **Role-Based Access Control (RBAC)**. With a single line of Java code like `@PreAuthorize("hasRole('ADMIN')")`, Spring puts a locked cockpit door right in front of your critical Java methods!
+
+---
+
+> 💡 **New Word Alert! Key Concepts for Today**
+>
+> - **RBAC (Role-Based Access Control)**: A security system where permissions are grouped into roles (such as `ROLE_FREE`, `ROLE_PRO`, `ROLE_ADMIN`), and users are assigned roles based on their subscription tier or company job.
+> - **Method-Level Security**: Placing security guards directly on Java service methods rather than only checking HTTP URLs. This ensures that even if internal code or background tasks invoke the method, unauthorized callers are stopped immediately.
+> - **`@PreAuthorize`**: A Spring annotation placed on a Java method. It checks if the caller has the required permissions *before* the method executes. If they don't, it immediately throws `AccessDeniedException` (HTTP 403).
+> - **SpEL (Spring Expression Language)**: A powerful expression language that lets you write smart dynamic rules right inside annotations, like `@PreAuthorize("hasRole('PRO') and #tokens <= 4096")`.
+> - **Role Hierarchy**: A smart inheritance tree that teaches Spring: *"An ADMIN can do everything a PRO user can do, and a PRO user can do everything a FREE user can do."* This saves you from writing tedious duplicate checks everywhere!
+> - **Multi-Tenant Isolation**: Ensuring that Company A's AI agents can NEVER see, search, or access Company B's private documents and embeddings stored in the vector database.
+
+---
+
 ## What Will You Learn Today?
 
 Yesterday, you mastered how to authenticate users at the perimeter using stateless JSON Web Tokens (JWT) and establish a valid `SecurityContext`. But authentication only answers: *"Who are you?"* It does not answer: *"Are you permitted to invoke GPT-4o with 32,000 tokens?"* or *"Are you allowed to delete this vector index or view another company's embeddings?"*
@@ -671,13 +698,18 @@ public class AiModelPermissionEvaluator implements PermissionEvaluator {
 
 ---
 
-## Day 29 Summary & Next Steps
+## Day 29 Wrap-Up & What's Next
 
-Today you mastered:
-1. **Method-Level Security Architecture**: How Spring AOP dynamic proxies intercept calls before method execution and evaluate security metadata.
-2. **Modern `@EnableMethodSecurity`**: Using `@PreAuthorize`, `@PostAuthorize`, `@PreFilter`, and `@PostFilter`.
-3. **SpEL Authorization Rules**: Inspecting method parameters, return objects, and custom security beans.
-4. **Role Hierarchies**: Configuring transitive role inheritance to eliminate boilerplate permission checks.
-5. **Multi-Tenant AI Safety**: Hardening vector databases and AI endpoints against cross-tenant data leaks and unauthorized compute consumption.
+You've just added military-grade authorization to your AI platform! 
 
-👉 **Tomorrow in Day 30: OAuth2 & Social Login (OpenID Connect, Resource Server)** — You will integrate Google, GitHub, and enterprise OAuth2 Identity Providers (Keycloak / Okta) into your AI backend using Spring Boot Resource Server and JWKS endpoints!
+Let's review the big milestones from today:
+- **Cockpit Door Protection**: URL security gets users into the terminal, but `@PreAuthorize` keeps unauthorized users out of sensitive, expensive Java methods.
+- **Dynamic Rules with SpEL**: You can write rules that inspect incoming tokens, parameters, and quotas right inside annotations (`#tokens <= 4096`).
+- **Role Hierarchies Save Time**: An `ADMIN` inherits permissions from `PRO` and `FREE` tiers automatically.
+- **Multi-Tenant Safety**: Never allow one tenant's queries to accidentally search another company's private vector documents!
+
+### What's Coming Up Next?
+We have built custom username/password login and JWT token checks. But in real life, users hate creating a new password for every website. They expect a clean button: **"Sign in with Google"** or **"Sign in with GitHub"**!
+
+Tomorrow in **[Day 30: OAuth2 & Social Login (OpenID Connect, Resource Server)](../Day_30_OAuth2_Social_Login/Day_30_OAuth2_Social_Login.md)**, you will learn how OAuth2 and OpenID Connect work under the hood. You'll allow users to sign in with their existing Google or GitHub accounts while your Spring Boot backend acts as a secure, modern Resource Server. You're doing amazing!
+
