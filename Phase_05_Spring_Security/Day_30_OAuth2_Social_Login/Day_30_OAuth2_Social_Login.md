@@ -7,6 +7,33 @@
 
 ---
 
+## Friendly Welcome: Sign In with Google & Enterprise Identity
+
+Hey there, friend! Welcome to Day 30.
+
+When you sign up for a new AI tool or web application today, how often do you fill out a 10-field form with a new username, password, and security questions?
+
+Almost never! You look for that big, reassuring button: **"Sign in with Google"** or **"Sign in with GitHub"**.
+
+Why? Because you already trust Google or GitHub to protect your credentials, and you don't want another password to remember. And as developers, we *love* social login because we don't have to store sensitive user passwords in our database!
+
+In modern software engineering, this is powered by **OAuth 2.0** and **OpenID Connect (OIDC)**. Today, you'll learn how your Spring Boot backend can act as an **OAuth2 Resource Server**—validating tokens signed by Google, GitHub, Okta, or Keycloak using public cryptographic keys, completely seamlessly!
+
+---
+
+> 💡 **New Word Alert! Key Concepts for Today**
+>
+> - **OAuth 2.0**: The industry standard for *delegated authorization* ("What is this app allowed to do on my behalf?"). Think of it like a valet parking key: it lets the valet start the engine and park the car, but it won't unlock the glove compartment or the trunk.
+> - **OpenID Connect (OIDC)**: A friendly identity layer built right on top of OAuth 2.0 for *authentication* ("Who are you?"). It gives your app a verified **ID Token** with the user's name, email, and avatar.
+> - **Resource Server**: In OAuth2 terminology, this is **your Spring Boot backend**! It hosts the actual protected resources (your AI endpoints and database).
+> - **Identity Provider (IdP) / Authorization Server**: The trusted authority that handles logins and issues tokens (like Google Identity, GitHub, Keycloak, or Okta).
+> - **Asymmetric Cryptography (RS256)**: A security system that uses two matching keys:
+>   - A **Private Key** (kept top secret by Google to sign tokens).
+>   - A **Public Key** (freely shared with the world so your Spring Boot server can verify that the token really came from Google, without needing to know Google's secret!).
+> - **JWKS (JSON Web Key Set)**: A public web endpoint (`/.well-known/jwks.json`) where your Spring Boot server automatically downloads and refreshes the public keys to verify incoming JWTs.
+
+---
+
 ## What Will You Learn Today?
 
 In Days 27–29, you built perimeter security and method-level access control. But in real-world enterprise applications, you almost never maintain your own plain username/password tables or symmetric HMAC secrets shared between dozens of services.
@@ -595,12 +622,20 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
 ---
 
-## Day 30 Summary & Next Steps
+## Day 30 Wrap-Up & What's Next
 
-Today you mastered:
-1. **OAuth2 & OIDC Fundamentals**: The roles of Resource Owner, Client, Authorization Server, and Resource Server.
-2. **Asymmetric Verification**: How RS256 and JWKS endpoints allow your Spring Boot backend to verify tokens without sharing secret keys.
-3. **Spring Boot 3 Resource Server**: Setting up `spring-boot-starter-oauth2-resource-server` and configuring custom claim converters.
-4. **Machine-to-Machine Security**: Securing AI batch ingestion and background LLM pipelines with the Client Credentials Flow.
+You've mastered how modern tech giants handle identity without maintaining fragile password databases!
 
-👉 **Tomorrow in Day 31: Rate Limiting, CORS & API Security** — You will complete Phase 5 by building token-bucket rate limiting (Bucket4j), hardening CORS for chat frontends, defending against Prompt Injection Denial of Service, and securing your AI APIs for production!
+Here is what you unlocked today:
+- **OIDC vs. OAuth2**: OIDC gives you an ID Token (Authentication: "Who are you?"), while OAuth2 gives you an Access Token (Authorization: "What can you do?").
+- **Asymmetric RS256**: Google keeps its private key secret, and your Spring Boot Resource Server uses Google's public keys via JWKS to verify tokens in microseconds.
+- **Spring Boot Resource Server**: Clean configuration using `oauth2ResourceServer(oauth2 -> oauth2.jwt(...))` that automatically integrates with Spring Security.
+- **Machine-to-Machine (M2M)**: Automated AI agents and ingestion workers use the Client Credentials Flow to talk to your backend safely without human intervention.
+
+### What's Coming Up Next?
+Now anyone with a Google or GitHub account can log into your AI platform. 
+
+**But what if a malicious user or bot starts firing 1,000 requests a second, trying to overwhelm your server and exhaust your OpenAI credits?** Or what if a frontend running on another domain tries to steal your API responses?
+
+Tomorrow, in the grand finale of Phase 5: **[Day 31: Rate Limiting, CORS & API Security](../Day_31_Rate_Limiting_CORS_API_Security/Day_31_Rate_Limiting_CORS_API_Security.md)**, we'll build token-bucket rate limiters with Bucket4j, lock down Cross-Origin Resource Sharing (CORS), and protect our AI backend against abuse!
+
