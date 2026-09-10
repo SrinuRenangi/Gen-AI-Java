@@ -8,6 +8,33 @@
 
 ---
 
+## Friendly Welcome: Curing the Goldfish Memory Problem
+
+Hey there, friend! Welcome to Day 44.
+
+Have you ever chatted with an AI assistant that felt like it had the memory of a goldfish?
+- You say: *"Hi, my name is Alex and I'm a Java developer living in Seattle."*
+- The AI happily responds: *"Great to meet you, Alex! How can I help you today?"*
+- Then, in your very next message, you ask: *"What should I wear outside today?"*
+- And the AI replies: *"I don't know where you are! What city do you live in?"* 🤦‍♂️
+
+Why does this happen? Because by nature, Large Language Models have **zero memory**. Every HTTP request sent to OpenAI or Anthropic is completely independent and starts with a clean slate.
+
+Today, we are going to give our LangChain4j agents smart, human-like conversational memory! You will learn how to set up sliding memory windows so chats don't blow up your token budget, make sure your core system instructions are never forgotten, and use `@MemoryId` so different users' conversations never get mixed up!
+
+---
+
+> 💡 **New Word Alert! Key Concepts for Today**
+>
+> - **`ChatMemory`**: LangChain4j's core interface that manages conversation history for an AI agent.
+> - **Message Window (`MessageWindowChatMemory`)**: A sliding memory window that keeps the last $N$ messages (e.g. last 10 messages) and drops older ones so the prompt never overflows.
+> - **Token Window (`TokenWindowChatMemory`)**: A smarter memory window that measures the *exact token weight* of messages. If a user pastes a huge 3,000-token block of code, a token window trims earlier messages accurately to keep the total under your budget.
+> - **System Prompt Invariant**: An essential rule in LangChain4j: even when memory windows fill up and older messages are evicted, the initial `@SystemMessage` is **never** dropped. Your agent never forgets its persona or security constraints!
+> - **`@MemoryId`**: An annotation on an `AiServices` method parameter that tells LangChain4j: *"Load and update the private chat memory belonging strictly to this user ID or session ID."*
+> - **`ChatMemoryStore`**: The database adapter interface that lets you save conversation messages permanently in PostgreSQL or Redis instead of losing them when your Java application restarts.
+
+---
+
 ## What Will You Learn Today?
 
 - **The Statelessness Dilemma**: Why Large Language Models have zero organic memory between HTTP calls, and the architectural trade-offs of simulating state.
@@ -560,6 +587,24 @@ public class PiiScrubbingMemoryFilter {
 
 ---
 
+## 10. Day 44 Wrap-Up & What's Next
+
+You've solved the amnesia problem! Your LangChain4j agents can now remember conversations just like humans do.
+
+Here are the key takeaways:
+- **Never dump unbounded history**: An uncontrolled chat history leads to context crashes, massive latency, and exploding token costs.
+- **Sliding windows protect your budget**: Use `MessageWindowChatMemory` for simple turn caps or `TokenWindowChatMemory` for strict token budgeting.
+- **System prompts are sacred**: LangChain4j guarantees that initial `@SystemMessage` instructions are never evicted when sliding windows roll forward.
+- **`@MemoryId` for multi-tenancy**: Always isolate memory per user or session ID to prevent conversation mix-ups.
+
+### What's Coming Up Next?
+Now your agent remembers what users say. But when you ask an LLM to extract data (like pulling dates, prices, or product names out of messy emails), LLMs love to get creative. They add conversational chatter like *"Sure! Here is the JSON you requested:"*, breaking your automated Java parsers!
+
+Tomorrow in **[Day 45: Structured Extraction & Guardrails](../Day_45_Structured_Extraction_Guardrails/Day_45_Structured_Extraction_Guardrails.md)**, we'll force LLMs to behave with mathematical precision using LangChain4j's structured extractors and guardrails. Keep up the awesome momentum!
+
+---
+
 | Previous Day | Course Hub | Next Day |
 |:---|:---:|---:|
 | [Day 43: LangChain4j Introduction & AiServices](../Day_43_LangChain4j_Introduction_AiServices/Day_43_LangChain4j_Introduction_AiServices.md) | [All 60 Days Overview](../../README.md) | [Day 45: Structured Extraction & Guardrails](../Day_45_Structured_Extraction_Guardrails/Day_45_Structured_Extraction_Guardrails.md) |
+
