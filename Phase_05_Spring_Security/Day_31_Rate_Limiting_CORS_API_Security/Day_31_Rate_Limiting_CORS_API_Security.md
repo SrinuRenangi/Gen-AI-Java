@@ -7,6 +7,29 @@
 
 ---
 
+## Friendly Welcome: Protecting Your Company's Wallet
+
+Hey there, friend! Welcome to Day 31—the grand finale of **Phase 5: Spring Security**!
+
+Think about an exclusive VIP nightclub serving $500 vintage champagne. If the club had an open door with no bouncer and an all-you-can-drink free-for-all, a single rowdy party could drink the entire wine cellar dry in two hours, bankrupting the club before midnight!
+
+In Generative AI engineering, calling models like GPT-4o or Claude is just like that $500 vintage champagne: every single request costs real money on your company credit card. If a bot discovers an unthrottled endpoint or a developer accidentally writes an infinite loop in a script, your company could wake up to an **$80,000 cloud bill**! This attack even has an official name in cybersecurity: **Denial of Wallet (DoW)**.
+
+Today, we are going to build an impenetrable defense using **Token-Bucket Rate Limiting with Bucket4j**, lock down browser access with **CORS**, and install essential OWASP security headers so your AI platform stays fast, reliable, and financially safe!
+
+---
+
+> 💡 **New Word Alert! Key Concepts for Today**
+>
+> - **Rate Limiting**: Putting a speed limit on your API. For example: *"You are allowed at most 10 AI prompts per minute."*
+> - **Denial of Wallet (DoW)**: A scary cyber-attack where an attacker floods your pay-per-token AI endpoints with expensive requests, specifically designed to run up huge bills on your company's credit card until you run out of money!
+> - **Token Bucket Algorithm (Bucket4j)**: A brilliant rate-limiting model. Imagine a physical bucket that holds 10 tokens. Every request takes 1 token out. Tokens drip back into the bucket at a steady rate (e.g. 1 token per second). If the bucket is empty, requests are rejected with `429 Too Many Requests`!
+> - **HTTP 429 Too Many Requests**: The official HTTP status code that says: *"Slow down! You've exceeded your allowed rate limit."* It usually comes with a `Retry-After: 15` header telling the client how many seconds to wait.
+> - **CORS (Cross-Origin Resource Sharing)**: A browser security mechanism that stops malicious third-party websites from secretly sending requests to your API in the background using a user's browser.
+> - **OWASP Security Headers**: Essential HTTP response headers (like `Content-Security-Policy`, `X-Frame-Options`, and `X-Content-Type-Options: nosniff`) that protect your users from clickjacking and script injection attacks.
+
+---
+
 ## What Will You Learn Today?
 
 Congratulations on reaching the final day of **Phase 5: Spring Security**! Over the past four days, you built authentication, JWT validation, role-based method guards, and enterprise OAuth2 resource server mechanics.
@@ -548,32 +571,35 @@ public class StreamingAiController {
 
 🎉 **PHASE 5 IS OFFICIALLY 100% COMPLETE!**
 
-Let's look back at what you have built across **Phase 5: Spring Security (Days 27–31)**:
-- **Day 27**: Spring Security Architecture, SecurityFilterChain, DelegatingFilterProxy, Password Encoders (BCrypt/Argon2).
-- **Day 28**: Custom Stateless JWT Authentication Filter, Claims Extraction, Refresh Tokens, and Secret Key Rotation.
-- **Day 29**: Role-Based Access Control (RBAC), `@EnableMethodSecurity`, `@PreAuthorize`, SpEL, Role Hierarchies, and Multi-Tenant Vector DB Isolation.
-- **Day 30**: OAuth 2.0 & OpenID Connect (OIDC), Google/GitHub Social Login, Asymmetric RS256 Verification with JWKS, and Machine-to-Machine Client Credentials.
-- **Day 31**: API Security, Token-Bucket Rate Limiting (Bucket4j), Denial-of-Wallet Defense, CORS Hardening, and OWASP Defense-in-Depth Headers.
+Give yourself a huge round of applause! You have conquered one of the most vital engineering phases in enterprise software: **Security**.
 
-Your application is now **fortified like an enterprise banking vault**.
+Look at the fortress you built:
+- **Day 27**: You mastered the Spring Security Filter Chain and modern stateless architecture.
+- **Day 28**: You forged custom JWT digital passports with tamper-proof HMAC signatures.
+- **Day 29**: You locked the cockpit door with `@PreAuthorize`, SpEL, and role hierarchies.
+- **Day 30**: You integrated Google/GitHub SSO and asymmetric RS256 token verification via JWKS.
+- **Day 31**: You defended your company against Denial-of-Wallet attacks with Token-Bucket rate limiting and hardened CORS.
+
+Your application is now **fortified like an enterprise Swiss bank vault**.
 
 ---
 
 ### 🚀 Entering Phase 6: Spring AI — The Core Framework (Days 32–42)
 
-Starting tomorrow, we enter the most exciting phase of the entire masterclass: **Phase 6: Spring AI**.
+Now that our Java foundations, Spring Boot core, REST APIs, PostgreSQL databases, and security perimeter are rock-solid, **it is finally time to build real AI!**
 
-You will move from building the infrastructure around AI to programming AI itself using Java 21 and the official **Spring AI** framework:
+Starting tomorrow, you will start programming Generative AI directly in Java using the official **Spring AI** framework:
 - **Day 32**: Introduction to Spring AI — Architecture, Model Abstractions, and Why Java is Dominating Enterprise AI.
 - **Day 33**: `ChatClient` — The Fluent Conversational API for Prompts, System Directives, and Dynamic Context.
 - **Day 34**: Prompt Engineering in Java — Dynamic Templates, Message Roles, and Variable Substitutions.
 - **Day 35**: Structured Output Converters — Forcing LLMs to Return Valid Java Records, Beans, and Enums without Hallucinations.
-- **Day 36**: Multimodal AI — Image Analysis, Audio Transcription, and Document Vision in Spring.
-- **Day 37**: Function Calling & Tool Calling — Turning LLMs into Autonomous Agents that Execute Java Methods.
-- **Day 38**: Vector Stores & Embeddings — Ingesting Documents and Semantic Similarity Search with `pgvector`.
-- **Day 39**: Retrieval-Augmented Generation (RAG) — Grounding LLMs with Proprietary Knowledge Bases.
-- **Day 40**: Advanced RAG — Query Transformation, Reranking, and Multi-Document Context Fusion.
-- **Day 41**: Chat Memory & Conversational State — Redis and In-Memory Session History.
-- **Day 42**: Testing & Evaluating Spring AI Applications.
+- **Day 36**: Streaming Responses — The ChatGPT "typewriter" effect using Flux and SSE.
+- **Day 37**: Embedding Models — Turning Text into High-Dimensional Vectors.
+- **Day 38**: Vector Stores & Semantic Memory — Querying `pgvector` from Java.
+- **Day 39**: Retrieval-Augmented Generation (RAG) — Grounding LLMs with Proprietary Documents.
+- **Day 40**: Advanced RAG — Query Transformation and Re-Ranking.
+- **Day 41**: Tool Calling — Allowing LLMs to autonomously execute your Java code.
+- **Day 42**: Multimodal AI — Processing Images, Audio, and Vision.
 
 👉 **Proceed to [Day 32: Introduction to Spring AI — The Big Picture](../../Phase_06_Spring_AI/Day_32_Introduction_to_Spring_AI/Day_32_Introduction_to_Spring_AI.md) to begin Phase 6!**
+
