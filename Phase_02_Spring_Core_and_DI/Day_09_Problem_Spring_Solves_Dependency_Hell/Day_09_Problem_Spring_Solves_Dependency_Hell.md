@@ -14,21 +14,21 @@
 
 ## 📌 What Will You Learn Today?
 
-Welcome to **Phase 2: Spring Core & Dependency Injection**! 
+Hey there, my friend! Welcome to **Phase 2: Spring Core & Dependency Injection**! 🚀
 
-Most developers learn Spring backwards: they memorize 20 annotations (`@Autowired`, `@Component`, `@Service`, `@Bean`, `@Configuration`) without understanding **why Spring was created in the first place**. When something goes wrong—like a `NoSuchBeanDefinitionException` or a circular dependency—they feel lost because Spring seems like black magic.
+Most developers learn Spring backwards: they memorize 20 confusing annotations (`@Autowired`, `@Component`, `@Service`, `@Bean`, `@Configuration`) without understanding **why Spring was created in the first place**. When something goes wrong in their code, they feel completely lost because Spring feels like mysterious black magic.
 
-**Today, we will destroy the magic.**
+**Today, we will destroy the magic together.**
 
-We will demonstrate the catastrophic architectural failure called **Dependency Hell** that occurs when you manually create objects using `new`. Then, to prove how simple Dependency Injection really is, **we will build our own functioning Mini-Dependency Injection Container from scratch in 60 lines of pure Java using reflection.**
+We will see the real-world architectural mess called **Dependency Hell** that happens when you manually create objects using `new`. Then, to prove to you how straightforward Dependency Injection actually is, **we will build our own working Mini-Spring Dependency Injection Container from scratch in just 60 lines of pure Java!**
 
-By the end of today, you will master:
-- ✅ **The Root Problem**: Why hardcoding `new` inside your business classes ruins maintainability and testing.
-- ✅ **The Dependency Inversion Principle (DIP)**: The "D" in SOLID design.
+By the end of today, you will clearly understand:
+- ✅ **The Root Problem**: Why hardcoding `new` inside your business classes creates tight coupling and makes testing painful.
+- ✅ **The Dependency Inversion Principle (DIP)**: The "D" in SOLID design made super simple.
 - ✅ **Inversion of Control (IoC)**: The "Hollywood Principle" (*Don't call us, we'll call you*).
-- ✅ **Building a Mini-IoC Container**: Writing custom annotations (`@MyInject`) and wiring objects with Java Reflection.
+- ✅ **Building Our Own Mini-Spring**: Writing custom annotations (`@MyInject`) and wiring objects with Java Reflection.
 - ✅ **Decoupling AI Services**: Refactoring a tightly coupled OpenAI service into a swappable, mockable architecture.
-- ✅ **The True Definition of a Spring Bean**: Why a bean is just an ordinary Java object living inside an IoC registry.
+- ✅ **The True Definition of a Spring Bean**: Why a "Bean" is just an ordinary Java object living inside Spring's memory map.
 
 ---
 
@@ -494,6 +494,7 @@ public class VectorSearchPipeline {
 ---
 
 <p align="center">
-  <b>Congratulations on completing Day 09! 🎉</b><br>
-  Tomorrow on <b>Day 10</b>, we enter official Spring Boot territory with <b>Spring IoC Container & Bean Lifecycle</b>: <code>@Component</code>, <code>@Service</code>, <code>@Repository</code>, Bean Scopes, and <code>@PostConstruct</code>!
+  <b>Awesome start to Phase 2! 🎉</b><br>
+  You now understand what Spring actually does under the hood: it's a smart manager that creates and wires your Java objects so you don't have to write messy <code>new</code> statements everywhere.<br>
+  Tomorrow on <b>Day 10</b>, we enter official Spring territory with the <b>Spring IoC Container & Bean Lifecycle</b>: <code>@Component</code>, <code>@Service</code>, <code>@Repository</code>, Bean Scopes, and <code>@PostConstruct</code>! Keep up the fantastic energy!
 </p>
