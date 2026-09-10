@@ -10,6 +10,36 @@
 
 ---
 
+## Friendly Welcome: All-or-Nothing Safety for Your Data
+
+Hey there, friend! Welcome to Day 24.
+
+Imagine you are buying a coffee with your debit card:
+- Step 1: The bank takes $5 out of your checking account.
+- Step 2: The coffee shop's register prints your receipt and marks the coffee as paid.
+
+Now imagine the power goes out right between Step 1 and Step 2! You lost $5, but the barista says: *"Sorry, our register never got the payment. No coffee for you."* You would be rightfully furious!
+
+In database engineering, we solve this nightmare with a **Transaction**: An all-or-nothing guarantee that either EVERY step succeeds, or if anything goes wrong, EVERYTHING is rolled back as if nothing ever happened.
+
+Today, we'll master Spring's `@Transactional` annotation, prevent race conditions when thousands of users hit your AI models simultaneously using `@Version` (Optimistic Locking), and set up automated auditing so you can always see who created or edited prompt templates and when!
+
+---
+
+> 💡 **New Word Alert! Key Concepts for Today**
+>
+> - **Transaction (`@Transactional`)**: A protective safety envelope around database operations. All operations inside must either succeed together (Commit), or if an error happens, all changes are wiped out (Rollback).
+> - **ACID**: The four golden promises of reliable databases:
+>   - **Atomicity**: All-or-nothing. No partial updates!
+>   - **Consistency**: Database rules and constraints are never violated.
+>   - **Isolation**: Concurrent transactions don't interfere with each other.
+>   - **Durability**: Once committed, data is permanently saved on disk.
+> - **Race Condition**: A bug where two threads try to update the exact same database row at the exact same millisecond, accidentally overwriting each other's changes.
+> - **Optimistic Locking (`@Version`)**: Like collaborating in Google Docs. Every entity has a version number (1, 2, 3...). If two users try to save changes to version 1 at the same time, the second user gets a gentle conflict alert instead of secretly wiping out the first user's work.
+> - **JPA Auditing**: An automated feature in Spring Data that automatically timestamps `@CreatedDate`, `@LastModifiedDate`, and records `@CreatedBy` on your entities without manual coding.
+
+---
+
 ## Table of Contents
 
 1. [Why This Day Matters for a 3-Year Enterprise Gen AI Engineer](#1-why-this-day-matters-for-a-3-year-enterprise-gen-ai-engineer)
@@ -29,6 +59,7 @@
 9. [Step-by-Step Compilation & Execution](#9-step-by-step-compilation--execution)
 10. [Hands-On Exercises (With Complete Solutions)](#10-hands-on-exercises-with-complete-solutions)
 11. [Self-Check Quiz](#11-self-check-quiz)
+12. [Day 24 Wrap-Up & What's Next](#12-day-24-wrap-up--whats-next)
 
 ---
 
@@ -507,10 +538,20 @@ public interface TokenBucketRepository extends JpaRepository<TokenBucket, Long> 
 
 ---
 
-### What's Next?
+## 12. Day 24 Wrap-Up & What's Next
 
-We have mastered transactions, concurrency locks, and automated auditing. But in production, you never allow Hibernate to generate or alter your production database schema dynamically using `ddl-auto=update`! Doing so risks data loss and silent schema drift.
+You've just learned how enterprise banking, healthcare, and AI systems keep their data pristine under immense concurrent traffic!
 
-How do you manage versioned, repeatable, zero-downtime database schema migrations across development, staging, and production Kubernetes environments?
+Key takeaways for your toolkit:
+- **`@Transactional(rollbackFor = Exception.class)`**: Protects your multi-step operations so you never have partial commits or orphaned billing records.
+- **Beware the Self-Invocation Trap**: Calling a `@Transactional` method from inside the same class bypasses Spring's proxy—keep transactional methods in injected beans!
+- **`@Version` for Optimistic Locking**: Protects against lost updates when multiple users edit prompt templates or deduct token balances concurrently.
+- **JPA Auditing**: Automatically keeps track of who created or modified entities and when.
 
-Proceed to **[Day 25: Database Migrations (Flyway) & Docker](../Day_25_Database_Migrations_Docker/Day_25_Database_Migrations_Docker.md)**!
+### What's Coming Up Next?
+So far, Hibernate has been automatically creating and updating our database tables using `spring.jpa.hibernate.ddl-auto=update`. In local development, that feels convenient. 
+
+**But in production, doing that is completely forbidden!** If Hibernate renames or drops a table in a live banking or AI database with millions of user records, it's game over.
+
+Tomorrow in **[Day 25: Database Migrations (Flyway) & Docker](../Day_25_Database_Migrations_Docker/Day_25_Database_Migrations_Docker.md)**, we'll learn **Flyway**: how real engineering teams write versioned, automated SQL migration scripts (like Git for your database!) and run PostgreSQL seamlessly with Docker. Get ready for an awesome session!
+
