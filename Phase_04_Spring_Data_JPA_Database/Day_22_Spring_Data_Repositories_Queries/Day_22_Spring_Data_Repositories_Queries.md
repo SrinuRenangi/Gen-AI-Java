@@ -1,100 +1,101 @@
-# Day 22: Spring Data Repositories & Query Methods
+# 🔍 Day 22: Spring Data Repositories & Query Methods
+## Query Derivation DSL, Custom JPQL, `Slice<T>` vs `Page<T>` & Specifications
 
-> **"If you write raw SQL string concatenations or manual JDBC loops to load AI chat histories, your code is vulnerable to SQL injection, prone to N+1 query storms, and unmaintainable. Spring Data JPA turns repository interfaces into type-safe, optimized SQL query engines at application startup."**
-
----
-
-| Previous Day | Course Hub | Next Day |
+| ⬅️ Previous Day | 📚 Course Hub | ➡️ Next Day |
 |:---|:---:|---:|
-| [Day 21: JPA & Hibernate Foundations](../Day_21_JPA_Hibernate_Foundations/Day_21_JPA_Hibernate_Foundations.md) | [All 60 Days Overview](../../README.md) | [Day 23: Entity Relationships & Fetch Strategies](../Day_23_Entity_Relationships_Fetch_Strategies/Day_23_Entity_Relationships_Fetch_Strategies.md) |
+| [← Day 21: JPA & Hibernate Foundations](../Day_21_JPA_Hibernate_Foundations/Day_21_JPA_Hibernate_Foundations.md) | [All 60 Days Overview](../../README.md) | [Day 23: Entity Relationships & Fetch Strategies →](../Day_23_Entity_Relationships_Fetch_Strategies/Day_23_Entity_Relationships_Fetch_Strategies.md) |
+
+[![Phase](https://img.shields.io/badge/Phase_04-Spring_Data_JPA_%26_Databases-blue.svg?style=for-the-badge)](../../README.md)
+[![Day](https://img.shields.io/badge/Day-22_of_60-blue.svg?style=for-the-badge)](../../README.md)
+[![Difficulty](https://img.shields.io/badge/Difficulty-Intermediate-blue.svg?style=for-the-badge)](../../README.md)
+[![Topic](https://img.shields.io/badge/Spring_Data-Repositories_%26_Queries-purple.svg?style=for-the-badge)](../../README.md)
 
 ---
 
-## Friendly Welcome: Writing Queries in Plain English
+## 1. Topic Overview
 
-Hey there, friend! Welcome to Day 22.
-
-Yesterday, we saw how Hibernate connects our Java classes to PostgreSQL tables. But we also noticed that if we had to write `EntityManager` queries by hand for every single thing we wanted to find or update, our code would quickly drown in repetitive boilerplate.
-
-Today, we are going to learn one of the coolest "magic tricks" in the entire Spring ecosystem: **Spring Data JPA**!
-
-Imagine if you could just declare an empty Java interface named `PromptRepository`, write a method signature in plain English like `findByModelAndActiveTrue()`, and without writing a single line of SQL or implementation code, Spring automatically writes, optimizes, and executes the exact SQL query for you. Sounds like science fiction, right? It's completely real, and by the end of today, you'll be querying your AI database like a seasoned pro!
+Spring Data JPA is an automated data access framework that generates type-safe database query implementations at application startup by parsing repository interface method names and annotations. In enterprise Generative AI engineering, Spring Data repositories empower developers to query chronological conversation context windows, execute high-performance aggregate token consumption metrics, and implement infinite-scroll chat histories using `Slice<T>` without writing hundreds of lines of repetitive SQL boilerplate.
 
 ---
 
-> 💡 **New Word Alert! Key Concepts for Today**
->
-> - **`JpaRepository<T, ID>`**: A magic interface provided by Spring Data. When your interface extends it, you instantly inherit built-in methods like `save()`, `findById()`, `findAll()`, and `deleteById()` without writing a single line of implementation code!
-> - **Query Derivation (Derived Queries)**: Spring's ability to read your method name (like `findByUserIdOrderByCreatedAtDesc(...)`) and automatically figure out the exact SQL query to run.
-> - **JPQL (Java Persistence Query Language)**: An object-oriented query language that looks like SQL, but you query Java classes and fields instead of database table names and columns (`SELECT p FROM PromptEntity p WHERE p.active = true`).
-> - **`Page<T>` vs. `Slice<T>`**: Ways to split huge amounts of data into smaller chunks (pages). `Page<T>` counts total rows so you can show page numbers (1, 2, 3...), while `Slice<T>` only checks if there is a "next" page—perfect for infinite-scroll chat histories!
-> - **Specifications**: A way to build dynamic database search filters with `if` conditions in Java without having to write dozens of separate SQL queries.
+## 2. Basic Foundations (True Zero)
 
----
+### Plain English Definitions
+- **`JpaRepository<T, ID>`**: A standard Spring Data interface. When extended by your custom repository interface, it automatically provides fully functioning CRUD operations (`save()`, `findById()`, `findAll()`, `deleteById()`) without writing a single line of implementation code.
+- **Query Derivation (Derived Queries)**: Spring Data's capability to parse English-like method names (such as `findBySessionIdOrderByCreatedAtAsc(...)`) and dynamically synthesize the exact parameterized SQL query at container startup.
+- **JPQL (Java Persistence Query Language)**: An object-oriented query language syntax resembling SQL, where you query Java Entity classes and attribute fields (`SELECT p FROM PromptTemplate p WHERE p.active = true`) rather than raw database tables and columns.
+- **`Page<T>` vs. `Slice<T>`**: Pagination interfaces. `Page<T>` executes an extra, expensive `SELECT COUNT(*)` query to compute total pages, while `Slice<T>` queries `LIMIT size + 1` with zero count overhead—making `Slice<T>` the gold standard for infinite-scroll AI chat streams.
+- **Spring Data Specifications**: A type-safe programmatic query builder based on the JPA Criteria API that allows developers to assemble dynamic database search filters (e.g., optional model, keyword, and date range filters) using simple `if` statements.
 
-## The Plain English Bridge: The Voice-Activated Archival Clerk
-
-In the early days of programming with raw JDBC, getting data from a database was like filling out a 15-page requisition form by hand. If you made a single typo in a column name, the database would throw an error and crash your app.
-
-With Spring Data JPA, you have a **voice-activated archival clerk**. You simply walk up to the clerk and say: *"Clerk, find me all messages by user 42 ordered by time created!"*
-
-The clerk immediately understands your intent, pulls the records from the shelves, and hands you a clean list of Java objects. You write the method name, and Spring handles the rest!
-
----
-
-## Table of Contents
-
-1. [Why This Day Matters for a 3-Year Enterprise Gen AI Engineer](#1-why-this-day-matters-for-a-3-year-enterprise-gen-ai-engineer)
-2. [Real-World Analogy: The Voice-Activated Archival Clerk](#2-real-world-analogy-the-voice-activated-archival-clerk)
-3. [The Spring Data Repository Hierarchy](#3-the-spring-data-repository-hierarchy)
-4. [Method Name Query Derivation DSL In-Depth](#4-method-name-query-derivation-dsl-in-depth)
-5. [Custom Queries with `@Query`: JPQL vs Native SQL](#5-custom-queries-with-query-jpql-vs-native-sql)
-6. [Pagination & Sorting: `Page<T>` vs `Slice<T>` for AI Chat Feeds](#6-pagination--sorting-paget-vs-slicet-for-ai-chat-feeds)
-7. [Dynamic Filtering with Spring Data Specifications](#7-dynamic-filtering-with-spring-data-specifications)
-8. [Bulk Operations with `@Modifying`](#8-bulk-operations-with-modifying)
-9. [Hands-On Code Walkthrough](#9-hands-on-code-walkthrough)
-10. [Step-by-Step Compilation & Execution](#10-step-by-step-compilation--execution)
-11. [Hands-On Exercises (With Complete Solutions)](#11-hands-on-exercises-with-complete-solutions)
-12. [Self-Check Quiz](#12-self-check-quiz)
-13. [Day 22 Wrap-Up & What's Next](#13-day-22-wrap-up--whats-next)
-
----
-
-## 1. Why This Day Matters for a 3-Year Enterprise Gen AI Engineer
-
-When you build conversational AI agents, RAG document pipelines, or prompt engineering portals, **how you query data directly dictates latency, database load, and memory usage**:
-
-1. **Context Window Assembly**: Before calling an LLM (e.g., `gpt-4o` or `claude-3-5-sonnet`), you must assemble the last $N$ messages of the conversation. If you query all 10,000 historical messages of a user and filter them in Java memory, your server crashes with `OutOfMemoryError`. You must query only the most recent tokens using chronological sorting and limit clauses.
-2. **The `COUNT(*)` Pagination Bottleneck**: Junior developers use `Page<T>` for everything. When a chat message table grows to 10 million rows, every page request triggers an unindexed `SELECT COUNT(*)` scan that takes **1.8 seconds on PostgreSQL**, freezing your API!
-3. **Dynamic Prompt Filtering**: In production prompt registries, users filter templates by model (`gpt-4o`), active status (`true`), minimum version (`> 2`), and search keywords (`"customer-support"`). Writing 16 separate query methods for every permutation is unmaintainable; you need **Spring Data Specifications**.
-4. **Tenant Token Accounting**: Aggregating token consumption per enterprise organization requires aggregate JPQL queries (`SUM(tokenCount)`) that run in the database engine rather than transferring millions of rows across the network wire.
-
----
-
-## 2. Real-World Analogy: The Voice-Activated Archival Clerk
-
+### Relatable Physical Analogy: The Voice-Activated Archival Clerk
 ```
 TRADITIONAL RAW JDBC:
 [ Developer ] ──► Handwrites a 15-page requisition form in Latin:
                   "SELECT m.id, m.content, m.tokens FROM messages m WHERE..."
-                  If one spelling mistake occurs, the archive rejects the letter.
+                  If a single column typo occurs, the database throws a fatal error.
 
 SPRING DATA JPA:
 [ Developer ] ──► Declares interface method:
                   "findBySessionIdOrderByCreatedAtAsc(String sessionId)"
                   
 [ Smart Clerk ] ─► Listens to the method name, immediately understands the intent,
- (Dynamic Proxy)   generates the exact SQL, executes it against the database,
+ (Dynamic Proxy)   generates the exact SQL, executes it against PostgreSQL,
                    and hands back a typed List<ChatMessage> in milliseconds!
 ```
 
-Spring Data JPA is your **smart archival clerk**. You do not write query implementations. You declare an interface, and at application startup, Spring Data uses **dynamic bytecode proxies** to translate your English-like method names into high-performance SQL queries.
+Spring Data JPA is your **voice-activated archival clerk**. You declare the question in plain English within an interface, and Spring dynamically builds the runtime SQL query engine on your behalf.
+
+### Minimal Beginner-Friendly Working Code Example
+
+Let us examine how to declare and execute a Spring Data derived query with zero implementation code:
+
+```java
+package com.javagenai.day22;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Bean;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+interface PromptRepository extends JpaRepository<MinimalPromptEntity, Long> {
+    // Spring Data automatically generates the SQL query:
+    // SELECT * FROM prompt_templates WHERE name = ?
+    List<MinimalPromptEntity> findByName(String name);
+}
+
+@SpringBootApplication
+public class MinimalRepositoryApp {
+
+    public static void main(String[] args) {
+        SpringApplication.run(MinimalRepositoryApp.class, args);
+    }
+
+    @Bean
+    public CommandLineRunner testRepo(PromptRepository repo) {
+        return args -> {
+            repo.save(new MinimalPromptEntity("code-review", "You are a senior Java reviewer..."));
+            List<MinimalPromptEntity> results = repo.findByName("code-review");
+            System.out.println("Discovered prompt records: " + results.size());
+        };
+    }
+}
+```
+
+#### Line-by-Line Walkthrough
+1. `interface PromptRepository extends JpaRepository<MinimalPromptEntity, Long>`: Inherits standard CRUD capabilities for `MinimalPromptEntity` using `Long` as the primary key type.
+2. `List<MinimalPromptEntity> findByName(String name)`: Spring Data parses the method name `findByName` and binds the parameter `name` to an auto-generated `WHERE name = ?` SQL clause.
+3. Zero implementation code is written. Spring instantiates a dynamic runtime proxy implementing this interface at startup.
 
 ---
 
-## 3. The Spring Data Repository Hierarchy
+## 3. Core Concept Walkthrough (Basic → Intermediate)
 
-Spring Data organizes repositories into a clean inheritance hierarchy:
+### 3.1 The Spring Data Repository Hierarchy
 
 ```mermaid
 classDiagram
@@ -106,8 +107,6 @@ classDiagram
         <<interface>>
         +save(entity)
         +findById(id)
-        +existsById(id)
-        +count()
         +deleteById(id)
     }
     class ListCrudRepository~T, ID~ {
@@ -135,23 +134,11 @@ classDiagram
     PagingAndSortingRepository <|-- JpaRepository
 ```
 
-### Which Interface Should You Extend?
-- **`CrudRepository<T, ID>`**: Basic CRUD operations. Legacy interface that returns `Iterable<T>` (requires casting or wrapping to `List`).
-- **`ListCrudRepository<T, ID>`**: Introduced in Spring Data 3.0 / Spring Boot 3; returns clean `List<T>` without casting.
-- **`JpaRepository<T, ID>`**: **The enterprise standard**. Extends `ListCrudRepository` and `PagingAndSortingRepository`, adding JPA-specific persistence context operations like `flush()`, `saveAndFlush()`, and batch deletes (`deleteAllInBatch()`).
+- **`ListCrudRepository<T, ID>`**: Standardizes return types to `List<T>` rather than legacy `Iterable<T>`.
+- **`JpaRepository<T, ID>`**: The enterprise standard. Extends `ListCrudRepository` and `PagingAndSortingRepository`, adding persistence context management like `flush()`, `saveAndFlush()`, and batch deletes.
 
-```java
-@Repository
-public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
-    // Methods declared here
-}
-```
-
----
-
-## 4. Method Name Query Derivation DSL In-Depth
-
-Spring Data parses the name of interface methods using an internal compiler parser. It splits the method name into **subject** and **predicate**.
+### 3.2 Method Name Query Derivation DSL
+Spring Data splits method names into a **subject** and a **predicate**:
 
 ```
     findBySessionIdAndRoleOrderByCreatedAtDesc
@@ -159,60 +146,34 @@ Spring Data parses the name of interface methods using an internal compiler pars
    Prefix     Criteria            Sorting
 ```
 
-### Supported Query Keywords for Gen AI Repositories
-
-| Keyword | Example Method | Generated SQL Equivalent |
+| Keyword | Repository Method Example | SQL Equivalent |
 | :--- | :--- | :--- |
 | `And` | `findBySessionIdAndRole(s, r)` | `WHERE session_id = ? AND role = ?` |
-| `Or` | `findByModelOrProvider(m, p)` | `WHERE model = ? OR provider = ?` |
 | `Between` | `findByTokenCountBetween(min, max)` | `WHERE token_count BETWEEN ? AND ?` |
-| `LessThan` / `GreaterThan` | `findByCreatedAtAfter(instant)` | `WHERE created_at > ?` |
-| `IsNull` / `IsNotNull` | `findByDeletedAtIsNull()` | `WHERE deleted_at IS NULL` |
-| `Like` / `Containing` | `findByContentContainingIgnoreCase(kw)` | `WHERE LOWER(content) LIKE LOWER('%' || ? || '%')` |
-| `In` | `findByModelFamilyIn(List<String> models)`| `WHERE model_family IN (?, ?, ?)` |
-| `True` / `False` | `findByActiveTrue()` | `WHERE active = TRUE` |
+| `LessThan` / `After` | `findByCreatedAtAfter(instant)` | `WHERE created_at > ?` |
+| `IsNull` | `findByDeletedAtIsNull()` | `WHERE deleted_at IS NULL` |
+| `Containing` | `findByContentContainingIgnoreCase(kw)` | `WHERE LOWER(content) LIKE LOWER('%' \|\| ? \|\| '%')` |
 | `Top` / `First` | `findTop10BySessionIdOrderByCreatedAtDesc(s)` | `WHERE session_id = ? ORDER BY created_at DESC LIMIT 10` |
-| `Distinct` | `findDistinctModelFamilyBy()` | `SELECT DISTINCT model_family FROM ...` |
 
----
+### 3.3 Custom Queries with `@Query`: JPQL vs. Native SQL
 
-## 5. Custom Queries with `@Query`: JPQL vs Native SQL
-
-When queries become complex—such as joins across multiple tables, aggregation math, or subqueries—method names become unwieldy (`findByUserTenantOrganizationIdAndCreatedAtAfter...`). Use **`@Query`**.
-
-### 1. JPQL (Java Persistence Query Language)
-JPQL queries operate on **Java Entity classes and property names**, not database tables and columns. It is completely portable across databases.
-
+#### 1. Custom JPQL: Entity-Centric & Type-Safe
+Operates on entity names and fields rather than database tables and columns:
 ```java
 @Query("""
     SELECT m FROM ChatMessage m
-    WHERE m.session.id = :sessionId
+    WHERE m.sessionId = :sessionId
       AND m.tokenCount <= :maxTokens
     ORDER BY m.createdAt ASC
 """)
 List<ChatMessage> findEligibleContextMessages(
-    @Param("sessionId") Long sessionId,
+    @Param("sessionId") String sessionId,
     @Param("maxTokens") int maxTokens
 );
 ```
 
-#### Aggregate JPQL for Token Metrics
-```java
-@Query("""
-    SELECT COALESCE(SUM(m.tokenCount), 0)
-    FROM ChatMessage m
-    WHERE m.session.userId = :userId
-      AND m.createdAt >= :since
-""")
-int sumTokensConsumedByUserSince(
-    @Param("userId") String userId,
-    @Param("since") Instant since
-);
-```
-
-### 2. Native SQL (`nativeQuery = true`)
-Native queries execute raw PostgreSQL SQL directly. Use native queries when leveraging **PostgreSQL-specific capabilities** (e.g., `JSONB` indexing, full-text search `tsvector`, or `pgvector` similarity search):
-
+#### 2. Native SQL: Unleashing PostgreSQL Power
+Executes directly against PostgreSQL, enabling specialized extensions like `pgvector`:
 ```java
 @Query(
     value = """
@@ -228,62 +189,39 @@ List<DocumentChunk> findNearestNeighbors(
 );
 ```
 
----
+### 3.4 Pagination: The Hidden Cost of `Page<T>` vs. `Slice<T>`
+When paginating large chat histories:
 
-## 6. Pagination & Sorting: `Page<T>` vs `Slice<T>` for AI Chat Feeds
-
-When presenting conversation histories in chat interfaces, you must paginate. Spring Data offers three options:
-
-### The Hidden Trap of `Page<T>`
-```java
-Page<ChatMessage> findBySessionId(String sessionId, Pageable pageable);
 ```
-To calculate `Page.getTotalPages()` and `Page.getTotalElements()`, Spring Data automatically issues **TWO SQL queries**:
-1. `SELECT * FROM chat_messages WHERE session_id = ? LIMIT 20 OFFSET 0;`
-2. `SELECT COUNT(*) FROM chat_messages WHERE session_id = ?;` ⚠️
+Page<T>:   Query 1: SELECT * FROM messages WHERE session_id = ? LIMIT 20 OFFSET 0;
+           Query 2: SELECT COUNT(*) FROM messages WHERE session_id = ?; ⚠️ (Costly full scan!)
 
-On a table with tens of millions of chat messages, **the `SELECT COUNT(*)` query triggers an expensive sequence scan on PostgreSQL**, adding hundreds of milliseconds of latency to every single message sent by a user!
-
-### The Solution: `Slice<T>` for Infinite Scroll
-```java
-Slice<ChatMessage> findBySessionId(String sessionId, Pageable pageable);
+Slice<T>:  Query 1: SELECT * FROM messages WHERE session_id = ? LIMIT 21 OFFSET 0;
+           (Zero COUNT(*) queries executed! 10x faster for infinite scroll feeds!)
 ```
-In modern AI chat interfaces (like ChatGPT or Claude), the user does not care about "Page 42 of 87". They simply scroll up to load older messages.
-
-`Slice<T>` solves this by querying `LIMIT (pageSize + 1)`:
-- If you request `size = 20`, Hibernate queries `LIMIT 21`.
-- If 21 rows return, Hibernate discards the 21st row and sets `slice.hasNext() = true`.
-- **ZERO `COUNT(*)` queries are executed!** Your database performance increases by up to 10x!
 
 ```java
-// Pageable instantiation with Sort
+// Production Chat Pagination with Slice<T>
 Pageable pageable = PageRequest.of(0, 20, Sort.by("createdAt").descending());
 Slice<ChatMessage> recentMessages = messageRepository.findBySessionId("sess_101", pageable);
 
 if (recentMessages.hasNext()) {
-    // Show "Load older messages..." button in UI
+    // Renders "Load older messages" in frontend
 }
 ```
 
----
-
-## 7. Dynamic Filtering with Spring Data Specifications
-
-What if your application has an AI Prompt Template Marketplace where users search with any combination of optional filters:
-- Model Family: `"gpt-4o"` (optional)
-- Active Only: `true` (optional)
-- Keyword Search: `"summarize"` (optional)
-- Author: `"alice"` (optional)
-
-If you use method names, you would need $2^4 = 16$ method combinations!
-
-### Enter `JpaSpecificationExecutor<T>`
-Spring Data Specifications are based on the JPA Criteria API, allowing you to combine atomic search predicates dynamically using `and()` and `or()`:
+### 3.5 Dynamic Queries with Spring Data Specifications
+Avoid combinatorial method explosions when users filter prompt templates by multiple optional attributes:
 
 ```java
+package com.javagenai.day22.spec;
+
+import com.javagenai.day22.model.PromptTemplate;
+import org.springframework.data.jpa.domain.Specification;
+
 public class PromptSpecifications {
 
-    public static Specification<PromptTemplate> hasModelFamily(String model) {
+    public static Specification<PromptTemplate> hasModel(String model) {
         return (root, query, cb) -> 
             (model == null || model.isBlank()) ? null : cb.equal(root.get("modelFamily"), model);
     }
@@ -293,31 +231,30 @@ public class PromptSpecifications {
             active == null ? null : cb.equal(root.get("active"), active);
     }
 
-    public static Specification<PromptTemplate> contentContains(String keyword) {
+    public static Specification<PromptTemplate> keywordSearch(String kw) {
         return (root, query, cb) -> 
-            (keyword == null || keyword.isBlank()) ? null : 
-            cb.like(cb.lower(root.get("templateContent")), "%" + keyword.toLowerCase() + "%");
+            (kw == null || kw.isBlank()) ? null : 
+            cb.like(cb.lower(root.get("templateContent")), "%" + kw.toLowerCase() + "%");
     }
 }
 ```
 
-#### Combining in Service Layer
 ```java
+// Composing dynamic queries cleanly in service layer
 Specification<PromptTemplate> spec = Specification
-    .where(PromptSpecifications.hasModelFamily(filter.model()))
+    .where(PromptSpecifications.hasModel(filter.model()))
     .and(PromptSpecifications.isActive(filter.active()))
-    .and(PromptSpecifications.contentContains(filter.keyword()));
+    .and(PromptSpecifications.keywordSearch(filter.keyword()));
 
-Page<PromptTemplate> results = promptRepository.findAll(spec, pageable);
+List<PromptTemplate> results = promptRepository.findAll(spec);
 ```
 
 ---
 
-## 8. Bulk Operations with `@Modifying`
+## 4. Prerequisite & Supporting Concepts
 
-When deleting or updating millions of rows (e.g., soft-deleting conversation histories older than 90 days), loading each entity into memory and calling setters triggers millions of individual SQL UPDATE queries.
-
-Use `@Modifying` with `@Query` to execute a single bulk DML statement in PostgreSQL:
+### Prerequisite / Supporting Concept: Bulk Updates with `@Modifying`
+When executing bulk DML operations (e.g. deleting old conversation logs), bypass the in-memory entity lifecycle and execute direct database updates:
 
 ```java
 @Modifying(clearAutomatically = true)
@@ -325,115 +262,98 @@ Use `@Modifying` with `@Query` to execute a single bulk DML statement in Postgre
 @Query("UPDATE ChatMessage m SET m.deleted = true WHERE m.createdAt < :cutoff")
 int softDeleteMessagesOlderThan(@Param("cutoff") Instant cutoff);
 ```
+> **CRITICAL**: Always set `clearAutomatically = true` to clear the First-Level Cache and prevent stale in-memory entity references from overwriting database updates!
 
-> **IMPORTANT**: Always set `clearAutomatically = true` on `@Modifying` queries. Bulk DML statements execute directly in the database, bypassing Hibernate's Persistence Context. Clearing the Persistence Context prevents stale entities in the First-Level Cache from overriding the updated database state.
+### Prerequisite / Supporting Concept: The Plain English Bridge to Repositories
 
----
-
-## 9. Hands-On Code Walkthrough
-
-In this day's companion code (`Phase_04_Spring_Data_JPA_Database/Day_22_Spring_Data_Repositories_Queries/code/`), we built:
-
-1. **`ChatMessageEntity.java`**: Domain model with `sessionId`, `role`, `content`, `tokenCount`, and `createdAt`.
-2. **`DynamicQuerySimulator.java`**: Simulates Spring Data's internal mechanisms:
-   - Query derivation: `findBySessionIdOrderByCreatedAtAsc`, `findBySessionIdAndRole`, `findByTokenCountBetween`, `countBySessionId`.
-   - Custom JPQL: `sumTokensBySessionId`.
-   - Performance comparison between `Page<T>` (with `COUNT(*)`) vs `Slice<T>` (optimized `LIMIT size + 1`).
-3. **`RepositoryDemo.java`**: Driver executing and logging all 5 query patterns.
+| Repository Concept | What You Did in JDBC | Spring Data Way | Plain English Advantage |
+| :--- | :--- | :--- | :--- |
+| **Basic CRUD** | 50 lines of `INSERT`, `SELECT`, `UPDATE` SQL | Extend `JpaRepository<T, ID>` | Instant CRUD without writing code |
+| **Search Queries** | Manual string concatenation | Method name derivation | Type-safe queries verified at application startup |
+| **Infinite Scroll** | Hand-rolled `LIMIT` and `OFFSET` loops | Return `Slice<T>` | Eliminates the brutal `COUNT(*)` database scan |
+| **Dynamic Search** | 10 `if` statements concatenating SQL | `Specification<T>` | Modular, reusable search filters |
 
 ---
 
-## 10. Step-by-Step Compilation & Execution
+## 5. Advanced Depth (Intermediate → Advanced)
 
-```powershell
-# 1. Navigate to course root
-cd "c:\Users\sriva\OneDrive\Desktop\GEN AI COURSE\JAVA"
+### 5.1 Keyset Pagination (Cursor-Based) vs. Offset Pagination
+Standard `OFFSET` pagination degrades significantly as the offset increases (e.g. `OFFSET 100000` forces PostgreSQL to scan and discard 100,000 rows).
 
-# 2. Compile Day 22 code
-javac Phase_04_Spring_Data_JPA_Database/Day_22_Spring_Data_Repositories_Queries/code/*.java
-
-# 3. Execute the Repository demo
-java -cp Phase_04_Spring_Data_JPA_Database/Day_22_Spring_Data_Repositories_Queries code.RepositoryDemo
-```
-
-### Verified Output
-
-```
-================================================================================
- DAY 22: SPRING DATA REPOSITORIES, METHOD DERIVATION, JPQL & PAGINATION         
-================================================================================
-
---- SCENARIO 1: Method Name Derived Query (Chronological Chat History) ---
-  [Spring Data Derived Query] Executing: SELECT * FROM chat_messages WHERE session_id = 'sess_ai_101' ORDER BY created_at ASC
- Retrieved 5 messages for session 'sess_ai_101':
-   ChatMessageEntity[id=1, session='sess_ai_101', role=SYSTEM, tokens=14, text='You are an expert Spring Bo...']
-   ChatMessageEntity[id=2, session='sess_ai_101', role=USER, tokens=11, text='How does Spring Data genera...']
-   ChatMessageEntity[id=3, session='sess_ai_101', role=ASSISTANT, tokens=19, text='Spring Data parses the meth...']
-   ChatMessageEntity[id=4, session='sess_ai_101', role=USER, tokens=9, text='What is the difference betw...']
-   ChatMessageEntity[id=5, session='sess_ai_101', role=ASSISTANT, tokens=18, text='Page executes a count query...']
-
---- SCENARIO 2: Multi-Criteria Derived Query (Only USER Messages) ---
-  [Spring Data Derived Query] Executing: SELECT * FROM chat_messages WHERE session_id = 'sess_ai_101' AND role = 'USER'
- Found 2 user messages:
-   ChatMessageEntity[id=2, session='sess_ai_101', role=USER, tokens=11, text='How does Spring Data genera...']
-   ChatMessageEntity[id=4, session='sess_ai_101', role=USER, tokens=9, text='What is the difference betw...']
-
---- SCENARIO 3: Custom JPQL Aggregation (Token Sum by Session) ---
-  [Custom @Query JPQL] Executing: SELECT COALESCE(SUM(m.tokenCount), 0) FROM ChatMessageEntity m WHERE m.sessionId = :sessionId
-  [Spring Data Derived Query] Executing: SELECT COUNT(*) FROM chat_messages WHERE session_id = 'sess_ai_101'
- Session 'sess_ai_101' Stats: Total Messages = 5, Total Tokens Consumed = 71
-
---- SCENARIO 4: Standard Page<T> Pagination (Page size = 2) ---
-  [Spring Data Page<T>] Query 1: SELECT * FROM chat_messages WHERE session_id = 'sess_ai_101' LIMIT 2 OFFSET 0
-  [Spring Data Page<T>] Query 2 (Heavy!): SELECT COUNT(*) FROM chat_messages WHERE session_id = 'sess_ai_101'
- Page 0 Results:
-   Total Elements: 5
-   Total Pages: 3
-   Has Next Page? true
-
---- SCENARIO 5: High-Performance Slice<T> Pagination (Zero COUNT(*) Overhead) ---
-  [Spring Data Slice<T>] Optimized Single Query (ZERO COUNT(*)): SELECT * FROM chat_messages WHERE session_id = 'sess_ai_101' LIMIT 3 OFFSET 0
- Slice 0 Results (Ideal for AI chat infinite scroll):
-   Items in slice: 2
-   Has Next Page (without executing COUNT(*))? true
-```
-
----
-
-## 11. Hands-On Exercises (With Complete Solutions)
-
-### Exercise 1: Keyset Pagination for Infinite Chat History
-**Task**: Standard `OFFSET` pagination degrades in performance as `OFFSET` grows large (e.g. `OFFSET 100000`). Write a Spring Data repository method using **Keyset Pagination** (seeking by `id < :lastSeenId`) that fetches the previous 20 messages with $O(1)$ index lookup speed.
-
-#### Solution:
+#### Solution: Keyset Pagination ($O(1)$ Speed)
+Seek directly by indexed primary key:
 ```java
-@Repository
-public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
-
-    @Query("""
-        SELECT m FROM ChatMessage m
-        WHERE m.sessionId = :sessionId
-          AND (:lastSeenId IS NULL OR m.id < :lastSeenId)
-        ORDER BY m.id DESC
-        LIMIT :limit
-    """)
-    List<ChatMessage> findChatHistoryKeyset(
-        @Param("sessionId") String sessionId,
-        @Param("lastSeenId") Long lastSeenId,
-        @Param("limit") int limit
-    );
-}
+@Query("""
+    SELECT m FROM ChatMessage m
+    WHERE m.sessionId = :sessionId
+      AND (:lastSeenId IS NULL OR m.id < :lastSeenId)
+    ORDER BY m.id DESC
+    LIMIT :limit
+""")
+List<ChatMessage> findChatHistoryKeyset(
+    @Param("sessionId") String sessionId,
+    @Param("lastSeenId") Long lastSeenId,
+    @Param("limit") int limit
+);
 ```
+
+### 5.2 Common Mistakes & Misconceptions
+
+#### Mistake 1: Using `Page<T>` on High-Volume Chat History Tables
+Using `Page<T>` on tables with millions of chat messages forces a `SELECT COUNT(*)` on every request, creating severe database latency bottlenecks. Always use `Slice<T>` or Keyset Pagination for chat logs.
+
+#### Mistake 2: Forgetting `clearAutomatically = true` on `@Modifying` Queries
+Executing `@Modifying` updates without clearing the Persistence Context leaves stale entities inside Hibernate's L1 cache, causing subsequent queries in the same transaction to return outdated state.
 
 ---
 
-### Exercise 2: Native PostgreSQL pgvector Cosine Search Query
-**Task**: Write a native query method in `DocumentChunkRepository` that calculates cosine distance (`<=>`) against a query vector and returns chunks with similarity above a threshold.
+## 6. Quick Recap
 
-#### Solution:
+| Technique | Construct | Performance Characteristics | Enterprise AI Role |
+| :--- | :--- | :--- | :--- |
+| **Derived Queries** | Method name DSL | Parsed at startup; type-safe | Fetching session messages by timestamp |
+| **Custom JPQL** | `@Query("SELECT ...")` | Portable object queries | Summing token consumption per user |
+| **Native Query** | `@Query(nativeQuery=true)`| Raw SQL dialect access | Executing pgvector `<=>` similarity search |
+| **`Slice<T>`** | `Pageable` input | Executes `LIMIT size + 1`; NO COUNT(*) | High-speed infinite-scroll chat streams |
+| **Specification** | `JpaSpecificationExecutor`| Dynamic JPA Criteria builder | Multi-attribute prompt marketplace filtering |
+| **Bulk DML** | `@Modifying` | Single SQL update statement | Archiving or purging expired chat messages |
+
+---
+
+## 7. Self-Check Questions & Practice Exercises
+
+### Self-Check Questions
+
+1. **Why is `Slice<T>` preferred over `Page<T>` for paginating AI chat messages?**
+   - *Answer*: `Page<T>` executes two SQL queries: the data query and an expensive `SELECT COUNT(*)` query. `Slice<T>` queries `LIMIT size + 1` in a single query with zero count overhead, eliminating database table scan bottlenecks during infinite scrolling.
+2. **What is the difference between JPQL and Native SQL in Spring Data?**
+   - *Answer*: JPQL operates on Java entity classes and attributes, providing vendor-neutral, portable queries. Native SQL (`nativeQuery = true`) executes raw database dialect queries, allowing access to vendor-specific features like PostgreSQL's `pgvector` or `JSONB`.
+3. **Why must `@Modifying(clearAutomatically = true)` be configured on bulk update queries?**
+   - *Answer*: Because bulk DML queries execute directly in the database, bypassing Hibernate's in-memory Persistence Context. Clearing the context prevents stale entities in the L1 Cache from overwriting updated database records.
+4. **How does Spring Data generate repository query implementations without developer code?**
+   - *Answer*: At application startup, Spring Data inspects repository interfaces and generates dynamic runtime bytecode proxies (backed by `SimpleJpaRepository`) registered as Spring beans.
+5. **How does Keyset Pagination outperform Offset Pagination on massive datasets?**
+   - *Answer*: Offset pagination forces the database to read and discard all rows up to the offset value ($O(N)$). Keyset pagination seeks directly to indexed primary keys (`WHERE id < :lastSeenId`) in $O(1)$ constant time.
+
+---
+
+### Hands-On Practice Exercises
+
+#### 🏋️ Exercise 1: Build a Native pgvector Cosine Similarity Repository Query
+**Objective**: Construct a repository method executing a native PostgreSQL query that computes cosine distance (`<=>`) against an embedding vector and returns the top-K nearest document chunks:
+
 ```java
+package com.javagenai.day22;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
 @Repository
-public interface DocumentChunkRepository extends JpaRepository<DocumentChunk, Long> {
+public interface DocumentChunkRepository extends JpaRepository<DocumentChunkEntity, Long> {
 
     @Query(
         value = """
@@ -446,7 +366,7 @@ public interface DocumentChunkRepository extends JpaRepository<DocumentChunk, Lo
         """,
         nativeQuery = true
     )
-    List<DocumentChunk> searchSimilarChunks(
+    List<DocumentChunkEntity> searchSimilarChunks(
         @Param("docId") String docId,
         @Param("queryVector") String queryVector,
         @Param("minSimilarity") double minSimilarity,
@@ -455,13 +375,19 @@ public interface DocumentChunkRepository extends JpaRepository<DocumentChunk, Lo
 }
 ```
 
----
+#### 🏋️ Exercise 2: Build a Dynamic Token Audit Specification
+**Objective**: Build a Spring Data Specification that filters token usage ledgers dynamically by user ID, date range, and model family:
 
-### Exercise 3: Dynamic Specification for Token Consumption Audits
-**Task**: Build a Specification that dynamically filters token ledger records by `userId`, date range (`from` and `to`), and model name.
-
-#### Solution:
 ```java
+package com.javagenai.day22;
+
+import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.jpa.domain.Specification;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+
 public class TokenAuditSpecifications {
 
     public static Specification<TokenAuditRecord> filterAudits(
@@ -473,13 +399,13 @@ public class TokenAuditSpecifications {
                 predicates.add(cb.equal(root.get("userId"), userId));
             }
             if (from != null) {
-                predicates.add(cb.greaterThanOrEqualTo(root.get("timestamp"), from));
+                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), from));
             }
             if (to != null) {
-                predicates.add(cb.lessThanOrEqualTo(root.get("timestamp"), to));
+                predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), to));
             }
             if (modelName != null && !modelName.isBlank()) {
-                predicates.add(cb.equal(root.get("modelName"), modelName));
+                predicates.add(cb.equal(root.get("modelFamily"), modelName));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));
@@ -490,40 +416,6 @@ public class TokenAuditSpecifications {
 
 ---
 
-## 12. Self-Check Quiz
-
-### Q1: Why is `Slice<T>` preferred over `Page<T>` when paginating chat messages in AI conversation feeds?
-> **Answer**: `Page<T>` executes two SQL statements: the data retrieval query and a heavy `SELECT COUNT(*)` query to calculate total elements and total pages. On large tables, `COUNT(*)` performs an expensive full table or index scan. `Slice<T>` queries `LIMIT (pageSize + 1)` in a single query with zero `COUNT(*)` overhead, providing fast, responsive infinite scrolling.
-
-### Q2: What is the difference between JPQL and Native SQL in `@Query`?
-> **Answer**: JPQL operates on Java entity classes and attributes (`SELECT p FROM PromptTemplate p WHERE p.active = true`). It is vendor-independent and type-safe across different relational engines. Native SQL (`nativeQuery = true`) executes raw database dialect SQL (e.g. PostgreSQL), allowing the use of vendor-specific extensions such as `JSONB`, `vector`, and specialized text functions.
-
-### Q3: Why is `clearAutomatically = true` essential on `@Modifying` repository queries?
-> **Answer**: `@Modifying` queries execute bulk DML (`UPDATE` or `DELETE`) statements directly against the database, bypassing Hibernate's in-memory Persistence Context. If `clearAutomatically = true` is omitted, existing managed entities in the First-Level Cache will retain stale in-memory field values, leading to data inconsistency.
-
-### Q4: How does Spring Data implement repository interfaces without developer-written implementation classes?
-> **Answer**: At application startup during Spring context initialization, Spring Data inspects all interfaces extending `Repository`. It dynamically creates runtime Java reflection proxies (`JdkDynamicAopProxy` / ByteBuddy) backed by `SimpleJpaRepository` and registers them as Spring beans.
-
-### Q5: What keyword in Spring Data derived queries allows retrieving only unique model names?
-> **Answer**: `findDistinctModelFamilyBy()` or `findDistinctBy...`.
-
----
-
-## 13. Day 22 Wrap-Up & What's Next
-
-You've just unlocked one of the greatest developer superpowers in the modern Java world!
-
-Here is what you learned today:
-- **`JpaRepository` eliminates boilerplate**: Extending `JpaRepository<T, ID>` gives you full CRUD operations without writing any SQL.
-- **Derived Queries**: Naming your method `findByUserIdOrderByCreatedAtDesc(...)` makes Spring write the exact SQL query at startup.
-- **`Slice<T>` over `Page<T>`**: When building real-time AI feeds with infinite scroll, `Slice<T>` avoids the brutal `COUNT(*)` database scan that can freeze large tables.
-- **Specifications**: Create dynamic search queries with flexible `if` conditions in pure Java code.
-
-### What's Coming Up Next?
-So far, each entity has lived alone on its own island. But real-world AI applications are all about connections:
-- A `ChatSession` has many `ChatMessages`.
-- A `KnowledgeDocument` has many `DocumentChunks`.
-- A `User` has many `PromptTemplates`.
-
-Tomorrow, in **[Day 23: Entity Relationships & Fetch Strategies (`@OneToMany`, `@ManyToOne`, N+1 Problem, `JOIN FETCH`)](../Day_23_Entity_Relationships_Fetch_Strategies/Day_23_Entity_Relationships_Fetch_Strategies.md)**, we'll learn how to connect entities together and avoid the dreaded **N+1 Query Problem** that secretly slows down production apps. You're doing amazing—see you in Day 23!
-
+| ⬅️ Previous Day | 📚 Course Hub | ➡️ Next Day |
+|:---|:---:|---:|
+| [← Day 21: JPA & Hibernate Foundations](../Day_21_JPA_Hibernate_Foundations/Day_21_JPA_Hibernate_Foundations.md) | [All 60 Days Overview](../../README.md) | [Day 23: Entity Relationships & Fetch Strategies →](../Day_23_Entity_Relationships_Fetch_Strategies/Day_23_Entity_Relationships_Fetch_Strategies.md) |

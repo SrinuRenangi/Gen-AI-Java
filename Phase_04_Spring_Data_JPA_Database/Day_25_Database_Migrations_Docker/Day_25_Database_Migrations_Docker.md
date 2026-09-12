@@ -1,175 +1,155 @@
-# Day 25: Database Migrations (Flyway) & Docker
+# Day 25: Database Migrations with Flyway & Docker Infrastructure
 
-> **"Allowing Hibernate to modify your production database schema with `ddl-auto=update` is like letting a robot painter repaint your living room in the dark: it might look acceptable at first glance, but eventually it destroys your furniture. In production, database schemas are version-controlled, immutable code managed via Flyway."**
-
----
-
-| Previous Day | Course Hub | Next Day |
-|:---|:---:|---:|
-| [Day 24: Transactions, Concurrency & Auditing](../Day_24_Transactions_Concurrency_Auditing/Day_24_Transactions_Concurrency_Auditing.md) | [All 60 Days Overview](../../README.md) | [Day 26: PostgreSQL pgvector — Your Vector Database](../Day_26_PostgreSQL_pgvector_Vector_Database/Day_26_PostgreSQL_pgvector_Vector_Database.md) |
+[<- Back to Day 24: Transactions & Auditing](../Day_24_Transactions_Concurrency_Auditing/Day_24_Transactions_Concurrency_Auditing.md) | [Course Index](../../README.md) | [Next: Day 26 - PostgreSQL pgvector ->](../Day_26_PostgreSQL_pgvector_Vector_Database/Day_26_PostgreSQL_pgvector_Vector_Database.md)
 
 ---
 
-## Friendly Welcome: Git for Your Database & Painless Docker
+## 1. Topic Overview
 
-Hey there, friend! Welcome to Day 25.
-
-Have you ever wondered how engineering teams at Netflix, Spotify, or OpenAI upgrade their database schemas across hundreds of servers without losing customer data or causing downtime?
-
-Up until now, we've relied on Hibernate's `ddl-auto=update` setting. While that's convenient for quick afternoon experiments, in a real company, **doing that in production is strictly forbidden**. If Hibernate automatically drops or alters a column in a production table holding 10 million chat records, you can't hit "Undo"!
-
-Today, we are going to learn the professional way to manage databases:
-1. **Flyway**: An automated database migration tool that acts like **Git commits for your database**. Every table creation or column addition is written as a numbered, versioned SQL script (`V1__init.sql`, `V2__add_users.sql`).
-2. **Docker & Docker Compose**: Instead of spending two days struggling to install PostgreSQL and compile the `pgvector` AI extension natively on your laptop, Docker spins up a complete, isolated database container in 30 seconds with one simple command!
+Database schema migration tools like Flyway manage version-controlled, repeatable, and automated database changes alongside your application code, while Docker containerizes databases and local AI services (like pgvector and Ollama) into uniform, reproducible runtime environments. In enterprise AI systems, these tools eliminate schema drift across development, staging, and production clusters, ensuring vector tables, metadata indexes, and chat histories deploy deterministically without catastrophic downtime.
 
 ---
 
-> 💡 **New Word Alert! Key Concepts for Today**
->
-> - **Database Migration**: A step-by-step, versioned SQL script that safely evolves your database schema from one version to the next.
-> - **Flyway**: An open-source database migration tool. When your Spring Boot app starts, Flyway checks a table called `flyway_schema_history`, sees which SQL files haven't run yet, and applies them one by one in exact numerical order.
-> - **Checksum (SHA-256)**: A digital fingerprint of each migration file. If a developer secretly edits an old migration script after it has already run, Flyway detects that the fingerprint changed and halts application startup to prevent corrupting your environments!
-> - **Docker Container**: An isolated, lightweight runtime environment that packages an application (like PostgreSQL or an AI model) and all its dependencies. It runs identically on your laptop, a teammate's MacBook, and AWS cloud servers.
-> - **Docker Compose (`docker-compose.yml`)**: A single configuration file that lets you define and launch multiple services (like PostgreSQL + pgvector + Ollama) all at once with `docker compose up -d`.
+## 2. Basic Foundations (True Zero)
 
----
+### What is a Database Migration?
+In early development, developers often rely on Hibernate's `spring.jpa.hibernate.ddl-auto=update` to automatically create and alter database tables. However, in enterprise production environments, `ddl-auto=update` is dangerous:
+- It can drop columns unexpectedly.
+- It cannot reliably rename columns without dropping and recreating them (destroying data).
+- It offers zero audit trail of who modified the schema, when, and why.
+- Multiple application instances booting simultaneously can execute conflicting DDL statements.
 
-## Table of Contents
-
-1. [Why This Day Matters for a 3-Year Enterprise Gen AI Engineer](#1-why-this-day-matters-for-a-3-year-enterprise-gen-ai-engineer)
-2. [Real-World Analogy: Git Version Control for Relational Databases](#2-real-world-analogy-git-version-control-for-relational-databases)
-3. [The Dangers of `ddl-auto=update` in Production](#3-the-dangers-of-ddl-autoupdate-in-production)
-4. [Flyway Architecture & Naming Conventions](#4-flyway-architecture--naming-conventions)
-   - [Versioned Migrations (`V`)](#versioned-migrations-v)
-   - [Repeatable Migrations (`R`)](#repeatable-migrations-r)
-   - [The `flyway_schema_history` Table](#the-flyway_schema_history-table)
-   - [Checksums & Immutability Rules](#checksums--immutability-rules)
-5. [Designing Real Gen AI Schema Migrations with `pgvector`](#5-designing-real-gen-ai-schema-migrations-with-pgvector)
-6. [Containerizing the AI Platform: Docker & Multi-Stage Builds](#6-containerizing-the-ai-platform-docker--multi-stage-builds)
-7. [Enterprise `docker-compose.yml`: PostgreSQL + pgvector + Ollama](#7-enterprise-docker-composeyml-postgresql--pgvector--ollama)
-8. [Hands-On Code Walkthrough](#8-hands-on-code-walkthrough)
-9. [Step-by-Step Compilation & Execution](#9-step-by-step-compilation--execution)
-10. [Hands-On Exercises (With Complete Solutions)](#10-hands-on-exercises-with-complete-solutions)
-11. [Self-Check Quiz](#11-self-check-quiz)
-12. [Day 25 Wrap-Up & What's Next](#12-day-25-wrap-up--whats-next)
-
----
-
-## 1. Why This Day Matters for a 3-Year Enterprise Gen AI Engineer
-
-When building enterprise AI backends, your database requirements go far beyond standard tables:
-- You must enable specialized PostgreSQL extensions like **`vector` (pgvector)**.
-- You must build high-dimensional **HNSW (Hierarchical Navigable Small World)** vector indexes.
-- You must create `JSONB` columns with GIN indexes for unstructured document metadata.
-- You must coordinate database upgrades across multiple Kubernetes pods without causing race conditions or downtime.
-
-### The Production Traps
-1. **Hibernate Cannot Create Extensions or HNSW Indexes**: Hibernate's `@Table` and `@Column` annotations have no concept of `CREATE EXTENSION IF NOT EXISTS vector;` or `USING hnsw (embedding vector_cosine_ops)`. You **must** write native SQL DDL.
-2. **The Multi-Pod Startup Race Condition**: When you deploy a new version to Kubernetes with 10 replicas, all 10 pods boot simultaneously. If each pod attempts to alter tables, they lock each other out or corrupt the database catalog. Flyway uses a **distributed table lock** on `flyway_schema_history` so exactly one pod executes the migration while the other 9 wait safely.
-3. **Local Development Friction**: Requiring new team members to install PostgreSQL, build `pgvector` from C source code, and install Ollama locally takes 2 days of onboarding. With **Docker Compose**, running `docker-compose up -d` brings up the entire infrastructure in 30 seconds!
-
----
-
-## 2. Real-World Analogy: Git Version Control for Relational Databases
+A **database migration tool** treats your database schema as version-controlled code. Every alteration—creating tables, adding columns, modifying foreign keys, or creating vector indexes—is written as an immutable SQL script checked into Git (e.g., `V1__init_schema.sql`, `V2__add_vector_column.sql`).
 
 ```
-GIT CODE REPOSITORY:                         FLYWAY SCHEMA MIGRATIONS:
-Commit 1: git commit -m "init app"           V1__init_conversations.sql
-Commit 2: git commit -m "add auth"           V2__add_users_and_tokens.sql
-Commit 3: git commit -m "add vector"         V3__enable_pgvector_and_chunks.sql
-                │                                            │
-                ▼                                            ▼
-Commit SHA: 7a8b9c...                        Checksum: 125373262 (SHA-256)
-If you rewrite history with git rebase:      If you edit an old migration file:
-Teammates' branches break!                   Flyway halts startup: CHECKSUM MISMATCH!
++-----------------------------------------------------------------------------------+
+|                            THE ARCHITECT'S ANALOGY                                |
+|                                                                                   |
+| Imagine building a skyscraper. You cannot simply remodel structural beams on a   |
+| whim while tenants are living inside. Instead, architects produce numbered,       |
+| stamped blueprints (Revision 1, Revision 2, Revision 3).                          |
+|                                                                                   |
+| The city inspector keeps a strict ledger recording every stamped revision that has|
+| been applied to the building. If a contractor attempts to secretly alter Revision |
+| 1 after it was already inspected and built, the inspector flags a violation and   |
+| halts construction immediately!                                                   |
+|                                                                                   |
+| Flyway is the city inspector; its SQL scripts are the stamped blueprints; and     |
+| `flyway_schema_history` is the immutable city ledger.                            |
++-----------------------------------------------------------------------------------+
 ```
 
-Flyway brings the discipline of **Git commits** to relational database schemas:
-- Every schema change is recorded as an immutable, timestamped SQL script.
-- The database knows its exact version number.
-- Every developer, CI test runner, staging server, and production cluster runs through the identical sequence of SQL scripts.
+### Minimal Beginner-Friendly Working Code Example
+
+Below is a minimal Java simulation of how Flyway computes an immutable checksum, records migrations in a schema history table, and locks during execution.
+
+```java
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.*;
+
+public class BasicFlywayExample {
+
+    // Simulates an entry in the flyway_schema_history table
+    record SchemaHistoryEntry(int rank, String version, String script, String checksum, boolean success) {}
+
+    public static void main(String[] args) throws Exception {
+        // 1. Immutable ledger representing the database table
+        List<SchemaHistoryEntry> schemaHistory = new ArrayList<>();
+
+        // 2. Migration script file content in src/main/resources/db/migration/
+        String scriptName = "V1__init_chat_schema.sql";
+        String scriptSql = "CREATE TABLE chat_sessions (id BIGSERIAL PRIMARY KEY, user_id VARCHAR(64) NOT NULL);";
+
+        // 3. Compute SHA-256 Checksum
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        byte[] hash = digest.digest(scriptSql.getBytes(StandardCharsets.UTF_8));
+        String calculatedChecksum = HexFormat.of().formatHex(hash);
+
+        System.out.println("Applying Migration: " + scriptName);
+        System.out.println("Calculated Checksum: " + calculatedChecksum);
+
+        // 4. Record execution in the ledger
+        schemaHistory.add(new SchemaHistoryEntry(1, "1", scriptName, calculatedChecksum, true));
+
+        System.out.println("Migration Record Inserted into flyway_schema_history:");
+        System.out.println("  Rank: " + schemaHistory.get(0).rank());
+        System.out.println("  Version: " + schemaHistory.get(0).version());
+        System.out.println("  Checksum: " + schemaHistory.get(0).checksum().substring(0, 16) + "...");
+    }
+}
+```
+
+#### Line-by-Line Walkthrough:
+- **Lines 7–8**: Defines `SchemaHistoryEntry`, a Java Record mirroring the primary columns of Flyway's `flyway_schema_history` metadata table (`installed_rank`, `version`, `script`, `checksum`, `success`).
+- **Line 12**: Creates an in-memory list acting as our database history ledger.
+- **Lines 15–16**: Represents a standard Flyway versioned migration file name (`V1__init_chat_schema.sql`) and its raw DDL content.
+- **Lines 19–21**: Uses `MessageDigest` to calculate a deterministic SHA-256 hash of the script text. If a single whitespace or character changes later, this hash changes.
+- **Line 27**: Inserts a confirmed migration record into `schemaHistory`. On subsequent boots, Flyway reads this row, recalculates the file checksum, and skips re-execution.
 
 ---
 
-## 3. The Dangers of `ddl-auto=update` in Production
+## 3. Core Concept Walkthrough (Basic → Intermediate)
 
-In beginner tutorials, Spring Boot sets:
-```properties
-# ❌ NEVER USE IN PRODUCTION!
-spring.jpa.hibernate.ddl-auto=update
-```
+### Flyway File Naming Conventions
 
-### Why Senior Engineers Ban `ddl-auto=update`:
-1. **It Never Drops Columns**: If you rename a field from `modelName` to `modelFamily`, Hibernate does not rename the column. It creates a brand-new column `model_family` and leaves `model_name` full of stale data.
-2. **No Rollback Capability**: If an update fails midway, there is no migration history or rollback script.
-3. **Destructive on Refactoring**: A subtle typo in an entity class can alter column types or drop foreign key constraints silently.
-4. **No Version Tracking**: You cannot tell if your staging database matches your production database schema.
-
-### The Production Standard:
-```properties
-# Disable Hibernate schema manipulation
-spring.jpa.hibernate.ddl-auto=validate
-
-# Enable Flyway
-spring.flyway.enabled=true
-spring.flyway.baseline-on-migrate=true
-spring.flyway.locations=classpath:db/migration
-```
-
----
-
-## 4. Flyway Architecture & Naming Conventions
-
-Flyway scans the `src/main/resources/db/migration/` directory for SQL scripts matching strict naming rules:
+Flyway discovers migration files on the classpath (default: `classpath:db/migration`). Filenames must follow strict formatting rules:
 
 ```
-    V1_2__add_vector_embeddings.sql
-    │ ──┘ └───────────────────────┘
-  Type Version      Description
+    V1__init_chat_schema.sql
+    ^ ^  ^
+    | |  +--- Description (underscores become spaces: "init chat schema")
+    | +------ Double underscore separator (MANDATORY)
+    +-------- Type prefix ('V' = Versioned, 'R' = Repeatable, 'U' = Undo, 'B' = Baseline)
 ```
 
-### 1. Versioned Migrations (`V`)
-- Prefix: **`V`**
-- Version: Numbers separated by dots or underscores (`V1__`, `V1_1__`, `V2026_09_09__`).
-- Separator: **Two underscores `__`** (Single underscore causes syntax errors!).
-- Description: Words separated by underscores (e.g. `init_chat_schema`).
-- Extension: `.sql`.
-- **Rule**: Executed **exactly once** in strict version order. **Immutable forever**.
-
-### 2. Repeatable Migrations (`R`)
-- Prefix: **`R__`**
-- No version number (e.g. `R__recreate_prompt_stats_view.sql`).
-- Re-executed **whenever their SHA-256 checksum changes**.
-- Ideal for database views, stored procedures, and triggers.
+```
++--------+------------------+-------------------+---------------------------------------------------+
+| Prefix | Type             | Example           | Behavior & Use Case                               |
++--------+------------------+-------------------+---------------------------------------------------+
+|   V    | Versioned        | V1_1__chunks.sql  | Executed exactly ONCE in strict numerical order.  |
+|        |                  |                   | Content is IMMUTABLE once applied.                |
++--------+------------------+-------------------+---------------------------------------------------+
+|   R    | Repeatable       | R__rag_views.sql  | Re-executed whenever its SHA-256 checksum changes. |
+|        |                  |                   | Ideal for stored procedures, functions, views.    |
++--------+------------------+-------------------+---------------------------------------------------+
+|   B    | Baseline         | B1__prod_v1.sql   | Marks an existing production database state.      |
++--------+------------------+-------------------+---------------------------------------------------+
+|   U    | Undo (Teams/Pro) | U1__drop_chat.sql | Rollback script to revert the versioned change.   |
++--------+------------------+-------------------+---------------------------------------------------+
+```
 
 ---
 
 ### The `flyway_schema_history` Table
 
-On its first run, Flyway automatically creates a metadata table in PostgreSQL:
+On its first run against an empty database, Flyway automatically creates a metadata table named `flyway_schema_history`:
 
-| installed_rank | version | description | type | script | checksum | installed_by | installed_on | success |
-| :---: | :---: | :--- | :---: | :--- | :---: | :--- | :--- | :---: |
-| 1 | 1 | init_conversations | SQL | V1__init_conversations.sql | 125373262 | postgres | 2026-09-09 14:00 | true |
-| 2 | 2 | enable_pgvector | SQL | V2__enable_pgvector.sql | 139557369 | postgres | 2026-09-09 14:01 | true |
+```
++----------------+---------+-----------------------+------+--------------------------+-----------+--------------+------------------+---------+
+| installed_rank | version | description           | type | script                   | checksum  | installed_by | installed_on     | success |
++----------------+---------+-----------------------+------+--------------------------+-----------+--------------+------------------+---------+
+| 1              | 1       | init conversations    | SQL  | V1__init_conversations.sql| 125373262 | postgres     | 2026-09-09 14:00 | true    |
+| 2              | 2       | enable pgvector       | SQL  | V2__enable_pgvector.sql   | 139557369 | postgres     | 2026-09-09 14:01 | true    |
++----------------+---------+-----------------------+------+--------------------------+-----------+--------------+------------------+---------+
+```
+
+When Spring Boot boots:
+1. Flyway acquires an exclusive distributed lock on `flyway_schema_history`.
+2. It queries all applied migrations from `flyway_schema_history`.
+3. It scans `classpath:db/migration` for migration scripts.
+4. For all previously applied migrations, it validates that the file checksum matches the stored checksum in the table.
+5. If any checksum differs, **startup fails immediately** (`FlywayValidateException`).
+6. For any new version scripts greater than the highest applied version, it executes them inside a transaction and inserts a new history row.
+7. Flyway releases the lock and hands control over to Hibernate/Spring Data JPA.
 
 ---
 
-### Checksums & Immutability Rules
+### Designing Gen AI Migrations with `pgvector`
 
-Flyway calculates a **SHA-256 checksum** for each migration file when it is applied.
-- If a developer later edits `V1__init_conversations.sql` to change `VARCHAR(64)` to `VARCHAR(128)`, the new file's checksum will not match the checksum stored in `flyway_schema_history`.
-- On application boot, Flyway detects the mismatch and **immediately aborts startup with an exception**:
-  `FlywayValidateException: Migration checksum mismatch for migration version 1`
-- **The Golden Rule**: Never edit an already applied migration script. Always create a **new version** (`V3__increase_user_id_length.sql`).
+Here are production-ready Flyway migration scripts used in an enterprise AI platform.
 
----
-
-## 5. Designing Real Gen AI Schema Migrations with `pgvector`
-
-Here is what production Flyway scripts look like in an enterprise AI platform:
-
-### `src/main/resources/db/migration/V1__init_chat_schema.sql`
+#### Migration 1: `src/main/resources/db/migration/V1__init_chat_schema.sql`
 ```sql
 -- 1. Conversation Sessions
 CREATE TABLE conversation_sessions (
@@ -199,7 +179,7 @@ CREATE TABLE chat_messages (
 CREATE INDEX idx_messages_session_id ON chat_messages(session_id);
 ```
 
-### `src/main/resources/db/migration/V2__enable_pgvector_and_chunks.sql`
+#### Migration 2: `src/main/resources/db/migration/V2__enable_pgvector_and_chunks.sql`
 ```sql
 -- Enable PostgreSQL vector extension (provided by pgvector)
 CREATE EXTENSION IF NOT EXISTS vector;
@@ -227,14 +207,9 @@ CREATE INDEX idx_chunks_doc_id ON document_chunks(document_id);
 
 ---
 
-## 6. Containerizing the AI Platform: Docker & Multi-Stage Builds
+### Containerizing the AI Platform: Multi-Stage Docker Build
 
-A production Docker container must be:
-1. **Lightweight**: Exclude Maven, source code, and build tools from the final image.
-2. **Secure**: Run as an unprivileged user, not `root`.
-3. **JVM Optimized**: Tuned for container memory limits and Java 21 Virtual Threads.
-
-### Production Multi-Stage `Dockerfile`
+A production Docker container for Spring Boot AI services must be lightweight, secure, and tuned for container cgroups:
 
 ```dockerfile
 # ==============================================================================
@@ -243,13 +218,13 @@ A production Docker container must be:
 FROM eclipse-adoptium:21-jdk-alpine AS builder
 WORKDIR /workspace
 
-# Cache dependencies
+# Cache dependencies layer
 COPY pom.xml .
 COPY .mvn .mvn
 COPY mvnw .
 RUN ./mvnw dependency:go-offline -B
 
-# Build executable JAR
+# Build executable JAR without running tests during image packaging
 COPY src src
 RUN ./mvnw clean package -DskipTests
 
@@ -259,14 +234,14 @@ RUN ./mvnw clean package -DskipTests
 FROM eclipse-adoptium:21-jre-alpine
 WORKDIR /app
 
-# Security: Create unprivileged user
+# Security: Create and switch to an unprivileged user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 
-# Copy JAR from builder stage
+# Copy built JAR from builder stage
 COPY --from=builder /workspace/target/*.jar app.jar
 
-# JVM Container Flags: MaxRAMPercentage ensures JVM respects Docker memory limits
+# JVM Container Flags: Respect container memory limits and use G1GC
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -Djava.security.egd=file:/dev/./urandom"
 
 EXPOSE 8080
@@ -276,9 +251,9 @@ ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
 
 ---
 
-## 7. Enterprise `docker-compose.yml`: PostgreSQL + pgvector + Ollama
+### Multi-Service Docker Compose: PostgreSQL + pgvector + Ollama
 
-To develop, test, and run locally without installing anything on your host machine:
+To develop and test full-stack AI workflows locally without host installations:
 
 ```yaml
 version: '3.8'
@@ -307,7 +282,7 @@ services:
       - ai-network
 
   # ----------------------------------------------------------------------------
-  # Ollama: Run open-weight LLMs locally (llama3.2, nomic-embed-text)
+  # Ollama: Local Open-Weights LLM & Embedding Server
   # ----------------------------------------------------------------------------
   ollama:
     image: ollama/ollama:latest
@@ -350,38 +325,106 @@ networks:
 
 ---
 
-## 8. Hands-On Code Walkthrough
+## 4. Prerequisite & Supporting Concepts
 
-In this day's companion code (`Phase_04_Spring_Data_JPA_Database/Day_25_Database_Migrations_Docker/code/`), we built:
+### Prerequisite / Supporting Concept: Distributed Database Locking
+When multiple replicas or Kubernetes pods of a Spring Boot microservice boot up simultaneously, they all attempt to run database migrations at the exact same millisecond. Without synchronization, duplicate tables, deadlocks, and corrupted schemas occur.
 
-1. **`FlywayMigrationSimulator.java`**: Simulates Flyway's core migration engine:
-   - Manages `flyway_schema_history` table.
-   - Calculates SHA-256 script checksums.
-   - Applies versioned scripts (`V1`, `V2`).
-   - Detects script tampering and throws exceptions if history was altered.
-   - Implements distributed migration table locks.
-2. **`MigrationDemo.java`**: Driver executing 3 critical scenarios:
-   - Scenario 1: Initial cold boot applying `V1` and `V2` (with pgvector).
-   - Scenario 2: Idempotent warm reboot (0 migrations applied).
-   - Scenario 3: Tamper detection when a developer modifies an old migration file.
+Flyway solves this by executing database-level table locks (e.g., `LOCK TABLE flyway_schema_history IN ACCESS EXCLUSIVE MODE` in PostgreSQL). The first pod acquires the lock, applies the migrations, and updates the history table. The remaining pods wait for the lock release, check the updated history table, find zero pending migrations, and start up cleanly without error.
+
+### Prerequisite / Supporting Concept: Multi-Stage Docker Builds
+In a single-stage Docker build, the final image contains the JDK, Maven build caches, test tools, and source files—easily bloating the image to 800MB–1.2GB and exposing source code if the image is leaked. 
+
+A multi-stage build cleanly separates the build environment from the runtime environment. Stage 1 compiles the application using a heavy JDK. Stage 2 copies only the compiled executable JAR into a lean JRE Alpine image (~150MB). The final image contains zero build tools and zero source files.
+
+### Prerequisite / Supporting Concept: Docker Compose Healthcheck Coordination
+A common pitfall with Docker Compose is using standard `depends_on: [postgres]`. Docker considers the container "started" the instant the Linux process initiates. However, PostgreSQL takes 3 to 8 seconds to initialize storage and start accepting TCP connections. Spring Boot attempts to connect immediately, encounters `Connection refused`, and crashes.
+
+Using a healthcheck with `pg_isready -U ai_user -d genai_db` paired with `condition: service_healthy` guarantees that Spring Boot will not attempt to boot until PostgreSQL is actively responding to database queries.
 
 ---
 
-## 9. Step-by-Step Compilation & Execution
+## 5. Advanced Depth (Intermediate → Advanced)
+
+### The Checksum Immutability Rule & Tamper Detection
+
+Once a versioned migration script (`V1__...sql`) is executed against any database (including local development), **its text content becomes strictly immutable**.
+
+Flyway calculates a deterministic CRC32 or SHA-256 checksum across the script's lines:
+- Changing a column type in an existing file from `VARCHAR(64)` to `VARCHAR(128)` will alter the checksum.
+- Adding a single trailing space or comment line will alter the checksum.
+- When an application boots, Flyway detects that the stored checksum in `flyway_schema_history` does not match the file on disk, throwing:
+
+```
+org.flywaydb.core.api.exception.FlywayValidateException: 
+Validate failed: Migrations have failed validation
+Migration checksum mismatch for migration version 1
+-> Applied to database : 125373262
+-> Resolved locally    : -2002032864
+```
+
+```
++-----------------------------------------------------------------------------------+
+| BAD PRACTICE: Tampering with Applied Migrations                                   |
+|                                                                                   |
+| // Editing V1__init_schema.sql after it was applied to staging:                  |
+| ALTER TABLE chat_messages ADD COLUMN user_feedback VARCHAR(30); -- CRASH ON BOOT! |
++-----------------------------------------------------------------------------------+
+| GOOD PRACTICE: Append New Version Script                                          |
+|                                                                                   |
+| // Leave V1 intact. Create a new file:                                            |
+| V3__add_user_feedback_to_chat_messages.sql                                        |
+| ALTER TABLE chat_messages ADD COLUMN user_feedback VARCHAR(30);                   |
++-----------------------------------------------------------------------------------+
+```
+
+---
+
+### Zero-Downtime Migration Patterns
+
+In 24/7 high-availability AI systems, database migrations cannot lock tables for minutes or drop columns that running application pods still query.
+
+```
+                    ZERO-DOWNTIME EXPAND & CONTRACT PATTERN
+                    
+    Step 1: EXPAND                       Step 2: DUAL WRITE / BACKFILL
+    +------------------------------+     +------------------------------+
+    | Add new column (nullable or  | --> | App writes to both columns.  |
+    | with default). Old app runs. |     | Background task backfills.   |
+    +------------------------------+     +------------------------------+
+                                                        |
+                                                        v
+    Step 4: CLEANUP / CONTRACT           Step 3: SWITCH READS
+    +------------------------------+     +------------------------------+
+    | Migration V3 drops old column| <-- | New app version reads only   |
+    | once zero old pods remain.   |     | from the new column.         |
+    +------------------------------+     +------------------------------+
+```
+
+1. **Non-destructive column additions**: In PostgreSQL 11+, `ALTER TABLE ... ADD COLUMN ... DEFAULT 'val'` is instant because the default value is stored in catalog metadata rather than rewriting every existing row.
+2. **Concurrent Indexing**: Standard `CREATE INDEX` locks the entire table against writes. In production with millions of vector embeddings, always use:
+   ```sql
+   CREATE INDEX CONCURRENTLY idx_chunks_doc_id ON document_chunks(document_id);
+   ```
+   *(Note: Concurrent indexing requires setting `spring.flyway.mixed=true` or running outside a transactional migration block).*
+
+---
+
+### Hands-On Simulation Code Walkthrough
+
+The companion code repository demonstrates this architecture:
+- `FlywayMigrationSimulator.java`: Implements a distributed lock, schema history ledger, checksum validator, and migration executor.
+- `MigrationDemo.java`: Tests cold boots, idempotent restarts, and tampered script detection.
 
 ```powershell
-# 1. Navigate to course workspace
-cd "c:\Users\sriva\OneDrive\Desktop\GEN AI COURSE\JAVA"
-
-# 2. Compile Day 25 code
+# Compile Day 25 code
 javac Phase_04_Spring_Data_JPA_Database/Day_25_Database_Migrations_Docker/code/*.java
 
-# 3. Run the migration demo
+# Run the migration engine simulation
 java -cp Phase_04_Spring_Data_JPA_Database/Day_25_Database_Migrations_Docker code.MigrationDemo
 ```
 
-### Verified Output
-
+#### Verified Execution Output:
 ```
 ================================================================================
  DAY 25: DATABASE MIGRATIONS (FLYWAY) & DOCKER INFRASTRUCTURE SETUP             
@@ -421,38 +464,68 @@ java -cp Phase_04_Spring_Data_JPA_Database/Day_25_Database_Migrations_Docker cod
 
 ---
 
-## 10. Hands-On Exercises (With Complete Solutions)
+## 6. Quick Recap
 
-### Exercise 1: Writing a Non-Destructive Column Migration Script
-**Task**: In production, you need to add a `model_version` column to `prompt_templates`. Write the Flyway SQL script `V4__add_model_version_to_prompts.sql` with a non-null constraint and default value without locking the entire table for hours.
-
-#### Solution:
-```sql
--- V4__add_model_version_to_prompts.sql
--- In PostgreSQL 11+, adding a column with DEFAULT value does NOT rewrite the table!
-ALTER TABLE prompt_templates 
-ADD COLUMN model_version VARCHAR(32) NOT NULL DEFAULT 'v1.0';
-
--- Add index concurrently (Postgres best practice for zero-downtime)
-CREATE INDEX CONCURRENTLY idx_prompts_model_ver ON prompt_templates(model_version);
-```
+| Concept | Description | Production Rule / Best Practice |
+| :--- | :--- | :--- |
+| **`ddl-auto`** | Hibernate automatic schema tool | Always set to `validate` or `none` in production. Never `update`. |
+| **Flyway** | Version-controlled SQL migration tool | Place scripts in `src/main/resources/db/migration`. |
+| **Versioned (`V`)** | Scripts named `V<Num>__<Description>.sql` | Immutable. Applied once in ascending order. |
+| **Repeatable (`R`)** | Scripts named `R__<Description>.sql` | Re-run when checksum changes. Ideal for views and procedures. |
+| **Checksums** | SHA-256 hash of script text | Any change to an applied script aborts application startup. |
+| **Multi-Stage Docker** | Separate build vs runtime images | Excludes Maven and source files. Runs as unprivileged `appuser`. |
+| **Docker Compose** | Multi-container local orchestration | Coordinates PostgreSQL, `pgvector`, and Ollama with healthchecks. |
 
 ---
 
-### Exercise 2: Docker Compose Healthcheck Coordination
-**Task**: Why does `depends_on: [postgres]` fail in production if healthchecks are not used? How does `condition: service_healthy` fix it?
+## 7. Self-Check Questions & Practice Exercises
 
-#### Solution:
+### Conceptual & Architectural Questions
+
+#### Q1: Why must migration scripts in Flyway be treated as strictly immutable?
+**Answer**: Flyway records the SHA-256 checksum of every executed script in the `flyway_schema_history` table. If an engineer alters an already applied script, other environments (staging, production, or teammates' local environments) will detect a checksum mismatch during validation. Flyway immediately halts application boot with a `FlywayValidateException` to protect database integrity.
+
+#### Q2: How does Flyway prevent multiple application pods in Kubernetes from running migrations simultaneously?
+**Answer**: Flyway obtains an exclusive database-level table lock on the `flyway_schema_history` table before scanning or executing any pending scripts. Secondary instances block waiting for the lock. Once released, the secondary instances inspect the history table, see all new versions recorded as successful, and continue booting without reapplying changes.
+
+#### Q3: What is the difference between Versioned (`V`) and Repeatable (`R`) migrations?
+**Answer**: Versioned migrations (`V1__...`, `V2__...`) have explicit ascending version numbers, execute once, and can never be modified. Repeatable migrations (`R__...`) lack version numbers and execute after all versioned scripts have finished, but only when their file checksum has changed. They are primarily used for stateless database definitions such as views, stored functions, and triggers.
+
+#### Q4: Why is `pgvector/pgvector:pg16` required as the Docker image instead of standard `postgres:16`?
+**Answer**: Standard PostgreSQL distributions do not compile or ship the C-language extension `pgvector`. Attempting to run `CREATE EXTENSION vector;` on standard Postgres results in a missing shared library error. The `pgvector/pgvector` image contains the compiled binaries, vector data types, index operators (`vector_cosine_ops`), and HNSW algorithms.
+
+#### Q5: In a production Dockerfile, why should you use `-XX:MaxRAMPercentage=75.0` instead of hardcoding `-Xmx2g`?
+**Answer**: Hardcoding `-Xmx` values couples the image to a specific hardware configuration. If Kubernetes limits the container to 1GB or scales it to 16GB, a hardcoded `-Xmx2g` will cause Linux OOM (Out-Of-Memory) killer crashes or underutilize available memory. `-XX:MaxRAMPercentage=75.0` dynamically calculates maximum heap size based on container cgroups, leaving 25% for thread stacks, Metaspace, and native JVM memory.
+
+---
+
+### Hands-On Practice Exercises
+
+#### Exercise 1: Non-Destructive Column Migration Script
+**Task**: In production, you must add an `embedding_model` column to an existing `document_chunks` table with a non-null constraint and default value `'text-embedding-3-small'`. Write the Flyway script `V3__add_embedding_model.sql`.
+
+```sql
+-- Solution: V3__add_embedding_model.sql
+-- In PostgreSQL 11+, adding a column with a DEFAULT value is a zero-downtime metadata operation.
+ALTER TABLE document_chunks 
+ADD COLUMN embedding_model VARCHAR(64) NOT NULL DEFAULT 'text-embedding-3-small';
+
+-- Add index concurrently without locking existing write transactions
+CREATE INDEX CONCURRENTLY idx_chunks_model ON document_chunks(embedding_model);
+```
+
+#### Exercise 2: Coordinating Services with Docker Compose Healthchecks
+**Task**: Explain why standard `depends_on: [postgres]` causes Spring Boot to fail on startup, and write the YAML configuration that guarantees database readiness.
+
 ```yaml
-# When using standard depends_on:
-# Docker starts the postgres container and IMMEDIATELY starts the Spring Boot app.
-# However, PostgreSQL takes 3-5 seconds to initialize its database clusters and accept sockets.
-# Spring Boot tries to connect on port 5432, gets "Connection refused", and crashes!
-
-# THE SOLUTION:
+# Solution:
 services:
   postgres:
     image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: genai_db
+      POSTGRES_USER: ai_user
+      POSTGRES_PASSWORD: ai_password
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ai_user -d genai_db"]
       interval: 3s
@@ -460,63 +533,27 @@ services:
       retries: 5
 
   app:
+    build: .
     depends_on:
       postgres:
-        condition: service_healthy # Waits until pg_isready returns 0 before booting Spring!
+        condition: service_healthy # Blocks container boot until pg_isready returns code 0!
 ```
 
----
+#### Exercise 3: Baselining an Existing Production Database
+**Task**: How do you introduce Flyway into an existing production system with hundreds of thousands of live rows where tables were created manually or via legacy scripts?
 
-### Exercise 3: Baseline Migrations on an Existing Production Database
-**Task**: What happens if you introduce Flyway into an existing production system that already has database tables created? How do you prevent Flyway from failing?
-
-#### Solution:
 ```properties
-# If Flyway connects to an existing database without flyway_schema_history,
-# it throws an error: "Found non-empty schema(s) without schema history table!".
-
-# Tell Flyway to create the history table and mark existing schema as baseline V1:
+# Solution: Configure application.properties
+# Prevents Flyway from failing with "Found non-empty schema(s) without schema history table!"
 spring.flyway.baseline-on-migrate=true
 spring.flyway.baseline-version=1
-spring.flyway.baseline-description=Existing_Production_Baseline
+spring.flyway.baseline-description=Existing_Production_Schema
 
-# Then, your first new Flyway migration script is named:
-# V2__first_new_change.sql
+# Result: Flyway generates flyway_schema_history and records version 1 as completed.
+# Your first custom migration script will be named:
+# V2__new_feature_migration.sql
 ```
 
 ---
 
-## 11. Self-Check Quiz
-
-### Q1: Why must migration scripts in Flyway be treated as strictly immutable?
-> **Answer**: Because Flyway stores the SHA-256 checksum of each executed script in `flyway_schema_history`. If you alter an already executed script, other environments (staging, production, other developers' laptops) will have different checksums, resulting in a `FlywayValidateException` that halts the application.
-
-### Q2: How does Flyway prevent two Kubernetes pods from running migrations simultaneously?
-> **Answer**: Flyway creates and acquires an exclusive table lock on the `flyway_schema_history` table in PostgreSQL before reading or executing any migration scripts. The second pod blocks waiting for the lock and finds all migrations already applied when the lock is released.
-
-### Q3: What is the difference between `V` (Versioned) and `R` (Repeatable) migration scripts in Flyway?
-> **Answer**: Versioned migrations (`V1__...sql`, `V2__...sql`) are executed in strict numerical sequence exactly once and must never be modified. Repeatable migrations (`R__...sql`) do not have version numbers; they are re-executed whenever their file checksum changes, making them ideal for views, functions, and stored procedures.
-
-### Q4: Why is `pgvector/pgvector:pg16` required as the Docker image instead of standard `postgres:16`?
-> **Answer**: Standard PostgreSQL does not include the C-based vector data types, distance operators (`<=>`, `<->`), or HNSW indexing libraries. The `pgvector/pgvector` image contains the pre-compiled `pgvector` extension ready to be activated via `CREATE EXTENSION IF NOT EXISTS vector;`.
-
-### Q5: In a Dockerfile, why should you use `-XX:MaxRAMPercentage=75.0` instead of hardcoding `-Xmx2g`?
-> **Answer**: Hardcoding `-Xmx2g` makes the container brittle; if Docker memory limits are adjusted (e.g. from 4GB to 8GB on Kubernetes), the JVM will not adapt. `-XX:MaxRAMPercentage=75.0` instructs the JVM to dynamically calculate its max heap as 75% of the container's cgroup memory limit, leaving 25% for Metaspace, threads, and off-heap memory.
-
----
-
-## 12. Day 25 Wrap-Up & What's Next
-
-You've just taken a massive step from writing "student code" to writing real **enterprise-grade infrastructure**!
-
-Remember these golden rules:
-- **Never use `ddl-auto=update` in production**: Rely on Flyway for deterministic, version-controlled schema evolution.
-- **Migrations are immutable**: Once a versioned SQL script (`V1__...`) has run, never edit its contents; create a `V2__...` script for new changes.
-- **Docker eliminates "It works on my machine"**: A clean `docker-compose.yml` gives your entire team the exact same PostgreSQL database with `pgvector` pre-installed and ready in seconds.
-
-### What's Coming Up Next?
-We have Docker running PostgreSQL. We have Flyway ready to run SQL migrations. 
-
-Now comes the grand finale of Phase 4: **[Day 26: PostgreSQL pgvector — Your Vector Database](../Day_26_PostgreSQL_pgvector_Vector_Database/Day_26_PostgreSQL_pgvector_Vector_Database.md)**!
-Tomorrow, you'll learn how to turn PostgreSQL into a high-speed AI Vector Database. You'll store high-dimensional embeddings directly in database rows, search for documents by semantic meaning using cosine distance (`<=>`), and build lightning-fast HNSW vector indexes. You're going to love it!
-
+[<- Back to Day 24: Transactions & Auditing](../Day_24_Transactions_Concurrency_Auditing/Day_24_Transactions_Concurrency_Auditing.md) | [Course Index](../../README.md) | [Next: Day 26 - PostgreSQL pgvector ->](../Day_26_PostgreSQL_pgvector_Vector_Database/Day_26_PostgreSQL_pgvector_Vector_Database.md)

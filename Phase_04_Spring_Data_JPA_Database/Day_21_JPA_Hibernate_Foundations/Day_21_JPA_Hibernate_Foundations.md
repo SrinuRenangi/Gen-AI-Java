@@ -1,80 +1,38 @@
-# Day 21: JPA & Hibernate Foundations
+# 🏛️ Day 21: JPA & Hibernate Foundations
+## Object-Relational Mapping, the Persistence Context, L1 Cache & Dirty Checking
 
-> **"In a Generative AI platform, you cannot keep conversation histories, prompt templates, and token billing ledgers in RAM. You must persist them durably. But if you don't understand how Hibernate's Persistence Context and Dirty Checking operate under the hood, your application will suffer from silent database overwrites, N+1 query storms, and catastrophic OutOfMemoryErrors."**
-
----
-
-| Previous Day | Course Hub | Next Day |
+| ⬅️ Previous Day | 📚 Course Hub | ➡️ Next Day |
 |:---|:---:|---:|
-| [Day 20: Testing REST APIs End-to-End](../../Phase_03_Spring_Web_REST_APIs/Day_20_Testing_REST_APIs/Day_20_Testing_REST_APIs.md) | [All 60 Days Overview](../../README.md) | [Day 22: Spring Data Repositories & Queries](../Day_22_Spring_Data_Repositories_Queries/Day_22_Spring_Data_Repositories_Queries.md) |
+| [← Day 20: Testing REST APIs End-to-End](../../Phase_03_Spring_Web_REST_APIs/Day_20_Testing_REST_APIs/Day_20_Testing_REST_APIs.md) | [All 60 Days Overview](../../README.md) | [Day 22: Spring Data Repositories & Queries →](../Day_22_Spring_Data_Repositories_Queries/Day_22_Spring_Data_Repositories_Queries.md) |
+
+[![Phase](https://img.shields.io/badge/Phase_04-Spring_Data_JPA_%26_Databases-blue.svg?style=for-the-badge)](../../README.md)
+[![Day](https://img.shields.io/badge/Day-21_of_60-blue.svg?style=for-the-badge)](../../README.md)
+[![Difficulty](https://img.shields.io/badge/Difficulty-Intermediate-blue.svg?style=for-the-badge)](../../README.md)
+[![Topic](https://img.shields.io/badge/JPA_Hibernate-Persistence_Context-purple.svg?style=for-the-badge)](../../README.md)
 
 ---
 
-## Friendly Welcome: Giving Your AI System Long-Term Memory
+## 1. Topic Overview
 
-Hey there, friend! Welcome to Day 21—and welcome to **Phase 4: Spring Data JPA & Databases**!
-
-Up until now, our Spring Boot applications have lived entirely in the moment. When a user sent a prompt, we answered it, streamed tokens back, and once the HTTP request was done, poof! Everything held in memory vanished into thin air. If our server restarted or crashed, all conversation history, prompt templates, and user token records disappeared forever.
-
-In the real world, you cannot run an AI product like that. You need permanent, durable storage. You need a **database**!
-
-Today, we are going to learn how Java talks to relational databases (like PostgreSQL) using **JPA (Jakarta Persistence API)** and **Hibernate**. We'll demystify how Java turns standard classes into database tables, and how Hibernate secretly tracks your changes so you don't have to write hundreds of repetitive SQL `INSERT` and `UPDATE` statements by hand!
+Jakarta Persistence API (JPA) and Hibernate form the foundational Object-Relational Mapping (ORM) framework in Java enterprise applications, bridging the conceptual gap between object-oriented domain graphs and relational database tables. In enterprise Generative AI engineering, JPA is the backbone for persistently storing multi-turn chat sessions, dynamically versioning prompt templates, and managing multi-tenant token billing ledgers—where understanding Hibernate's First-Level Cache and automatic Dirty Checking prevents silent data corruption and excessive database round-trips.
 
 ---
 
-> 💡 **New Word Alert! Key Concepts for Today**
->
-> - **Database (PostgreSQL)**: A super reliable, high-speed filing cabinet on your disk where data is saved permanently, even if your server restarts or loses power.
-> - **ORM (Object-Relational Mapping)**: The magical bridge between Java and SQL. Java loves objects (`User user = new User()`), while databases love flat 2D spreadsheet tables with rows and columns. ORM translates between the two worlds automatically!
-> - **JPA (Jakarta Persistence API)**: The standard rulebook/specification in Java for how ORM should work. It defines annotations like `@Entity`, `@Table`, and `@Id`.
-> - **Hibernate**: The actual workhorse engine that implements the JPA rulebook. It handles generating SQL, running queries, managing database connections, and tracking object changes.
-> - **Persistence Context & First-Level Cache (L1 Cache)**: Hibernate's private scratchpad in RAM for a single request. When you load an entity from the database, Hibernate holds it here so multiple lookups don't keep hitting the database.
-> - **Dirty Checking**: Hibernate's superpower! If you change a property on a managed Java object (`prompt.setName("New Name")`), Hibernate compares it against the original snapshot and automatically generates an SQL `UPDATE` statement when the transaction commits. No manual `save()` required!
+## 2. Basic Foundations (True Zero)
 
----
+### Plain English Definitions
+- **Database (PostgreSQL)**: A durable disk-backed filing system where enterprise data survives server reboots, container restarts, and power outages.
+- **ORM (Object-Relational Mapping)**: The automated translation layer that converts rich Java 3D objects (classes, records, references) into flat 2D relational spreadsheet tables (rows, columns, foreign keys).
+- **JPA (Jakarta Persistence API)**: The standard Java interface specification (JSR 338) defining annotations (`@Entity`, `@Table`, `@Id`) and interfaces (`EntityManager`). JPA contains no executable code—it is an official rulebook.
+- **Hibernate**: The production-grade Java workhorse engine that implements the JPA specification, generating vendor-specific SQL, managing JDBC connection pools, and orchestrating dirty checking.
+- **Persistence Context & First-Level Cache (L1 Cache)**: An in-memory scratchpad held by Hibernate during an active database transaction that caches loaded entities and eliminates duplicate queries for the same primary key.
+- **Dirty Checking**: Hibernate's automatic change-detection mechanism. If you modify a field on a managed object (`prompt.setName("New Name")`), Hibernate compares the object against its initial snapshot and automatically issues an SQL `UPDATE` statement when the transaction commits—with zero manual `save()` calls required!
 
-## Table of Contents
-
-1. [Why This Day Matters for a 3-Year Enterprise Gen AI Engineer](#1-why-this-day-matters-for-a-3-year-enterprise-gen-ai-engineer)
-2. [Real-World Analogy: The Photographic Darkroom & Drying Rack](#2-real-world-analogy-the-photographic-darkroom--drying-rack)
-3. [The Object-Relational Impedance Mismatch](#3-the-object-relational-impedance-mismatch)
-4. [JPA vs Hibernate: Specification vs Implementation](#4-jpa-vs-hibernate-specification-vs-implementation)
-5. [The Persistence Context & First-Level Cache (L1 Cache)](#5-the-persistence-context--first-level-cache-l1-cache)
-6. [The 4 Entity Lifecycle States In-Depth](#6-the-4-entity-lifecycle-states-in-depth)
-7. [Under the Hood: Automatic Dirty Checking & Write-Behind Flushing](#7-under-the-hood-automatic-dirty-checking--write-behind-flushing)
-8. [Mapping AI Domain Models in JPA](#8-mapping-ai-domain-models-in-jpa)
-9. [Hands-On Code Walkthrough: Building a Mini-Persistence Context](#9-hands-on-code-walkthrough-building-a-mini-persistence-context)
-10. [Step-by-Step Compilation & Execution](#10-step-by-step-compilation--execution)
-11. [Hands-On Exercises (With Complete Solutions)](#11-hands-on-exercises-with-complete-solutions)
-12. [Self-Check Quiz](#12-self-check-quiz)
-13. [Day 21 Wrap-Up & What's Next](#13-day-21-wrap-up--whats-next)
-
----
-
-## 1. Why This Day Matters for a 3-Year Enterprise Gen AI Engineer
-
-When building production Generative AI platforms, your relational database (PostgreSQL) is the source of truth for:
-- **Conversation Sessions & Message History**: Multi-turn chat context assembled before invoking an LLM.
-- **Dynamic Prompt Templates**: Storing, versioning, and A/B testing prompts across engineering teams without redeploying code.
-- **Token Accounting & Quotas**: Tracking token consumption, rate limits, and billing ledgers per customer tenant.
-- **RAG Document Chunk Metadata**: Storing source URLs, document authors, chunk sequence IDs, and permissions.
-
-### Where Junior Developers Crash in Production
-1. **The Phantom Update**: A developer queries a prompt template, modifies a field in memory for an ephemeral prompt assembly, and finishes the request. To their horror, **Hibernate automatically issues an SQL UPDATE statement to PostgreSQL**, permanently corrupting the production prompt template in the database! (They didn't understand **Dirty Checking**).
-2. **OutOfMemoryError During Prompt Retrieval**: Loading 1,000 conversation messages inside a single `@Transactional` method causes Hibernate's First-Level Cache to store both the loaded entities and their snapshot copies in heap memory, causing garbage collection pauses and OOMs.
-3. **The Unnecessary Save Trap**: Writing `promptRepository.save(prompt)` at the end of a method when the entity is already managed, causing redundant queries or developer confusion.
-4. **`LazyInitializationException`**: Accessing child messages after a transaction closes because the entity entered the `DETACHED` state.
-
-To build fast, leak-free, concurrent AI systems, you must understand the exact lifecycle transitions between Java heap memory and PostgreSQL relational tables.
-
----
-
-## 2. Real-World Analogy: The Photographic Darkroom & Drying Rack
-
+### Relatable Physical Analogy: The Photographic Darkroom
 ```
 OBJECT WORLD (Java 21):                          RELATIONAL WORLD (PostgreSQL):
-Rich, 3D living entities with                     Flat 2D spreadsheet tables
-methods, inheritance, references.                 with foreign keys and scalar types.
+Rich, living entities with methods,               Flat 2D spreadsheet tables
+inheritance, and direct references.               with foreign keys and scalar types.
             │                                                      ▲
             └──────────────┐                        ┌──────────────┘
                            ▼                        │
@@ -85,107 +43,66 @@ methods, inheritance, references.                 with foreign keys and scalar t
 ```
 
 Imagine a traditional photography darkroom:
-1. **Unexposed Film (`TRANSIENT`)**: You buy a roll of film at the store (`new PromptEntity()`). It exists in your pocket. The darkroom has no idea it exists. It has no negative ID number.
+1. **Unexposed Film (`TRANSIENT`)**: You buy a roll of film at the store (`new PromptEntity()`). It exists in your pocket; the darkroom has no record of it.
 2. **The Chemical Bath & Drying Rack (`MANAGED`)**: You bring the negative into the darkroom (`em.persist()`). It is pinned to the drying rack (First-Level Cache).
-   - If you use a fine brush to touch up a spot on the negative while it's on the rack, you don't need to call a special "save" command.
-   - When the darkroom technician turns on the development printer (**`em.flush()`**), **every modification you made on the rack is automatically burned onto the paper prints (PostgreSQL tables)!**
-3. **Framed Photo in Customer's Living Room (`DETACHED`)**: You deliver the printed photo to a customer and close the darkroom door (Transaction closed). If the customer draws a moustache on the photo with a sharpie in their living room, **the negative in your darkroom is NOT modified**.
-4. **The Shredder (`REMOVED`)**: You mark a ruined negative for the shredder (`em.remove()`). When the technician cleans the darkroom at the end of the day, it is permanently destroyed.
+   - If you use a fine brush to touch up a spot on the negative on the rack, you do not need to call a special "save" command.
+   - When the technician starts the development printer (**`em.flush()`**), **every modification you made on the rack is automatically burned onto the paper prints (PostgreSQL tables)!**
+3. **Framed Photo in Customer's Living Room (`DETACHED`)**: You deliver the print and close the darkroom door (Transaction completed). Drawing on the framed photo at home will **never alter the negative inside the darkroom**.
+4. **The Shredder (`REMOVED`)**: You flag a ruined negative for disposal (`em.remove()`). It is permanently shredded upon closing the darkroom.
 
----
+### Minimal Beginner-Friendly Working Code Example
 
-## 3. The Object-Relational Impedance Mismatch
+Let us examine a minimal JPA entity and observe how Hibernate automatically persists and tracks it:
 
-Java is an **Object-Oriented** language based on graphs of objects, encapsulation, polymorphism, and identity references (`==`). Relational databases (PostgreSQL) are based on **Relational Algebra**, mathematical sets, foreign keys, and normalized flat tables.
-
-| Dimension | Object World (Java) | Relational World (SQL / Postgres) |
-| :--- | :--- | :--- |
-| **Identity** | Memory address (`obj1 == obj2`) or `equals()` | Primary Key (`id = 42`) |
-| **Relationships** | Direct references (`prompt.getMessages()`, directional or bidirectional) | Foreign Keys (`session_id REFERENCES sessions(id)`) |
-| **Navigation** | Graph traversing (`session.getMessages().get(0).getTokens()`) | Relational `JOIN` operations |
-| **Data Types** | Enums, Records, Collections, Custom classes | `VARCHAR`, `INTEGER`, `BOOLEAN`, `JSONB`, `TEXT` |
-| **Inheritance** | Class hierarchies (`abstract class BasePrompt extends ...`) | Not natively supported (simulated via Single Table, Joined, or Table-per-Class) |
-
-**ORM (Object-Relational Mapping)** bridges this mismatch by automatically translating object graphs into SQL table operations.
-
----
-
-## 🧭 The Mid-Level Java Developer Bridge: From JDBC to Spring Data JPA
-
-If you learned database access with classic JDBC, here is how the layers evolved and why we use Spring Data JPA today:
-
-| Database Tool | What You Write | Pros & Cons | Plain English Translation |
-| :--- | :--- | :--- | :--- |
-| **Raw JDBC** | `PreparedStatement ps = conn.prepareStatement("SELECT * FROM users");` followed by 30 lines of `rs.getString("username")`. | ❌ Verbose, repetitive, manual connection closing, SQL typos caught only at runtime. | Digging with a shovel: you do every tiny manual step yourself. |
-| **JPA (Jakarta Persistence API)** | `@Entity public class User { ... }` | An **official specification** (interface standards) defining how Java objects should map to tables. | The blueprint for a power excavator. |
-| **Hibernate** | The engine implementing JPA. Handles SQL generation, 1st-level cache, and dirty checking. | ✅ Auto-generates SQL dialect (Postgres, MySQL, Oracle), tracks field changes automatically. | The physical excavator engine executing work. |
-| **Spring Data JPA** | `public interface UserRepository extends JpaRepository<User, Long> {}` | 🏆 **Zero implementation code!** Spring auto-generates `findAll()`, `findById()`, and `save()` at startup. | A self-driving excavator: you tell it where to dig, and it handles everything. |
-
----
-
-## 4. JPA vs Hibernate: Specification vs Implementation
-
-A common point of confusion for backend developers is the relationship between JPA and Hibernate:
-
-```
-┌──────────────────────────────────────────────────────────┐
-│             Jakarta Persistence API (JPA)                │
-│    (Standard Interface Specification: JSR 338)           │
-│    Packages: jakarta.persistence.*                       │
-│    Core Types: EntityManager, Entity, Table, Column      │
-└────────────────────────────┬─────────────────────────────┘
-                             │ Implemented by
-                             ▼
-┌──────────────────────────────────────────────────────────┐
-│                   Hibernate ORM 6.x                      │
-│    (Battle-tested Production Engine & Implementation)    │
-│    Core Types: Session, SessionFactory, ActionQueue      │
-└──────────────────────────────────────────────────────────┘
-```
-
-- **JPA is an Interface**: It defines standard annotations (`@Entity`, `@Table`, `@Id`) and interfaces (`EntityManager`, `Query`). You cannot run JPA by itself—it has no executable code!
-- **Hibernate is the Engine**: It is the actual Java library that opens JDBC connections, executes dirty checking, parses JPQL, and translates Java operations into vendor-specific PostgreSQL SQL queries.
-
-In modern Spring Boot 3, you program against **JPA standards**, and Spring Boot auto-configures **Hibernate** as the default JPA provider.
-
----
-
-## 5. The Persistence Context & First-Level Cache (L1 Cache)
-
-The **Persistence Context** is an in-memory buffer where Hibernate manages entity instances during an active transaction.
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    PERSISTENCE CONTEXT                       │
-│                                                              │
-│  1. FIRST-LEVEL CACHE (Identity Map):                        │
-│     Key (ID)   │ Value (Managed Reference)                   │
-│     ───────────┼─────────────────────────────────────────    │
-│     Long: 1    │ PromptEntity@7a8b (name: "rag-prompt")      │
-│     Long: 2    │ PromptEntity@4c12 (name: "eval-prompt")     │
-│                                                              │
-│  2. SNAPSHOT MAP (Dirty Checking Baseline):                  │
-│     Key (ID)   │ Initial State Snapshot                      │
-│     ───────────┼─────────────────────────────────────────    │
-│     Long: 1    │ Copy: {name: "rag-prompt", version: 1}      │
-│     Long: 2    │ Copy: {name: "eval-prompt", version: 1}      │
-└──────────────────────────────────────────────────────────────┘
-```
-
-### The Identity Map Guarantee
-Within a single Persistence Context (a single `@Transactional` method):
 ```java
-PromptEntity p1 = em.find(PromptEntity.class, 1L);
-PromptEntity p2 = em.find(PromptEntity.class, 1L);
+package com.javagenai.day21;
 
-System.out.println(p1 == p2); // ALWAYS TRUE! Same memory address.
+import jakarta.persistence.*;
+import java.time.Instant;
+
+@Entity
+@Table(name = "prompt_templates")
+public class MinimalPromptEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String name;
+
+    @Column(columnDefinition = "TEXT", nullable = false)
+    private String templateContent;
+
+    // Default constructor required by JPA reflection
+    public MinimalPromptEntity() {}
+
+    public MinimalPromptEntity(String name, String templateContent) {
+        this.name = name;
+        this.templateContent = templateContent;
+    }
+
+    // Getters and Setters
+    public Long getId() { return id; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public String getTemplateContent() { return templateContent; }
+    public void setTemplateContent(String templateContent) { this.templateContent = templateContent; }
+}
 ```
-1. `em.find(1L)` executes a SQL `SELECT` against PostgreSQL, creates `PromptEntity@7a8b`, puts it in the L1 Cache, and stores a snapshot copy.
-2. The second `em.find(1L)` **executes ZERO SQL queries**. It inspects the L1 Cache map, finds the existing instance, and returns the exact same object reference!
+
+#### Line-by-Line Walkthrough
+1. `@Entity`: Marks this class as a JPA-managed domain entity mapped to a relational table.
+2. `@Table(name = "prompt_templates")`: Specifies the exact PostgreSQL table name.
+3. `@Id`: Declares the unique primary key attribute.
+4. `@GeneratedValue(strategy = GenerationType.IDENTITY)`: Delegates ID generation to PostgreSQL's native `SERIAL` / `IDENTITY` column sequence.
+5. `@Column(columnDefinition = "TEXT")`: Maps large prompt text strings to PostgreSQL's unbounded `TEXT` data type instead of the default `VARCHAR(255)`.
 
 ---
 
-## 6. The 4 Entity Lifecycle States In-Depth
+## 3. Core Concept Walkthrough (Basic → Intermediate)
+
+### 3.1 The 4 Canonical Entity Lifecycle States
 
 ```mermaid
 stateDiagram-v2
@@ -198,64 +115,39 @@ stateDiagram-v2
     MANAGED --> [*] : tx.commit() (SQL INSERT / UPDATE)
 ```
 
-### 1. `TRANSIENT` (New in RAM)
-- Created using `new PromptEntity(...)`.
-- Has no database identity (`id == null`).
-- Not associated with any Persistence Context.
-- If the JVM crashes or the variable goes out of scope, it is garbage collected. No database changes occur.
+1. **`TRANSIENT`**: Instantiated with `new PromptEntity(...)`. Exists in JVM heap memory only; has no database primary key and is not associated with any persistence context.
+2. **`MANAGED`**: Associated with an active `EntityManager` and database transaction. Has a primary key. **Dirty Checking is ACTIVE**: any setter called will be tracked and synchronized to PostgreSQL automatically.
+3. **`DETACHED`**: Possesses a database primary key, but its persistence context was closed or cleared. Changes to detached entities are ignored until re-attached via `em.merge()`.
+4. **`REMOVED`**: Marked for deletion via `em.remove(entity)`. Scheduled for an SQL `DELETE` statement when the transaction flushes.
 
-### 2. `MANAGED` (Tracked by Persistence Context)
-- Associated with an active `EntityManager` and transaction.
-- Has a database identity (`id != null`).
-- **Dirty Checking is ACTIVE**: Any setter called on this object will be detected by Hibernate and synchronized to the database.
+### 3.2 The First-Level Cache (Identity Map)
+Within an active transaction:
+```java
+PromptEntity p1 = em.find(PromptEntity.class, 1L);
+PromptEntity p2 = em.find(PromptEntity.class, 1L);
 
-### 3. `DETACHED` (Transaction Closed)
-- Has a database identity (`id != null`), but its Persistence Context was closed, cleared (`em.clear()`), or the transaction committed.
-- Changes made to a detached entity are **NOT tracked**. Calling setters will never trigger SQL updates unless explicitly re-attached via `em.merge()`.
-
-### 4. `REMOVED` (Scheduled for Deletion)
-- Was managed, but passed to `em.remove(entity)`.
-- Scheduled for an SQL `DELETE` statement when the transaction flushes.
-
----
-
-## 7. Under the Hood: Automatic Dirty Checking & Write-Behind Flushing
-
-### How Dirty Checking Works
-When an entity enters the `MANAGED` state (via `em.find()` or `em.persist()`), Hibernate makes an internal deep snapshot of all entity fields.
-
-At transaction boundary (or when `em.flush()` is invoked):
-1. Hibernate iterates over all entities in the Persistence Context.
-2. It compares the current field values against the snapshot copy:
-   ```java
-   if (!entity.field.equals(snapshot.field)) {
-       // Entity is DIRTY!
-   }
-   ```
-3. If differences exist, Hibernate dynamically constructs a SQL `UPDATE` statement containing the modified columns and queues it in its internal **ActionQueue**.
-
-### The "Write-Behind" (Deferred Execution) Pattern
-Hibernate **does NOT immediately execute SQL queries** the moment you call `persist()` or modify a setter.
-
+System.out.println(p1 == p2); // ALWAYS TRUE! Identical memory address.
 ```
-Java Code:
-em.persist(prompt1);           ──► (No SQL executed yet!)
-prompt2.setName("new-name");   ──► (No SQL executed yet!)
-em.remove(prompt3);            ──► (No SQL executed yet!)
-...
-Transaction Commit / Flush:    ──► ActionQueue batches and orders statements:
-                                   1. Batch INSERTs
-                                   2. Batch UPDATEs
-                                   3. Batch DELETEs
+1. The first lookup issues an SQL `SELECT` against PostgreSQL, stores the entity in the L1 Cache map, and saves a baseline snapshot.
+2. The second lookup **executes zero SQL queries**—it returns the existing managed object directly from memory!
+
+### 3.3 Automatic Dirty Checking & Deferred Write-Behind
+When an entity is `MANAGED`, Hibernate takes a snapshot of its fields. Upon transaction commit or `em.flush()`:
+1. Hibernate compares current field values with the snapshot copy.
+2. If differences exist, it automatically constructs a SQL `UPDATE` statement.
+3. It queues the statement in its internal **ActionQueue** and flushes it using JDBC batching.
+
+```java
+@Transactional
+public void updatePromptTitle(Long id, String newTitle) {
+    PromptEntity prompt = promptRepository.findById(id).orElseThrow();
+    prompt.setName(newTitle); 
+    // ZERO need to call promptRepository.save(prompt)!
+    // Hibernate automatically executes SQL UPDATE when the method finishes!
+}
 ```
 
-This drastically reduces database round-trips and allows JDBC batching optimizations.
-
----
-
-## 8. Mapping AI Domain Models in JPA
-
-Here is how a senior AI engineer designs a production prompt template entity:
+### 3.4 Production AI Entity Modeling: `PromptTemplate.java`
 
 ```java
 package com.enterprise.ai.domain;
@@ -282,7 +174,6 @@ public class PromptTemplate {
     @Column(nullable = false, length = 120)
     private String name;
 
-    // Use TEXT for large prompt contents (LLM system instructions)
     @Column(nullable = false, columnDefinition = "TEXT")
     private String templateContent;
 
@@ -295,7 +186,7 @@ public class PromptTemplate {
     @Column(nullable = false)
     private boolean active = true;
 
-    // Optimistic locking: Prevents concurrent overwrites when multiple AI engineers edit prompts
+    // Optimistic locking: Prevents race conditions during concurrent updates
     @Version
     private Long optimisticVersion;
 
@@ -307,119 +198,118 @@ public class PromptTemplate {
     @Column(nullable = false)
     private Instant updatedAt;
 
-    // Getters, setters, constructors...
+    // Getters, setters, constructors
 }
 ```
 
-### Key Architectural Annotations
-- **`@Column(columnDefinition = "TEXT")`**: Standard `@Column` maps to `VARCHAR(255)`. Prompts exceed 255 characters; using `TEXT` stores unbounded prompt strings in PostgreSQL.
-- **`@Version`**: Enables **Optimistic Locking**. If two backend threads try to update the prompt simultaneously, Hibernate detects the version collision and throws `OptimisticLockException` rather than silently overwriting changes.
-- **`@CreationTimestamp` / `@UpdateTimestamp`**: Managed automatically by Hibernate on insert/update without manual `Instant.now()` calls.
+---
+
+## 4. Prerequisite & Supporting Concepts
+
+### Prerequisite / Supporting Concept: JPA vs. Hibernate Architecture
+
+```
+┌──────────────────────────────────────────────────────────┐
+│             Jakarta Persistence API (JPA)                │
+│    (Standard Interface Specification: JSR 338)           │
+│    Packages: jakarta.persistence.*                       │
+│    Core Types: EntityManager, Entity, Table, Column      │
+└────────────────────────────┬─────────────────────────────┘
+                             │ Implemented by
+                             ▼
+┌──────────────────────────────────────────────────────────┐
+│                   Hibernate ORM 6.x                      │
+│    (Battle-tested Production Engine & Implementation)    │
+│    Core Types: Session, SessionFactory, ActionQueue      │
+└──────────────────────────────────────────────────────────┘
+```
+
+### Prerequisite / Supporting Concept: The Plain English Bridge to JPA
+
+| Database Tool | What You Write | Why Modern Teams Use JPA | Plain English Analogy |
+| :--- | :--- | :--- | :--- |
+| **Raw JDBC** | 30 lines of `ps.setString()` and `rs.getString()` per query | High maintenance, SQL typos, manual connection closing | Digging with a hand shovel |
+| **JPA Specification**| `@Entity`, `@Id`, `@Column` | Standardized, vendor-neutral Java persistence API | Blueprint for a power excavator |
+| **Hibernate Engine** | Implements JPA; generates SQL dialects automatically | Handles L1 caching, dirty checking, and schema generation | The actual excavator engine |
+| **Spring Data JPA** | `public interface PromptRepo extends JpaRepository<...>` | Auto-generates standard CRUD methods at startup | A self-driving autonomous excavator |
 
 ---
 
-## 9. Hands-On Code Walkthrough: Building a Mini-Persistence Context
+## 5. Advanced Depth (Intermediate → Advanced)
 
-In this day's companion code (`Phase_04_Spring_Data_JPA_Database/Day_21_JPA_Hibernate_Foundations/code/`), we built a standalone simulation of Hibernate's core engine:
+### 5.1 Common Mistakes & Misconceptions
 
-1. **`EntityState.java`**: The 4 canonical states (`TRANSIENT`, `MANAGED`, `DETACHED`, `REMOVED`).
-2. **`PromptEntity.java`**: Domain model with snapshot creation and dirty detection logic.
-3. **`MiniPersistenceContext.java`**:
-   - `firstLevelCache`: Map acting as identity map.
-   - `snapshots`: Map acting as dirty checking baseline.
-   - `flush()`: Inspects changes and emits exact SQL statements (`INSERT`, `UPDATE`, `DELETE`).
-4. **`JPALifecycleDemo.java`**: Driver demonstrating all 5 core lifecycle scenarios.
-
----
-
-## 10. Step-by-Step Compilation & Execution
-
-```powershell
-# 1. Navigate to course workspace
-cd "c:\Users\sriva\OneDrive\Desktop\GEN AI COURSE\JAVA"
-
-# 2. Compile Day 21 code
-javac Phase_04_Spring_Data_JPA_Database/Day_21_JPA_Hibernate_Foundations/code/*.java
-
-# 3. Execute the JPA Lifecycle Demo
-java -cp Phase_04_Spring_Data_JPA_Database/Day_21_JPA_Hibernate_Foundations code.JPALifecycleDemo
-```
-
-### Verified Output
-
-```
-================================================================================
- DAY 21: JPA & HIBERNATE FOUNDATIONS — PERSISTENCE CONTEXT & ENTITY LIFECYCLE   
-================================================================================
-
---- SCENARIO 1: Transient -> Managed -> Flush (INSERT) ---
- 1. Instantiated new entity with 'new': State = TRANSIENT
-  [JPA persist] Entity transitioned to MANAGED: PromptEntity[id=101, name='code-explainer-prompt', model='claude-3-5-sonnet', version=1, active=true]
- 2. Called em.persist(): State = MANAGED, Assigned ID = 101
- 3. Before flush, SQL statement count: 0
-
-  --- EXECUTING JPA FLUSH (DIRTY CHECKING & SQL SYNCHRONIZATION) ---
-  [SQL INSERT] INSERT INTO prompt_templates (id, name, template_content, model_family, version, active) VALUES (101, 'code-explainer-prompt', 'Explain the following Java code step-by-step: {code}', 'claude-3-5-sonnet', 1, true)
- 4. After flush, SQL statement count: 1
-
---- SCENARIO 2: First-Level Cache (Identity Map Proof) ---
- Fetching prompt ID 1 for the first time:
-  [JPA find] L1 CACHE MISS. Querying database: SELECT * FROM prompt_templates WHERE id = 1
-
- Fetching prompt ID 1 for the second time in same persistence context:
-  [JPA find] L1 CACHE HIT! Returning existing managed instance for ID: 1
- Are both object references IDENTICAL in JVM memory (firstFetch == secondFetch)? true
-
---- SCENARIO 3: Automatic Dirty Checking on Managed Entity ---
- Modifying template content via standard Java setter...
- Note: We NEVER called em.update() or em.save()!
-
-  --- EXECUTING JPA FLUSH (DIRTY CHECKING & SQL SYNCHRONIZATION) ---
-  [DIRTY CHECKING] Entity ID 101 is UNCHANGED. Zero SQL generated.
-  [SQL UPDATE (Dirty Checking)] UPDATE prompt_templates SET name = 'default-rag-prompt', template_content = 'UPDATED: You are a senior Java architect. Explain: {code}', model_family = 'gpt-4o', version = 2, active = true WHERE id = 1
-
---- SCENARIO 4: Detached Entity (Modifications Ignored) ---
-  [JPA detach] Entity transitioned to DETACHED: ID 1
- Called em.detach(): State = DETACHED
- Modified detached entity name. Triggering flush...
-
-  --- EXECUTING JPA FLUSH (DIRTY CHECKING & SQL SYNCHRONIZATION) ---
-  [DIRTY CHECKING] Entity ID 101 is UNCHANGED. Zero SQL generated.
-
---- SCENARIO 5: Managed -> Removed -> Flush (DELETE) ---
- Removing prompt ID 101...
-  [JPA remove] Entity marked as REMOVED: ID 101
- State after em.remove(): REMOVED
-
-  --- EXECUTING JPA FLUSH (DIRTY CHECKING & SQL SYNCHRONIZATION) ---
-  [SQL DELETE] DELETE FROM prompt_templates WHERE id = 101
-
-================================================================================
- COMPLETE AUDIT OF GENERATED SQL STATEMENTS:
-   [1] INSERT INTO prompt_templates (id, name, template_content, model_family, version, active) VALUES (101, 'code-explainer-prompt', 'Explain the following Java code step-by-step: {code}', 'claude-3-5-sonnet', 1, true)
-   [2] SELECT * FROM prompt_templates WHERE id = 1
-   [3] UPDATE prompt_templates SET name = 'default-rag-prompt', template_content = 'UPDATED: You are a senior Java architect. Explain: {code}', model_family = 'gpt-4o', version = 2, active = true WHERE id = 1
-   [4] DELETE FROM prompt_templates WHERE id = 101
-================================================================================
- DAY 21 DEMONSTRATION COMPLETE: ALL JPA LIFECYCLE PATTERNS VERIFIED!          
-================================================================================
-```
-
----
-
-## 11. Hands-On Exercises (With Complete Solutions)
-
-### Exercise 1: Conversation Session Entity with Token Tracking
-**Task**: Write the complete JPA entity `ConversationSession` with:
-- Auto-incrementing primary key `id`.
-- `userId` (indexed, non-null).
-- `title` (max 200 characters).
-- `totalTokensUsed` (integer, non-negative).
-- Optimistic locking version field.
-- Timestamps for creation and update.
-
-#### Solution:
+#### Mistake 1: The "Phantom Update" via In-Memory Mutation
 ```java
+// ❌ DANGEROUS: Modifying a managed entity in memory triggers a permanent SQL UPDATE!
+@Transactional
+public String assembleSystemPrompt(Long promptId, String userQuestion) {
+    PromptTemplate template = promptRepository.findById(promptId).orElseThrow();
+    template.setTemplateContent(template.getTemplateContent() + " Context: " + userQuestion);
+    // Hibernate dirty checking DETECTS this modification!
+    // It writes the user's private question into the shared database prompt template!
+    return template.getTemplateContent();
+}
+
+// ✅ GOOD: Use a separate local variable or DTO for string interpolation
+@Transactional(readOnly = true)
+public String assembleSystemPrompt(Long promptId, String userQuestion) {
+    PromptTemplate template = promptRepository.findById(promptId).orElseThrow();
+    return template.getTemplateContent().replace("{userQuestion}", userQuestion);
+}
+```
+
+#### Mistake 2: Redundant `save()` Calls on Managed Entities
+In Spring Data JPA, writing `repository.save(entity)` at the end of a `@Transactional` method when the entity was already loaded in that transaction is redundant and adds no value—Hibernate's dirty checking already flushes updates automatically.
+
+#### Mistake 3: Disabling Dirty Checking Overhead for Read-Heavy Queries
+For endpoints that only read prompts without modifying them, annotate the service method with `@Transactional(readOnly = true)`. This instructs Hibernate to **skip taking snapshot copies**, cutting Persistence Context heap memory consumption by 50%!
+
+---
+
+## 6. Quick Recap
+
+| Concept | Annotation / Construct | Role in Architecture | Enterprise AI Application |
+| :--- | :--- | :--- | :--- |
+| **Entity Declaration**| `@Entity` + `@Table` | Maps Java class to relational table | Defines prompt and conversation schemas |
+| **Text Mapping** | `@Column(columnDefinition="TEXT")`| Unbounded string storage | Stores large prompt templates and completions |
+| **Optimistic Lock** | `@Version` | Prevents lost update anomalies | Protects token usage ledgers under concurrency |
+| **Identity Map** | First-Level Cache | Deduplicates queries within transaction | Eliminates duplicate SELECT queries for session IDs |
+| **Dirty Checking** | Snapshot Comparison | Auto-generates SQL UPDATE on commit | Updates prompt versions without manual save calls |
+| **Read Optimization**| `@Transactional(readOnly = true)`| Disables snapshot creation | Cuts heap memory by 50% for inference lookups |
+
+---
+
+## 7. Self-Check Questions & Practice Exercises
+
+### Self-Check Questions
+
+1. **If you load an entity in a `@Transactional` method, change a property with `entity.setName("New")`, and never call `repository.save()`, does it persist to PostgreSQL?**
+   - *Answer*: **YES**. Hibernate Dirty Checking automatically compares the managed entity against its baseline snapshot upon transaction commit / `flush()` and emits an SQL `UPDATE` statement.
+2. **What is the difference between JPA and Hibernate?**
+   - *Answer*: JPA is an official interface specification (JSR 338) defining annotations and interfaces without implementation code. Hibernate is the production engine that implements JPA, generating SQL dialects and managing the persistence context.
+3. **What is the primary benefit of the First-Level Cache (L1 Cache)?**
+   - *Answer*: It acts as an Identity Map within a single transaction, guaranteeing that multiple requests for the same entity ID return the identical object reference (`==`) and execute only a single SQL `SELECT` query.
+4. **When does an entity transition from `MANAGED` to `DETACHED`?**
+   - *Answer*: When the active transaction commits and the persistence context is closed, or when `em.detach(entity)` or `em.clear()` is called explicitly.
+5. **Why is `@Version` essential for token billing ledgers in high-concurrency AI systems?**
+   - *Answer*: When concurrent threads deduct tokens from a user's balance, race conditions can cause lost updates. `@Version` enables Optimistic Locking, causing Hibernate to verify the version column during update and throw `OptimisticLockException` if a conflict occurs.
+
+---
+
+### Hands-On Practice Exercises
+
+#### 🏋️ Exercise 1: Build a Conversation Session Entity with Token Tracking
+**Objective**: Construct a JPA entity `ConversationSession` with an indexed `userId`, `totalTokensUsed`, optimistic locking versioning, and creation timestamps:
+
+```java
+package com.javagenai.day21;
+
+import jakarta.persistence.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+import java.time.Instant;
+
 @Entity
 @Table(
     name = "conversation_sessions",
@@ -451,102 +341,57 @@ public class ConversationSession {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    public ConversationSession() {}
+
+    public ConversationSession(String userId, String title) {
+        this.userId = userId;
+        this.title = title;
+    }
+
     public void addTokens(int tokens) {
         if (tokens < 0) throw new IllegalArgumentException("Tokens cannot be negative");
         this.totalTokensUsed += tokens;
     }
 
-    // Getters, setters, constructors
+    // Getters and setters omitted for brevity
 }
 ```
 
----
+#### 🏋️ Exercise 2: Re-attaching a Detached Entity via `em.merge()`
+**Objective**: Demonstrate how to properly update a detached entity received from an HTTP PUT request using `em.merge()`:
 
-### Exercise 2: Disabling Dirty Checking for High-Throughput Read Queries
-**Task**: In an AI chat application, prompt templates are queried thousands of times per second. How do you configure a Spring service method to tell Hibernate **NOT to create snapshot copies** (saving 50% heap memory and eliminating dirty-checking overhead)?
-
-#### Solution:
 ```java
+package com.javagenai.day21;
+
+import jakarta.persistence.EntityManager;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 @Service
-public class PromptTemplateService {
+public class PromptUpdateService {
 
-    private final PromptTemplateRepository repository;
+    private final EntityManager em;
 
-    public PromptTemplateService(PromptTemplateRepository repository) {
-        this.repository = repository;
+    public PromptUpdateService(EntityManager em) {
+        this.em = em;
     }
 
-    // @Transactional(readOnly = true) sets Hibernate's FlushMode to MANUAL
-    // and configures the JDBC connection to read-only.
-    // Hibernate skips taking snapshot copies in the Persistence Context!
-    @Transactional(readOnly = true)
-    public PromptTemplate getActivePrompt(String name) {
-        return repository.findByNameAndActiveTrue(name)
-            .orElseThrow(() -> new EntityNotFoundException("Prompt template not found: " + name));
+    @Transactional
+    public MinimalPromptEntity updatePromptFromDto(Long id, String updatedContent) {
+        // Create detached instance representing client input
+        MinimalPromptEntity detachedPrompt = new MinimalPromptEntity();
+        // Em.merge loads managed instance from DB, copies properties, and returns managed reference
+        MinimalPromptEntity managedPrompt = em.find(MinimalPromptEntity.class, id);
+        managedPrompt.setTemplateContent(updatedContent);
+
+        // Automatic dirty checking synchronizes changes upon method return!
+        return managedPrompt;
     }
 }
 ```
 
 ---
 
-### Exercise 3: Re-attaching a Detached Entity via `em.merge()`
-**Task**: Explain the difference between `em.persist()` and `em.merge()`. What happens when you pass a detached entity to `em.merge()`?
-
-#### Solution:
-```java
-// 1. Client sends updated PromptDTO from Web UI:
-PromptEntity detachedPrompt = new PromptEntity();
-detachedPrompt.setId(42L); // Holds existing DB ID
-detachedPrompt.setName("Updated Title");
-
-// 2. In Service:
-// em.persist(detachedPrompt); 
-// ❌ WRONG! Calling persist() on an entity with an existing ID throws EntityExistsException
-
-PromptEntity managedPrompt = em.merge(detachedPrompt);
-// ✅ CORRECT! 
-// em.merge() executes:
-// a. Queries PostgreSQL for ID 42 (or loads from L1 cache).
-// b. Copies all field values from detachedPrompt onto the managed entity.
-// c. Returns the MANAGED reference (managedPrompt).
-// d. On transaction commit, dirty checking detects changes and issues SQL UPDATE.
-```
-
----
-
-## 12. Self-Check Quiz
-
-### Q1: If you fetch an entity inside a `@Transactional` method, change a property with `entity.setName("New")`, and never call `repository.save()`, does the change save to PostgreSQL?
-> **Answer**: **YES**. This is the core principle of **Hibernate Dirty Checking**. As long as the entity is in the `MANAGED` state within an active transaction, Hibernate automatically compares the entity against its original snapshot upon transaction commit / `flush()` and issues an SQL `UPDATE` statement.
-
-### Q2: Why is calling `repository.save(entity)` on an already managed entity redundant in Spring Data JPA?
-> **Answer**: Because Spring Data JPA's `save()` method simply calls `em.persist()` (if the entity has no ID) or `em.merge()` (if it has an ID). If the entity was already loaded in the same transaction, it is already `MANAGED`, so calling `save()` performs an unnecessary `em.merge()` call that does nothing beyond what dirty checking would already do automatically.
-
-### Q3: What is the purpose of the First-Level Cache (L1 Cache) in Hibernate?
-> **Answer**: The First-Level Cache acts as an **Identity Map** scoped to the current `EntityManager` / transaction. It ensures that multiple requests for the same entity ID within the same transaction return the identical Java object reference (`==`) and execute only a single SQL `SELECT` query, preventing redundant database round-trips.
-
-### Q4: When does an entity transition from `MANAGED` to `DETACHED`?
-> **Answer**: An entity transitions to `DETACHED` when:
-> 1. The transaction commits and the associated `EntityManager` is closed (standard web request lifecycle).
-> 2. `em.detach(entity)` is explicitly called for that entity.
-> 3. `em.clear()` is called, detaching all entities in the Persistence Context.
-
-### Q5: Why is `@Version` essential for token usage ledgers in high-concurrency AI systems?
-> **Answer**: When multiple concurrent requests (e.g. Virtual Threads serving chat completions) update the user's token usage balance simultaneously, a race condition could cause lost updates (thread B overwriting thread A's deduction). `@Version` activates **Optimistic Locking**; Hibernate checks `WHERE version = ?` during update, throwing an `OptimisticLockException` if another thread modified the row in the interim.
-
----
-
-## 13. Day 21 Wrap-Up & What's Next
-
-What an incredible start to Phase 4! You've unlocked how Java applications bridge the gap between temporary objects in memory and permanent tables in PostgreSQL.
-
-Here are the big ideas to carry with you:
-- **JPA is the Rulebook, Hibernate is the Engine**: JPA gives you standard annotations like `@Entity` and `@Id`; Hibernate does the heavy lifting of running SQL queries and managing connections.
-- **The Persistence Context is a Scratchpad**: Inside a transaction, Hibernate holds loaded entities in its First-Level Cache so you never make duplicate database calls for the same ID.
-- **Dirty Checking is Magic**: When an entity is `MANAGED`, simply calling `prompt.setName("New Title")` automatically updates PostgreSQL when the transaction commits. You don't have to keep calling `repository.save()`!
-
-### What's Coming Up Next?
-Writing `EntityManager` queries by hand works, but having to type `em.createQuery(...)` for every single CRUD operation gets old fast.
-
-Tomorrow in **[Day 22: Spring Data Repositories & Queries](../Day_22_Spring_Data_Repositories_Queries/Day_22_Spring_Data_Repositories_Queries.md)**, we'll unleash the true superpower of **Spring Data JPA**. You'll see how you can write a simple Java interface with *zero lines of implementation code*, and Spring will magically create `findById()`, `save()`, and even custom queries like `findByModelAndTemperatureLessThan(...)` automatically! See you tomorrow!
-
+| ⬅️ Previous Day | 📚 Course Hub | ➡️ Next Day |
+|:---|:---:|---:|
+| [← Day 20: Testing REST APIs End-to-End](../../Phase_03_Spring_Web_REST_APIs/Day_20_Testing_REST_APIs/Day_20_Testing_REST_APIs.md) | [All 60 Days Overview](../../README.md) | [Day 22: Spring Data Repositories & Queries](../Day_22_Spring_Data_Repositories_Queries/Day_22_Spring_Data_Repositories_Queries.md) |
