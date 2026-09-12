@@ -12,138 +12,178 @@
 
 ---
 
-## 📌 What Will You Learn Today?
-
-Hey, welcome to Day 01! 🎉 This is where it all begins.
-
-Look, I know you might be thinking — *"I'm just getting started with Java, and this course has 'Generative AI' in the title... am I in over my head?"* Absolutely not. Here's the deal:
-
-**We're going to take this step by step, together.** We're not going to skip anything or assume you already know stuff. If a word sounds confusing, we'll stop and explain it right there — in plain English, not textbook language. Think of me as your friend who happens to know this stuff and is walking you through it on a whiteboard.
-
-Here's what we'll cover today (don't worry, we'll explain everything along the way):
-- ✅ **How Java actually works** — what happens behind the scenes when you hit "Run" (the JVM, Bytecode, and why Java code runs on any computer)
-- ✅ **JDK vs JRE vs JVM** — these 3 acronyms confuse everyone at first, but they're actually simple once you see the picture
-- ✅ **Setting up Java 21** on your machine and making sure everything works
-- ✅ **Writing your first program** — and we'll break down every single word in `public static void main(String[] args)` so nothing feels like magic
-- ✅ **Peeking inside compiled code** — ever wondered what Java turns your code into? We'll look at actual bytecode (it's cool, trust me)
-- ✅ **JShell** — Java's interactive playground where you can test code instantly, just like Python's terminal
-- ✅ **Packages** — how Java keeps code organized so big projects don't become a mess
-- ✅ **Maven** — the tool that downloads libraries and builds your project (think of it like `npm` for Java)
-- ✅ **Why any of this matters for AI** — a quick peek at where this journey is heading (don't worry, we'll explain every AI term when we get there)
-
----
-
 ![Java Execution Pipeline and Ecosystem Architecture](assets/day01_java_ecosystem.jpg)
 
 ## 🗺️ Table of Contents
-
-- [1. Why Java for Generative AI?](#1-why-java-for-generative-ai)
-- [2. The Java Mental Model: How Code Runs](#2-the-java-mental-model-how-code-runs)
-  - [2.1 Python vs. Java Execution Model](#21-python-vs-java-execution-model)
-  - [2.2 JDK vs. JRE vs. JVM](#22-jdk-vs-jre-vs-jvm)
-- [3. Setting Up the Environment (JDK 21 LTS)](#3-setting-up-the-environment-jdk-21-lts)
-  - [3.1 Verifying Your JDK Installation](#31-verifying-your-jdk-installation)
-  - [3.2 Setting Up Your IDE](#32-setting-up-your-ide)
-- [4. Your First Java Program — Deconstructed Line by Line](#4-your-first-java-program--deconstructed-line-by-line)
-  - [4.1 Writing `HelloGenAI.java`](#41-writing-hellogenaijava)
-  - [4.2 The Anatomy of `public static void main`](#42-the-anatomy-of-public-static-void-main)
-  - [4.3 Compiling and Executing](#43-compiling-and-executing)
-  - [4.4 Inspecting the Bytecode with `javap`](#44-inspecting-the-bytecode-with-javap)
-- [5. Packages & Namespaces: Organizing Code Like a Pro](#5-packages--namespaces-organizing-code-like-a-pro)
-- [6. JShell: The Instant Feedback Loop](#6-jshell-the-instant-feedback-loop)
-- [7. Maven: The Enterprise Build Engine](#7-maven-the-enterprise-build-engine)
-  - [7.1 What Problem Does Maven Solve?](#71-what-problem-does-maven-solve)
-  - [7.2 Standard Directory Layout](#72-standard-directory-layout)
-  - [7.3 Understanding `pom.xml`](#73-understanding-pomxml)
-  - [7.4 The Maven Lifecycle Commands](#74-the-maven-lifecycle-commands)
-- [8. Python vs. Java: The Mental Bridge](#8-python-vs-java-the-mental-bridge)
-- [9. Why This Matters for Generative AI](#9-why-this-matters-for-generative-ai)
-- [10. Key Takeaways & Summary](#10-key-takeaways--summary)
-- [11. Practice Exercises & Solutions](#11-practice-exercises--solutions)
-
----
-
-# 1. Why Java for Generative AI?
-
-Okay, before we touch any code, let's answer the big question you're probably thinking:
-
-> *"Wait — isn't AI a Python thing? Why would I learn Java for AI?"*
-
-Great question. And yeah, if you scroll through YouTube or Twitter, it looks like AI = Python. That's partly true — Python is where researchers train AI models from scratch using heavy math libraries.
-
-But here's what those tutorials don't tell you: **the real-world companies that actually USE AI in production — banks, e-commerce sites like Amazon and Flipkart, payment systems like Razorpay and Stripe — their entire backend is already built in Java.** They can't just throw away millions of lines of Java code and rewrite everything in Python.
-
-So what do they do? They add AI features **directly into their existing Java applications**. And that's exactly what we'll learn in this course.
-
-> 🆕 **New Word Alert — "Generative AI"**: You know how ChatGPT can write essays, answer questions, and generate code? That's Generative AI. It's software that can *generate* new text, images, or code based on what you ask it. The "AI models" behind it (like GPT-4, Claude, Llama) are called **Large Language Models (LLMs)**. Think of an LLM as a super-smart autocomplete — you give it a question, it generates an answer. Throughout this course, we'll learn how to connect our Java applications to these LLMs.
-
-> 🆕 **New Word Alert — "Token"**: When you send text to an AI model, it doesn't read words the way you do. It breaks your text into small chunks called "tokens". A token is roughly 4 characters or about ¾ of a word. So the sentence "Hello world" is about 2-3 tokens. AI companies charge you based on how many tokens you send and receive. We'll explore this more later — for now, just know that a token ≈ a small piece of text.
-
-Here's the big picture of how this works in real companies:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                  How AI Works in Real Companies              │
-│                                                             │
-│   [AI Researchers]  ──►  Build & Train AI Models in Python  │
-│                                      │                      │
-│                          The trained model becomes an API   │
-│                          (like a web service you can call)  │
-│                                      ▼                      │
-│   [Your Java Application] ──►  Calls the AI model's API     │
-│    - Your Spring Boot app            - Sends a question     │
-│    - Your existing database          - Gets back an answer  │
-│    - Your users and business logic   - All inside Java!     │
-└─────────────────────────────────────────────────────────────┘
-```
-
-So in plain English: **Python builds the brain, Java builds the body that uses the brain.** And in this course, we're building that body.
-
-> 🆕 **New Word Alert — "Spring AI"**: You probably already heard of Spring Boot (we'll learn it properly starting Day 09). Spring AI is just a new addition to the Spring family that makes it super easy to call AI models from your Java code. Instead of writing complicated HTTP requests to OpenAI's API yourself, Spring AI gives you simple Java methods like `chatClient.prompt("What is Java?").call()`. That's it. We'll get there step by step.
-
-You don't need to memorize any of this right now. We'll revisit every single one of these concepts in detail later in the course. For today, the only thing that matters is: **Java is not just relevant for AI — it's essential for production AI, and that's where the jobs and career growth are.**
+- [1. Topic Overview](#1-topic-overview)
+- [2. Basic Foundations (True Zero)](#2-basic-foundations-true-zero)
+  - [2.1 What is Java and How Does It Run?](#21-what-is-java-and-how-does-it-run)
+  - [2.2 The Big Three: JDK vs. JRE vs. JVM](#22-the-big-three-jdk-vs-jre-vs-jvm)
+  - [2.3 Your First Minimal Working Program: HelloGenAI](#23-your-first-minimal-working-program-hellogenai)
+  - [2.4 Line-by-Line Anatomy of `public static void main`](#24-line-by-line-anatomy-of-public-static-void-main)
+- [3. Core Concept Walkthrough (Basic → Intermediate)](#3-core-concept-walkthrough-basic--intermediate)
+  - [3.1 The Two-Step Compilation & Execution Pipeline](#31-the-two-step-compilation--execution-pipeline)
+  - [3.2 Peeking Under the Hood: Inspecting Bytecode with `javap`](#32-peeking-under-the-hood-inspecting-bytecode-with-javap)
+  - [3.3 Organizing Code: Packages & Namespaces](#33-organizing-code-packages--namespaces)
+  - [3.4 Instant Feedback with JShell (Java REPL)](#34-instant-feedback-with-jshell-java-repl)
+  - [3.5 Enterprise Dependency & Build Management with Maven](#35-enterprise-dependency--build-management-with-maven)
+- [4. Prerequisite & Supporting Concepts](#4-prerequisite--supporting-concepts)
+  - [Prerequisite / Supporting Concept: Operating System PATH & JAVA_HOME](#prerequisite--supporting-concept-operating-system-path--java_home)
+  - [Prerequisite / Supporting Concept: Command-Line Interface (CLI) Basics](#prerequisite--supporting-concept-command-line-interface-cli-basics)
+  - [Prerequisite / Supporting Concept: Python vs. Java Mental Bridge](#prerequisite--supporting-concept-python-vs-java-mental-bridge)
+- [5. Advanced Depth (Intermediate → Advanced)](#5-advanced-depth-intermediate--advanced)
+  - [5.1 HotSpot JIT (Just-In-Time) Tiered Compilation](#51-hotspot-jit-just-in-time-tiered-compilation)
+  - [5.2 Single-File Source Code Execution (JEP 330)](#52-single-file-source-code-execution-jep-330)
+  - [5.3 Common Mistakes & Misconceptions (With Bad vs. Good Code)](#53-common-mistakes--misconceptions-with-bad-vs-good-code)
+  - [5.4 Architectural Trade-Offs: JVM Memory Overhead vs. Raw C/Rust](#54-architectural-trade-offs-jvm-memory-overhead-vs-raw-crust)
+- [6. Quick Recap](#6-quick-recap)
+- [7. Self-Check Questions & Practice Exercises](#7-self-check-questions--practice-exercises)
+  - [Self-Check Questions (Basic to Advanced)](#self-check-questions-basic-to-advanced)
+  - [Hands-On Practice Exercises with Full Solutions](#hands-on-practice-exercises-with-full-solutions)
 
 ---
 
-# 2. The Java Mental Model: How Code Runs
+# 1. Topic Overview
 
-Alright, let's get into the actual Java stuff! Before we write any code, let's understand what happens behind the scenes when you press "Run" in Java. This is actually really cool once you get it.
+The Java ecosystem is the enterprise backbone of modern software engineering. It consists of the **Java Development Kit (JDK)**, the **Java Virtual Machine (JVM)**, and standardized build systems like **Apache Maven** that turn human-written source code into fast, secure, portable machine instructions.
 
-![Java Execution Pipeline and Ecosystem Architecture](assets/day01_java_ecosystem.jpg)
+### Why This Topic Matters
+Modern enterprise Generative AI is not built in isolation inside Jupyter notebooks. While AI researchers train models in Python, the real-world production platforms handling customer authentication, payments, data security, and vector searches—at institutions like Amazon, Netflix, Citi, and Stripe—run on the JVM. Mastering the Java ecosystem allows you to build industrial-strength, AI-powered applications that scale reliably to millions of concurrent users.
 
-### 💡 The Plain-English Translation (No Jargon!)
+> 💡 **New Word Alert — "Generative AI"**: Software that creates new content (text, code, structured JSON, images) by predicting patterns learned from vast datasets. The brain behind it is a Large Language Model (LLM) like GPT-4 or Claude. In Java, we build the robust application body that communicates with this brain.
 
-If you've been doing core Java (classes, methods, loops), some ecosystem words sound overly academic. Here is what they actually mean in plain, everyday English:
-
-| Jargon Term | What It ACTUALLY Means in Plain English | Real-World Equivalent |
-| :--- | :--- | :--- |
-| **JDK** | The complete developer toolkit. Contains the compiler (`javac`), runner (`java`), and tools. | The entire mechanic's workshop with all tools and cranes. |
-| **JRE** | The runtime environment needed just to execute a Java app. | A car that's ready to drive (has the engine and fuel tank). |
-| **JVM** | The software engine that reads `.class` bytecode and runs it on your CPU. | The physical engine under the car's hood. |
-| **Bytecode (`.class`)** | An intermediate, universal language that isn't human code and isn't raw machine code. | A sheet of universal musical notes that any musician in any country can play. |
-| **JIT Compiler** | A smart assistant inside the JVM that spots code you run frequently and turns it into lightning-fast machine code on the fly. | A chef memorizing a popular recipe so they don't have to read the cookbook every single order. |
+> 💡 **New Word Alert — "Token"**: The atomic unit of text processed by an AI model. Roughly 4 characters of English text equal 1 token (e.g., "Hello world" $\approx$ 2–3 tokens). AI APIs meter and bill usage based on token consumption.
 
 ---
 
-### 2.1 Python vs. Java Execution Model
+# 2. Basic Foundations (True Zero)
 
-In Python, the interpreter reads your code line by line and executes it on the fly:
+If you have never written a single line of Java before, welcome! Let's start from true zero.
+
+### 2.1 What is Java and How Does It Run?
+
+A computer CPU understands only raw binary numbers: `0`s and `1`s (machine code). As humans, writing millions of `0`s and `1`s is impossible. We write code in high-level programming languages that resemble English and mathematics.
+
+Languages handle this translation in one of two traditional ways:
+1. **Pure Interpreted Languages (like Python)**: An interpreter reads your source code line-by-line and executes it immediately. If there is a fatal type error on line 80, the program happily runs lines 1 through 79 before crashing at runtime.
+2. **Pure Compiled Languages (like C or C++)**: A compiler translates the entire source file directly into machine code specific to your processor (e.g., Intel x86 or Apple ARM64). The resulting binary runs blisteringly fast, but a binary compiled on Windows cannot run on Linux or macOS.
+
+**Java combines the best of both worlds**:
+Java compiles your human-readable source code (`.java`) into an intermediate format called **Bytecode** (`.class`). Bytecode is not machine code for any real physical CPU. Instead, it is the machine code for an imaginary, standardized computer called the **Java Virtual Machine (JVM)**.
+
+Because every major operating system (Windows, Linux, macOS) has its own JVM implementation, the exact same `.class` file runs anywhere without recompilation. This is Java's famous promise: **Write Once, Run Anywhere (WORA)**.
+
+---
+
+### 2.2 The Big Three: JDK vs. JRE vs. JVM
+
+Beginners often get confused by these three acronyms. Here is their definitive distinction:
 
 ```
-[ Python Script (.py) ] ──► [ Python Interpreter ] ──► [ OS / CPU Executes Immediately ]
+┌─────────────────────────────────────────────────────────────────────────┐
+│ JDK (Java Development Kit)                                              │
+│  - javac (The Java Compiler)                                            │
+│  - jshell (Interactive Java Playground / REPL)                          │
+│  - javap (Disassembler), javadoc, jdb (Debugger), jar                   │
+│                                                                         │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │ JRE (Java Runtime Environment)                                  │   │
+│   │  - Core Standard Libraries (java.lang, java.util, java.net)     │   │
+│   │                                                                 │   │
+│   │   ┌─────────────────────────────────────────────────────────┐   │   │
+│   │   │ JVM (Java Virtual Machine)                              │   │   │
+│   │   │  - ClassLoader Subsystem                                │   │   │
+│   │   │  - Memory Management (Stack & Heap)                     │   │   │
+│   │   │  - Garbage Collector (Automatic Memory Cleanup)         │   │   │
+│   │   │  - Just-In-Time (JIT) HotSpot Execution Engine          │   │   │
+│   │   └─────────────────────────────────────────────────────────┘   │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
-*If there is a typo or type mismatch on line 50, Python runs lines 1–49 happily and then crashes on line 50 at runtime.*
 
-In Java, code is **compiled first**, and then executed by a virtual machine:
+| Acronym | Stands For | Who Needs It? | Real-World Physical Analogy |
+| :--- | :--- | :--- | :--- |
+| **JVM** | **Java Virtual Machine** | The host system running the app | The internal combustion engine converting fuel into movement. |
+| **JRE** | **Java Runtime Environment** | End-users executing pre-built apps | The fully assembled car ready to drive on the road. |
+| **JDK** | **Java Development Kit** | **Software Developers (YOU!)** | The auto-factory: contains the car, plus wrenches, cranes, and diagnostic computers. |
+
+> 💡 **New Word Alert — "JDK (Java Development Kit)"**: The complete software package installed on a developer's computer containing the compiler (`javac`), runtime launcher (`java`), and developer diagnostic utilities.
+
+> 💡 **New Word Alert — "JVM (Java Virtual Machine)"**: An abstract computing engine that resides in memory, reads compiled `.class` bytecode, and translates it on the fly into native CPU instructions.
+
+---
+
+### 2.3 Your First Minimal Working Program: HelloGenAI
+
+Let's write, compile, and execute our first working Java program. In Java, source code must reside inside a file that matches the class name exactly.
+
+Create a file named `HelloGenAI.java`:
+
+```java
+public class HelloGenAI {
+    public static void main(String[] args) {
+        System.out.println("Hello, Enterprise Gen AI World!");
+        System.out.println("Java 21 + Spring AI is ready.");
+    }
+}
+```
+
+---
+
+### 2.4 Line-by-Line Anatomy of `public static void main`
+
+Beginners frequently ask: *"Why does Java require so many words just to print text?"* Every single keyword serves a vital architectural purpose:
 
 ```
-Step 1: Compile-time (Developer's Machine)
+ public  static  void  main ( String[]  args )
+   │       │      │     │       │        │
+   │       │      │     │       │        └─ Parameter variable name (array of strings)
+   │       │      │     │       └────────── Parameter type (Array of Text inputs)
+   │       │      │     └────────────────── Exact method name required by the JVM launcher
+   │       │      └──────────────────────── Returns nothing (no return value)
+   │       └─────────────────────────────── Belongs to the class itself; no object instance needed
+   └─────────────────────────────────────── Accessible from anywhere by the external JVM launcher
+```
+
+1. **`public class HelloGenAI`**:
+   - `public`: An access modifier meaning this class blueprint can be accessed by any code in the universe, including the JVM launcher outside the file.
+   - `class`: The keyword used to declare a blueprint for state and behavior.
+   - `HelloGenAI`: The identifier name of this class. Java convention dictates `PascalCase` for class names.
+2. **`public` (on the method)**:
+   - The JVM starts execution from outside your package. If this method were `private`, the JVM would be blocked by security boundaries and crash with an access error.
+3. **`static` (The Bootstrapping Keyword)**:
+   - Ordinarily, to call a method inside a class, you must instantiate an object in memory first (`HelloGenAI app = new HelloGenAI()`).
+   - But when an application boots up, **no objects exist yet in RAM**.
+   - Marking `main` as `static` instructs the JVM: *"You can invoke this method directly from the class blueprint without allocating an object in memory first."*
+4. **`void`**:
+   - Specifies the return type. `void` signifies that the method returns no value to the caller upon completion.
+5. **`main`**:
+   - The exact identifier that the JVM scans for as the program's official entry whistle. If misspelled (e.g., `Main` or `start`), the JVM will fail with `Main method not found`.
+6. **`String[] args`**:
+   - `String[]` indicates an array of text strings.
+   - `args` receives any command-line parameters passed when the program is launched (e.g., `java HelloGenAI --model=gpt-4o`).
+7. **`System.out.println(...)`**:
+   - `System`: A standard class provided automatically in `java.lang`.
+   - `out`: The standard output stream connected to your console/terminal.
+   - `println`: Short for "print line"—outputs the string and inserts a newline character at the end.
+   - `;` (Semicolon): The mandatory statement terminator in Java.
+
+---
+
+# 3. Core Concept Walkthrough (Basic → Intermediate)
+
+Now that you understand the basic program, let's trace the journey code takes from your fingertips to your CPU.
+
+### 3.1 The Two-Step Compilation & Execution Pipeline
+
+```
+Step 1: Developer Machine (Compile-Time)
 ┌───────────────────────┐         javac          ┌───────────────────────┐
 │  HelloGenAI.java      │  ───────────────────►  │  HelloGenAI.class     │
 │  (Human-Readable)     │    (Java Compiler)     │  (Bytecode - Portable)│
 └───────────────────────┘                        └───────────────────────┘
                                                             │
-Step 2: Runtime (Any OS: Windows, Linux, Mac, Cloud)        │
+Step 2: Any Machine / OS / Cloud (Runtime)                  │
                                                             ▼
 ┌────────────────────────────────────────────────────────────────────────┐
 │                     JVM (Java Virtual Machine)                         │
@@ -159,215 +199,39 @@ Step 2: Runtime (Any OS: Windows, Linux, Mac, Cloud)        │
                          (Intel x86, ARM64, AMD64)
 ```
 
-### Real-World Analogy: The Architect, Blueprint, and Construction Crew
-
-- **`.java` file**: The architect's handwritten sketches and notes (readable by human engineers).
-- **`javac` (Compiler)**: The architectural drafting office. It inspects every line, validates building codes, checks structural integrity, and produces a standardized architectural blueprint. If a wall is missing support, it rejects the design **before** any construction begins!
-- **`.class` file (Bytecode)**: The finalized blueprint. It is not made of concrete yet, but it contains precise, universal instructions.
-- **`JVM` (Java Virtual Machine)**: The local construction crew on site. Whether the site is in Tokyo (Windows), New York (Linux), or London (macOS), the crew reads the universal blueprint and translates it into physical bricks and steel for that specific terrain.
-- **"Write Once, Run Anywhere" (WORA)**: You compile your `.class` bytecode once on your Windows PC. That identical `.class` file can run on an AWS Linux server, a Raspberry Pi, or a Mac without changing a single character!
-
----
-
-### 2.2 JDK vs. JRE vs. JVM
-
-Beginners often confuse these three acronyms. Here is the definitive distinction:
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│ JDK (Java Development Kit)                                              │
-│  - javac (Compiler)                                                     │
-│  - jshell (Interactive REPL)                                            │
-│  - javadoc, javap, jdb, jar                                             │
-│  - Debuggers, Profilers, Tools                                          │
-│                                                                         │
-│   ┌─────────────────────────────────────────────────────────────────┐   │
-│   │ JRE (Java Runtime Environment)                                  │   │
-│   │  - Core Standard Libraries (java.lang, java.util, java.net)     │   │
-│   │                                                                 │   │
-│   │   ┌─────────────────────────────────────────────────────────┐   │   │
-│   │   │ JVM (Java Virtual Machine)                              │   │   │
-│   │   │  - ClassLoader                                          │   │   │
-│   │   │  - Memory Management (Stack & Heap)                     │   │   │
-│   │   │  - Garbage Collector (Automatic Memory Cleanup)         │   │   │
-│   │   │  - Just-In-Time (JIT) HotSpot Compiler                  │   │   │
-│   │   └─────────────────────────────────────────────────────────┘   │   │
-│   └─────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-| Acronym | Stands For | Who Needs It? | Real-World Analogy |
-| :--- | :--- | :--- | :--- |
-| **JVM** | **Java Virtual Machine** | The computer running the program | The engine inside a car that converts fuel to motion. |
-| **JRE** | **Java Runtime Environment** | End users running pre-built Java apps | The complete car ready to drive on the road (engine + wheels + dashboard). |
-| **JDK** | **Java Development Kit** | **Developers (YOU!)** | The auto-manufacturing factory (car + toolboxes, diagnostic computers, assembly cranes). |
-
-> [!TIP]
-> Since Java 11, the standalone JRE download was deprecated. When you install Java 21 today, you install the full **JDK**, which includes the compiler, tools, and the JVM automatically.
-
----
-
-# 3. Setting Up the Environment (JDK 21 LTS)
-
-### Why Java 21 LTS?
-In Java's release cadence, LTS stands for **Long-Term Support**. Enterprises do not use experimental versions for production. 
-- Java 8 (2014) was historic.
-- Java 11 (2018) was the cloud standard.
-- Java 17 (2021) was the Spring Boot 3 baseline.
-- **Java 21 (Standard through 2029+)** is the modern gold standard. It introduced **Virtual Threads (Project Loom)**, **Records**, **Pattern Matching**, and **Sequenced Collections**—all of which make AI engineering faster and more elegant.
-
-### 3.1 Verifying Your JDK Installation
-
-Open your terminal (PowerShell on Windows, or Terminal on macOS/Linux) and check:
+Let's execute this manually via your command terminal:
 
 ```bash
-java -version
+# Step 1: Compile the Java source file into bytecode
+javac HelloGenAI.java
+
+# Notice: A new binary file named HelloGenAI.class appears in your directory!
+
+# Step 2: Launch the JVM to run the compiled bytecode
+java HelloGenAI
 ```
 
-You should see output similar to:
-```text
-openjdk version "21.0.x" 2026-xx-xx LTS
-OpenJDK Runtime Environment Temurin-21.0.x (build 21.0.x)
-OpenJDK 64-Bit Server VM Temurin-21.0.x (build 21.0.x, mixed mode, sharing)
-```
-
-Next, verify the compiler:
-```bash
-javac -version
-```
+> [!WARNING]
+> When running the compiled class with the `java` command, **do not append `.class` or `.java`**. You supply the class identifier name (`java HelloGenAI`), not the file name.
 
 Output:
 ```text
-javac 21.0.x
-```
-
-If both commands return `21`, you are ready!
-
----
-
-### 3.2 Setting Up Your IDE
-
-While you can write Java in Notepad, a professional Java engineer uses an IDE for code completion, refactoring, and instant compilation feedback:
-
-1. **IntelliJ IDEA (Recommended)**: Download **IntelliJ IDEA Community Edition** (100% free and open source). It is the undisputed industry standard for Java and Spring Boot development.
-2. **VS Code (Alternative)**: If you prefer VS Code, install the extension pack: **"Extension Pack for Java"** by Microsoft.
-
----
-
-# 4. Your First Java Program — Deconstructed Line by Line
-
-Alright, this is the fun part! Let's actually write some code. And we're not just going to write it — we're going to take it apart piece by piece so you know exactly why every single word is there.
-
-### 4.1 Writing `HelloGenAI.java`
-
-Create a file named `HelloGenAI.java`. In Java, **the file name must match the name of the `public class` exactly**, including capitalization!
-
-```java
-public class HelloGenAI {
-
-    public static void main(String[] args) {
-        System.out.println("Hello, Enterprise Gen AI World!");
-        System.out.println("Java 21 + Spring AI is ready to rock.");
-    }
-}
-```
-
----
-
-### 4.2 The Anatomy of `public static void main`
-
-Every beginner asks: *"Why does Java require so many words just to print a sentence, whereas Python only needs `print(...)`?"*
-
-Here is the exact reason for every word:
-
-```
- public  static  void  main ( String[]  args )
-   │       │      │     │       │        │
-   │       │      │     │       │        └─ Parameter name (array of strings)
-   │       │      │     │       └────────── Parameter type (Array of Text inputs)
-   │       │      │     └────────────────── Special method name recognized by JVM
-   │       │      └──────────────────────── Returns nothing (no exit data)
-   │       └─────────────────────────────── Belongs to the class, not an instance
-   └─────────────────────────────────────── Accessible from anywhere by the JVM
-```
-
-Let's break down each element:
-
-#### 1. `public class HelloGenAI`
-- In Java, **everything lives inside a class**. Java is strictly object-oriented.
-- `public`: An access modifier meaning this class is visible to the entire world, including the JVM launcher located outside this file.
-- `class`: The keyword defining a blueprint.
-- `HelloGenAI`: The identifier name. By Java convention, class names use `PascalCase` (e.g., `ChatResponse`, `VectorStore`, `PromptTemplate`).
-
-#### 2. `public` (on the method)
-- The JVM needs to call this entry point from the outside. If it were `private`, the JVM would be blocked by security rules and couldn't start your application.
-
-#### 3. `static` (The Most Important Keyword!)
-- Normally, to use a method inside a class, you must first create an object using `new` (e.g., `HelloGenAI myObj = new HelloGenAI()`).
-- But when your program first boots up, **no objects exist yet**!
-- By marking `main` as `static`, you tell the JVM: *"You can run this method directly on the class blueprint without creating an object in memory first."* This solves the chicken-and-egg problem of bootstrapping.
-
-#### 4. `void`
-- The return type. It means this function does not return any value back to the caller when it finishes. (Operating system exit codes are handled differently in Java via `System.exit(code)`).
-
-#### 5. `main`
-- The exact identifier that the JVM looks for as the official starting whistle of a Java application. If you name it `start` or `run`, the JVM will complain: `Main method not found in class`.
-
-#### 6. `String[] args`
-- `String[]`: An array of text strings.
-- `args`: Arguments passed to your program from the command line. For example, if you run:
-  `java HelloGenAI --model=gpt-4o --temperature=0.7`
-  Then `args[0]` will be `"--model=gpt-4o"` and `args[1]` will be `"--temperature=0.7"`.
-
-#### 7. `System.out.println(...)`
-- `System`: A built-in core Java class provided by the runtime.
-- `out`: The standard output stream (pointing to your terminal console).
-- `println`: Short for "print line"—prints the string and moves the cursor to the next line.
-- `;` (Semicolon): Every statement in Java must end with a semicolon. It tells the compiler where a single instruction ends, regardless of line breaks.
-
----
-
-### 4.3 Compiling and Executing
-
-Let's run this manually from the command line so you understand the raw process before letting an IDE hide it from you.
-
-#### Step 1: Compile the source file into bytecode
-```bash
-javac HelloGenAI.java
-```
-Notice what happens: A new file named `HelloGenAI.class` appears in your folder!
-
-#### Step 2: Run the compiled bytecode using the JVM
-```bash
-java HelloGenAI
-```
-*(Notice: Do NOT add `.class` or `.java` when running `java`! You supply the class name, not the file extension).*
-
-**Output:**
-```text
 Hello, Enterprise Gen AI World!
-Java 21 + Spring AI is ready to rock.
+Java 21 + Spring AI is ready.
 ```
-
-> [!TIP]
-> **Java 11+ Single-File Execution Shortcut**:
-> For small single-file scripts and quick tests, you can run:
-> ```bash
-> java HelloGenAI.java
-> ```
-> The JVM compiles the file in memory and executes it immediately without writing a `.class` file to disk! This makes Java feel as quick to experiment with as Python.
 
 ---
 
-### 4.4 Inspecting the Bytecode with `javap`
+### 3.2 Peeking Under the Hood: Inspecting Bytecode with `javap`
 
-Have you ever wondered what bytecode looks like? Java includes a disassembler called `javap`. Run:
+Bytecode is not mysterious; it is simply an assembly language for the JVM. Java includes a built-in disassembler tool called `javap`.
 
+Run this in your terminal:
 ```bash
 javap -c HelloGenAI
 ```
 
-You will see the actual assembly-like instructions that the JVM executes:
+The output reveals the exact low-level instructions executed by the JVM:
 
 ```text
 Compiled from "HelloGenAI.java"
@@ -384,36 +248,25 @@ public class HelloGenAI {
        3: ldc           #13                 // String Hello, Enterprise Gen AI World!
        5: invokevirtual #15                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
        8: getstatic     #7                  // Field java/lang/System.out:Ljava/io/PrintStream;
-      11: ldc           #21                 // String Java 21 + Spring AI is ready to rock.
+      11: ldc           #21                 // String Java 21 + Spring AI is ready.
       13: invokevirtual #15                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
       16: return
 }
 ```
 
-Look at instructions `3` and `5`:
-- `ldc`: Load constant string `"Hello, Enterprise Gen AI World!"` onto the JVM operand stack.
-- `invokevirtual`: Invoke the `println` method!
+Notice instruction `3` and `5`:
+- `ldc`: Load constant string `"Hello, Enterprise Gen AI World!"` onto the JVM execution stack.
+- `invokevirtual`: Invoke the `println` method on `System.out`.
 
-This bytecode is the secret to Java's cross-platform dominance: **Every JVM on Earth understands these exact bytecode instructions.**
+Every JVM running on Windows, Linux, Docker, or macOS interprets these exact instructions identically.
 
 ---
 
-# 5. Packages & Namespaces: Organizing Code Like a Pro
+### 3.3 Organizing Code: Packages & Namespaces
 
-In real enterprise projects, you never write naked classes sitting at the root directory. What happens if two developers both write a class named `Document` (e.g., one for PDF documents, one for Vector Store documents)? A name collision occurs.
+In enterprise software, thousands of classes coexist. If two developers both create a class named `Document` (one for a PDF parser, one for an AI vector embedding), their names would clash.
 
-Java solves this with **Packages**.
-
-### Real-World Analogy: Postal Addresses
-
-Imagine sending a letter to "John Smith". Without a city, state, and country, the post office cannot deliver it.
-```
-Country (com) -> Company (javagenai) -> Feature (rag) -> Class (Document)
-```
-
-In Java, companies reverse their internet domain name to guarantee global uniqueness:
-- Domain: `javagenai.com`
-- Package: `com.javagenai.day01`
+Java resolves this using **Packages**. Packages correspond directly to directory paths on disk.
 
 ```java
 package com.javagenai.day01;
@@ -435,120 +288,66 @@ public class SystemProbe {
 }
 ```
 
-### Folder Structure Rule:
-If a class declares `package com.javagenai.day01;`, it **MUST physically reside in a matching directory path**:
+#### The Package Rule:
+If a class declares `package com.javagenai.day01;`, it **must physically reside** inside the directory structure:
 `src/main/java/com/javagenai/day01/SystemProbe.java`
 
-If the folder path does not match the package statement, the Java compiler will refuse to compile it. This enforces rigorous organizational cleanliness across million-line enterprise projects.
+Enterprise convention uses reversed internet domain names (`com.javagenai`) to guarantee global uniqueness across all open-source libraries.
 
 ---
 
-# 6. JShell: The Instant Feedback Loop
+### 3.4 Instant Feedback with JShell (Java REPL)
 
-Python developers love the interactive REPL (Read-Eval-Print-Loop) or Jupyter Notebooks because you can test a one-line expression without creating a project or compiling.
+Developers coming from Python love the interactive REPL where single lines can be evaluated instantly without creating classes or project files. Java has its own official REPL: **`jshell`** (introduced in Java 9).
 
-**Java has had its own REPL since Java 9: `jshell`!**
-
-Let's try it right now. In your terminal, type:
-
+Launch it in your terminal:
 ```bash
 jshell
 ```
 
-You will see:
-```text
-|  Welcome to JShell -- Version 21.0.x
-|  For an introduction type: /help intro
-
-jshell>
-```
-
-Now try typing Java statements directly—**no class, no `main` method, and semicolons are even optional!**
-
 ```java
-jshell> int tokens = 1500 + 350
-tokens ==> 1850
+jshell> int promptTokens = 1200;
+promptTokens ==> 1200
 
-jshell> double costPer1k = 0.002
+jshell> int completionTokens = 350;
+completionTokens ==> 350
+
+jshell> double costPer1k = 0.002;
 costPer1k ==> 0.002
 
-jshell> double totalCost = (tokens / 1000.0) * costPer1k
-totalCost ==> 0.0037
+jshell> double totalCost = ((promptTokens + completionTokens) / 1000.0) * costPer1k;
+totalCost ==> 0.0031
 
-jshell> String model = "gpt-4o"
-model ==> "gpt-4o"
+jshell> String summary = String.format("Total AI Cost: $%.4f USD", totalCost);
+summary ==> "Total AI Cost: $0.0031 USD"
 
-jshell> String prompt = String.format("Requesting %s for %d tokens, Cost: $%.4f", model, tokens, totalCost)
-prompt ==> "Requesting gpt-4o for 1850 tokens, Cost: $0.0037"
-
-jshell> System.out.println(prompt.toUpperCase())
-REQUESTING GPT-4O FOR 1850 TOKENS, COST: $0.0037
+jshell> /exit
+|  Goodbye
 ```
 
-To exit JShell at any time, type:
-```bash
-/exit
-```
-
-> [!TIP]
-> Throughout this course, whenever you want to quickly test how a Java method behaves (e.g., string manipulation, math calculations, regex parsing), pop open `jshell`! It takes 1 second and requires zero setup.
+`jshell` is your scratchpad for testing snippets, regex patterns, or mathematical formulas during your daily workflow.
 
 ---
 
-# 7. Maven: The Enterprise Build Engine
+### 3.5 Enterprise Dependency & Build Management with Maven
 
-In real projects, you don't run `javac` by hand every time. And you definitely don't want to manually download library files from random websites. That's where **Maven** comes in — it's basically a project manager for your Java code.
-
-Think of Maven like `npm` (if you know JavaScript) or `pip` (if you know Python) — except it also compiles your code, runs your tests, and packages everything into a single file you can deploy.
-
-### 7.1 What Problem Does Maven Solve?
-
-Imagine your Gen AI app needs:
-1. Spring Boot Web (to expose REST endpoints)
-2. Spring AI OpenAI (to talk to LLMs)
-3. PostgreSQL Driver (to connect to the vector database)
-4. Jackson (to serialize JSON)
-
-Each of these libraries depends on 20 other libraries (transitive dependencies). If you manage this manually, you will fall into **"Dependency Hell"**—conflicting versions, missing classes, and corrupted builds.
-
-**Maven automates:**
-- Downloading the exact versions of all libraries from **Maven Central** (the global registry).
-- Compiling all Java files across your project in the right order.
-- Running your automated unit and integration tests.
-- Packaging your application into a self-contained executable `.jar` file ready for Docker or AWS.
-
----
-
-### 7.2 Standard Directory Layout
-
-Maven enforces a standard folder structure across every Java project on Earth. If you open a Java project at Google, Netflix, or a 2-person startup, it always looks like this:
+In enterprise projects, you never manage `.jar` files manually. You use a build tool like **Apache Maven**.
 
 ```
 my-ai-application/
-├── pom.xml                        ← The Project Object Model (Maven Blueprint)
+├── pom.xml                        ← Project Object Model (The build manifest)
 └── src/
     ├── main/
-    │   ├── java/                  ← Production Java source code
-    │   │   └── com/
-    │   │       └── javagenai/
-    │   │           └── Application.java
-    │   └── resources/             ← Config files, SQL scripts, prompts
-    │       ├── application.yml
-    │       └── prompts/
-    │           └── system-prompt.st
+    │   ├── java/                  ← Production source code
+    │   │   └── com/javagenai/Application.java
+    │   └── resources/             ← Application configuration (application.yml, prompts)
     └── test/
-        ├── java/                  ← Unit and Integration tests (JUnit 5)
-        │   └── com/
-        │       └── javagenai/
-        │           └── ApplicationTests.java
-        └── resources/             ← Test-specific configuration
+        ├── java/                  ← Automated tests (JUnit 5)
+        └── resources/             ← Test configuration
 ```
 
----
-
-### 7.3 Understanding `pom.xml`
-
-The heart of Maven is the `pom.xml` (Project Object Model) file. Here is what an AI-ready `pom.xml` looks like:
+#### Understanding `pom.xml`
+The `pom.xml` specifies your project coordinates and dependencies:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -558,16 +357,12 @@ The heart of Maven is the `pom.xml` (Project Object Model) file. Here is what an
          https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <!-- 1. Coordinates: Who is this project? -->
+    <!-- 1. G-A-V Coordinates: Project identity -->
     <groupId>com.javagenai</groupId>
     <artifactId>day01-setup</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
 
-    <name>Day 01 - Java Ecosystem and Setup</name>
-    <description>First Java Gen AI application</description>
-
-    <!-- 2. Properties: Global variables (Java version, encodings) -->
     <properties>
         <java.version>21</java.version>
         <maven.compiler.source>21</maven.compiler.source>
@@ -575,9 +370,8 @@ The heart of Maven is the `pom.xml` (Project Object Model) file. Here is what an
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
-    <!-- 3. Dependencies: External libraries downloaded from Maven Central -->
+    <!-- 2. Dependencies: External libraries from Maven Central -->
     <dependencies>
-        <!-- Unit Testing with JUnit 5 -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
@@ -585,144 +379,211 @@ The heart of Maven is the `pom.xml` (Project Object Model) file. Here is what an
             <scope>test</scope>
         </dependency>
     </dependencies>
-
-    <!-- 4. Build Configuration -->
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.13.0</version>
-                <configuration>
-                    <release>21</release>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
 </project>
 ```
 
-#### The Maven Coordinate System (G-A-V)
-Every piece of software in the Java universe is uniquely identified by three coordinates:
-- **`groupId`**: The organization or company (e.g., `org.springframework.ai`, `com.google.guava`).
-- **`artifactId`**: The specific project/module name (e.g., `spring-ai-openai`, `guava`).
-- **`version`**: The release version (e.g., `1.0.0`, `33.0.0-jre`).
-
----
-
-### 7.4 The Maven Lifecycle Commands
-
-Maven has standard lifecycle phases that run in sequential order:
-
+#### The Maven Build Lifecycle
+Maven executes builds through standardized lifecycle phases:
 ```
 [ validate ] ──► [ compile ] ──► [ test ] ──► [ package ] ──► [ verify ] ──► [ install ]
 ```
 
-Here are the commands you will use daily:
-
-| Command | What It Does | When To Use It |
-| :--- | :--- | :--- |
-| `mvn compile` | Compiles all source files in `src/main/java` into `target/classes` | Check if your code has compilation errors. |
-| `mvn test` | Compiles test files and executes all JUnit test suites | Verify code correctness before committing. |
-| `mvn clean` | Deletes the entire `target/` output folder | Reset state when files get out of sync. |
-| `mvn package` | Compiles, runs tests, and packages code into a `.jar` file in `target/` | Prepare a production artifact for deployment. |
-| `mvn clean package` | Wipes old builds and generates a pristine, fresh `.jar` | The gold standard pre-deployment build command. |
+- `mvn compile`: Compiles all source files into `target/classes`.
+- `mvn test`: Runs unit tests.
+- `mvn clean`: Deletes the `target/` build directory.
+- `mvn clean package`: Builds a clean, self-contained `.jar` file ready for production deployment.
 
 ---
 
-# 8. Python vs. Java: The Mental Bridge
+# 4. Prerequisite & Supporting Concepts
 
-If you are coming from Python, here is your Rosetta Stone to map concepts instantly:
+### Prerequisite / Supporting Concept: Operating System PATH & JAVA_HOME
 
-| Concept | Python | Java (Modern Java 21) |
+When you type `java` or `javac` into your terminal, how does your operating system know where the executable files live?
+
+Your operating system uses an environment variable called **`PATH`**.
+1. **`JAVA_HOME`**: An environment variable pointing to the root directory where the JDK is installed (e.g., `C:\Program Files\Eclipse Adoptium\jdk-21.0.x` on Windows, or `/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home` on macOS).
+2. **`PATH`**: An operating system list of directories where the command prompt searches for executable programs. Appending `%JAVA_HOME%\bin` (or `$JAVA_HOME/bin`) allows you to run `java`, `javac`, and `jshell` from any directory.
+
+Verify this in your shell:
+```bash
+# Check Java version
+java -version
+
+# Check Compiler version
+javac -version
+```
+
+If both print `21.0.x`, your `PATH` and `JAVA_HOME` are correctly configured.
+
+---
+
+### Prerequisite / Supporting Concept: Command-Line Interface (CLI) Basics
+
+When compiling and packaging Java applications, you will interact with the terminal:
+- `cd <folder>`: Change directory.
+- `ls` (macOS/Linux) or `dir` (Windows): List files in the current folder.
+- `mkdir <folder>`: Create a new folder.
+- `pwd`: Print the current working directory path.
+
+---
+
+### Prerequisite / Supporting Concept: Python vs. Java Mental Bridge
+
+For developers familiar with Python, here is a direct mapping of architectural concepts:
+
+| Concept | Python | Modern Java 21 |
 | :--- | :--- | :--- |
-| **Typing** | Dynamic (`x = 10`, `x = "hello"`) | Static & Strong (`int x = 10;`, `String s = "hello";` or `var x = 10;`) |
-| **Execution** | Interpreted (`python app.py`) | Compiled to Bytecode (`javac App.java`), executed by JVM (`java App`) |
-| **File / Class Rule** | Multiple classes in any filename | One `public class` per file matching filename exactly |
-| **Null / None** | `None` | `null` (or safer modern `Optional<T>`) |
-| **Package Management** | `pip` + `requirements.txt` / `poetry` | Maven (`pom.xml`) or Gradle (`build.gradle`) |
-| **Interactive Shell** | Python REPL / Jupyter | `jshell` |
+| **Typing Discipline** | Dynamic (`x = "hello"`, then `x = 42`) | Static & Strongly Typed (`String s = "hello";` or `var s = "hello";`) |
+| **Execution Model** | Interpreted line-by-line | Compiled to Bytecode (`javac`), executed by JVM (`java`) |
+| **Class/File Binding** | Multiple classes in any arbitrary file | One `public class` per file matching filename exactly |
+| **Empty Reference** | `None` | `null` (or safer modern `Optional<T>`) |
+| **Package Management**| `pip` with `requirements.txt` / Poetry | Maven (`pom.xml`) or Gradle (`build.gradle`) |
+| **Interactive REPL** | Python interactive shell / Jupyter | `jshell` |
 | **Entry Point** | `if __name__ == "__main__":` | `public static void main(String[] args)` |
-| **Printing** | `print("Hello")` | `System.out.println("Hello");` |
-| **String Interpolation** | `f"Model: {model}"` | `String.format("Model: %s", model)` or `"""Text Blocks"""` |
-| **Concurrency** | GIL limitation (asyncio / multiprocessing) | **Virtual Threads** (millions of lightweight threads with zero GIL) |
+| **Concurrency Model** | GIL limitation (asyncio / multiprocessing) | **Virtual Threads** (millions of lightweight concurrent threads) |
 
 ---
 
-# 9. Why This Matters for Generative AI
+# 5. Advanced Depth (Intermediate → Advanced)
 
-Okay, you might be wondering — *"Cool, I learned about JDK, bytecode, and Maven today. But how does any of this connect to AI?"*
+Now let's examine what happens inside production JVM engines when running high-load AI workloads.
 
-Great question! Let me give you a quick preview of **why these Java basics are actually the foundation for everything we'll build later**. Don't worry if some of these ideas sound new — we'll explain each one in detail when we get to it. This is just a sneak peek so you can see the bigger picture:
+### 5.1 HotSpot JIT (Just-In-Time) Tiered Compilation
+
+Beginners often believe Java is purely interpreted at runtime. That is incorrect. The modern JVM uses **Tiered Compilation**:
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│ How Today's Java Basics Connect to AI (A Friendly Preview)            │
-├────────────────────────────────────────────────────────────────────────┤
-│                                                                        │
-│ 1. Java's Type Safety:                                                 │
-│    When an AI model sends back a response (like a JSON object with    │
-│    a customer name, order total, and invoice number), Java checks     │
-│    that all the fields are correct BEFORE your code even runs.        │
-│    Python might crash at 3 AM because a field was missing.            │
-│    Java catches that mistake right away at compile time.              │
-│                                                                        │
-│ 2. The JVM's Memory Management:                                        │
-│    Later in this course, we'll work with AI features that need to     │
-│    store LOTS of data in memory (we'll explain what and why when      │
-│    we get there). Java's memory system is built to handle that        │
-│    without your application slowing down or crashing.                 │
-│                                                                        │
-│ 3. Maven:                                                              │
-│    As our project grows, we'll need to add libraries for AI, web     │
-│    APIs, databases, and security. Maven will download and manage     │
-│    all of these for us automatically — no manual file hunting.        │
-│                                                                        │
-│ 4. Virtual Threads (we'll learn about these on Day 07):                │
-│    Imagine a chatbot with 5,000 users chatting at the same time.     │
-│    Each user is waiting for the AI to respond. Java 21 can handle    │
-│    all 5,000 of those conversations simultaneously without breaking  │
-│    a sweat. Most other languages can't do this as efficiently.       │
-└────────────────────────────────────────────────────────────────────────┘
+[ .class Bytecode ]
+        │
+        ▼
+[ Tier 0: Interpreter ] ──► Starts instantly, profiles execution counts
+        │
+        ▼ (Code executed thousands of times = "Hot Code")
+[ Tier 1–3: C1 Compiler ] ──► Fast native machine compilation with light optimization
+        │
+        ▼ (Extreme hot loops, matrix calculations, vector comparisons)
+[ Tier 4: C2 Compiler ] ──► Heavy, aggressive optimization (inlining, loop unrolling, SIMD vectorization)
 ```
+
+When an AI vector similarity function or JSON tokenizer is called millions of times, the C2 compiler compiles it directly into native CPU assembly that rivals hand-optimized C++ speed.
 
 ---
 
-# 10. Key Takeaways & Summary
+### 5.2 Single-File Source Code Execution (JEP 330)
 
+Since Java 11, you do not need to run `javac` and `java` separately for quick scripts. You can run source files directly:
+
+```bash
+java HelloGenAI.java
 ```
-                  ┌───────────────────────────────┐
-                  │      DAY 01 CHEAT SHEET       │
-                  └──────────────┬────────────────┘
-                                 │
-         ┌───────────────────────┼───────────────────────┐
-         ▼                       ▼                       ▼
-  [ Architecture ]        [ Language Rules ]       [ Toolchain ]
-  • .java -> .class       • Class name matches     • JDK = Compiler + Tools
-  • Bytecode runs on JVM    file name exactly      • JRE = Runtime + Libs
-  • JIT turns hot code    • static allows running  • JVM = Virtual Machine
-    into native machine     before objects exist   • jshell for fast REPL
-    code at runtime       • Strong static typing   • Maven manages builds &
-  • Write Once, Run       • Semicolons terminate     dependencies via pom.xml
-    Anywhere (WORA)         every statement
-```
+
+The JVM compiles the file in memory and executes it immediately without writing a `.class` file to your disk. This allows Java to feel as lightweight for scripting as Python.
 
 ---
 
-# 11. Practice Exercises & Solutions
+### 5.3 Common Mistakes & Misconceptions (With Bad vs. Good Code)
 
-To solidify your knowledge, complete these three hands-on exercises.
+#### Mistake 1: Class Name Does Not Match File Name
+**Bad Code (`AppRunner.java`):**
+```java
+// ❌ COMPILE ERROR: class HelloGenAI is public, should be declared in a file named HelloGenAI.java
+public class HelloGenAI {
+    public static void main(String[] args) {
+        System.out.println("Hello");
+    }
+}
+```
+**Correct Code (`HelloGenAI.java`):**
+```java
+// ✅ File name is HelloGenAI.java
+public class HelloGenAI {
+    public static void main(String[] args) {
+        System.out.println("Hello");
+    }
+}
+```
 
-### 🏋️ Exercise 1: Build a System Info Checker
-**Objective**: Write a standalone Java program named `GenAIRuntimeInfo.java` that checks your computer's specs and tells you if your machine is powerful enough to run AI models locally.
+#### Mistake 2: Missing `static` on `main`
+**Bad Code:**
+```java
+public class BadMain {
+    // ❌ RUNTIME ERROR: Main method is not static in class BadMain
+    public void main(String[] args) {
+        System.out.println("This will not run!");
+    }
+}
+```
+**Why it fails**: When the JVM boots up, it has not allocated any object instance of `BadMain`. It cannot call an instance method without an existing object.
+**Correct Code:**
+```java
+public class GoodMain {
+    // ✅ JVM can invoke static methods directly on the class blueprint
+    public static void main(String[] args) {
+        System.out.println("Bootstrapped successfully!");
+    }
+}
+```
 
-**What it should do**:
-1. Print Java specification version and vendor.
-2. Print available CPU processor cores.
-3. Print total available JVM memory in Megabytes and Gigabytes.
-4. If available CPU cores $\ge 4$ and memory $\ge 2048$ MB, print `[STATUS]: Host is READY for local Ollama LLM execution!`, otherwise print a warning recommendation.
+#### Mistake 3: Package Declaration Does Not Match Directory Hierarchy
+**Bad Layout:**
+- File path: `src/main/java/SystemProbe.java`
+- File header: `package com.javagenai.day01;`
+- **Result**: `javac` fails with directory mismatch error.
+**Good Layout:**
+- File path: `src/main/java/com/javagenai/day01/SystemProbe.java`
+- File header: `package com.javagenai.day01;`
 
-#### Solution:
+---
+
+### 5.4 Architectural Trade-Offs: JVM Memory Overhead vs. Raw C/Rust
+
+| Factor | JVM (Java 21) | Native (C++ / Rust) | Python |
+| :--- | :--- | :--- | :--- |
+| **Startup Latency** | ~50ms to 200ms (JIT warmup) | < 5ms (Instant) | ~30ms |
+| **Peak Throughput** | Extremely High (C2 JIT optimizations) | Maximum | Low (Global Interpreter Lock) |
+| **Memory Safety** | 100% Managed (Garbage Collected) | Manual or Borrow Checker | Managed (Reference counted) |
+| **Developer Velocity**| High (Rich ecosystems, type safety) | Medium | Very High |
+| **Enterprise Concurrency**| Unmatched (Millions of Virtual Threads)| High (Manual async/epoll) | Constrained by GIL |
+
+---
+
+# 6. Quick Recap
+
+| Concept | Key Takeaway |
+| :--- | :--- |
+| **Compilation** | `javac File.java` transforms source code into portable `.class` bytecode. |
+| **Execution** | `java ClassName` launches the JVM to run bytecode on native CPU hardware. |
+| **JDK vs JRE vs JVM**| JDK is for developers (tools + compiler); JRE is runtime libraries; JVM is the execution engine. |
+| **`public static void main`**| Entry point; `static` enables invocation before any objects exist in RAM. |
+| **Packages** | Enforce clean namespaces and must mirror folder directory paths on disk. |
+| **Maven** | Standardizes enterprise project layout, builds `.jar` packages, and manages dependencies via `pom.xml`. |
+| **JShell** | Java's built-in REPL for fast interactive code prototyping. |
+
+---
+
+# 7. Self-Check Questions & Practice Exercises
+
+### Self-Check Questions (Basic to Advanced)
+
+1. **Why does the JVM require the `main` method to be declared `static`?**
+   - *Answer*: When the program launches, the JVM has not instantiated any objects. Declaring `main` as `static` allows the JVM to invoke the entry point directly from the class definition in memory without instantiating an instance.
+2. **What occurs if you attempt to run `java HelloGenAI.class` in your console?**
+   - *Answer*: The JVM fails with `Could not find or load main class HelloGenAI.class`. The `java` runtime command expects a fully qualified class name, not a file name extension.
+3. **What is the fundamental difference between Java Bytecode and Machine Code?**
+   - *Answer*: Machine code consists of raw CPU-specific instructions (e.g., x86-64 or ARM) executed directly by hardware. Bytecode is an intermediate instruction set understood by the JVM, making it completely platform-independent.
+4. **How does the JVM achieve native C++ performance despite running bytecode?**
+   - *Answer*: Through the HotSpot Tiered JIT Compiler. When the runtime identifies frequently executed "hot" bytecode loops, the C2 compiler compiles them directly into optimized native CPU machine code at runtime.
+5. **What are the three mandatory coordinates (G-A-V) used in a Maven `pom.xml`?**
+   - *Answer*: `groupId` (organization domain), `artifactId` (specific module/project name), and `version` (release version).
+
+---
+
+### Hands-On Practice Exercises with Full Solutions
+
+#### 🏋️ Exercise 1: Build an Enterprise System Diagnostic Probe
+**Objective**: Write a program named `GenAIRuntimeInfo.java` that evaluates host CPU cores and memory to verify if the machine meets local LLM inference requirements.
+
 ```java
 public class GenAIRuntimeInfo {
 
@@ -750,7 +611,7 @@ public class GenAIRuntimeInfo {
             System.out.println("✅ [STATUS]: Host is READY for local Ollama LLM execution!");
         } else {
             System.out.println("⚠️  [STATUS]: Host resources are constrained for large local models.");
-            System.out.println("   Recommendation: Use cloud endpoints (OpenAI/Anthropic) or 1B quant models.");
+            System.out.println("   Recommendation: Use cloud endpoints (OpenAI/Anthropic).");
         }
         System.out.println("==================================================");
     }
@@ -759,17 +620,9 @@ public class GenAIRuntimeInfo {
 
 ---
 
-### 🏋️ Exercise 2: Command-Line Token Cost Calculator
-**Objective**: Write a program named `TokenCostCalculator.java` that accepts command-line arguments (`args`) for:
-1. Model name (e.g., `gpt-4o-mini`)
-2. Input tokens used (e.g., `2500`)
-3. Output tokens used (e.g., `800`)
+#### 🏋️ Exercise 2: Command-Line Token Cost Calculator
+**Objective**: Write `TokenCostCalculator.java` that accepts command-line arguments (`args`) for the model name, input token count, and output token count, and computes API billing costs.
 
-Calculate the total cost assuming:
-- Input pricing: \$0.150 per 1,000,000 tokens ($0.00000015 / token)
-- Output pricing: \$0.600 per 1,000,000 tokens ($0.00000060 / token)
-
-#### Solution:
 ```java
 public class TokenCostCalculator {
 
@@ -784,7 +637,7 @@ public class TokenCostCalculator {
         long inputTokens = Long.parseLong(args[1]);
         long outputTokens = Long.parseLong(args[2]);
 
-        // Pricing per million tokens
+        // Pricing per million tokens ($)
         double inputPricePerMillion = 0.150;
         double outputPricePerMillion = 0.600;
 
@@ -804,11 +657,11 @@ public class TokenCostCalculator {
 
 ---
 
-### 🏋️ Exercise 3: JShell Interactive Token Estimation
-**Objective**: Launch `jshell` and experiment with string splitting to estimate token counts for an arbitrary prompt. (A standard rule of thumb is that 1 token $\approx$ 4 characters of English text, or roughly 0.75 words).
+#### 🏋️ Exercise 3: JShell Rapid Token Estimation Experiment
+**Objective**: Launch `jshell` and evaluate token counts for an arbitrary prompt using character-based and word-based heuristics.
 
 ```java
-// Open JShell in your terminal:
+// Launch JShell in your terminal:
 // $ jshell
 
 String prompt = "Explain retrieval-augmented generation and vector databases in enterprise Java applications.";
@@ -816,10 +669,10 @@ String prompt = "Explain retrieval-augmented generation and vector databases in 
 // 1. Calculate character count
 int charCount = prompt.length();
 
-// 2. Approximate token count by character length (charCount / 4)
+// 2. Approximate token count by character rule (1 token ≈ 4 characters)
 int estimatedTokensByChars = charCount / 4;
 
-// 3. Approximate token count by word count
+// 3. Approximate token count by word rule (1 token ≈ 0.75 words)
 String[] words = prompt.split("\\s+");
 int wordCount = words.length;
 int estimatedTokensByWords = (int) Math.ceil(wordCount / 0.75);
@@ -831,22 +684,8 @@ System.out.printf("Estimated Tokens (Word Rule): %d%n", estimatedTokensByWords);
 
 ---
 
-## 🧭 Self-Check Quiz
-
-1. **Why does the `main` method have to be `static`?**
-   - *Answer*: Because when the JVM boots up, no instance objects of the class exist yet in the heap. Marking `main` as `static` allows the JVM runtime to invoke the method directly on the class metadata without first instantiating an object.
-2. **What happens if your Java filename is `App.java` but your public class is `public class Application`?**
-   - *Answer*: The compilation fails immediately with an error: `class Application is public, should be declared in a file named Application.java`.
-3. **What is the difference between `javac` and `java`?**
-   - *Answer*: `javac` is the compiler that transforms human-readable `.java` source code into `.class` bytecode. `java` is the runtime launcher that starts the JVM to execute that bytecode.
-4. **Why do we use reverse domain names like `com.javagenai` for package names?**
-   - *Answer*: Internet domain names are globally unique. By reversing the domain (`com.javagenai`), package names are guaranteed not to collide with other libraries or organizations across the global Java ecosystem.
-5. **What are the 3 GAV coordinates in Maven?**
-   - *Answer*: `groupId` (organization/domain), `artifactId` (specific module name), and `version` (release tag).
-
----
-
 <p align="center">
-  <b>Nice work finishing Day 01! 🎉</b><br>
-  Tomorrow on <b>Day 02</b>, we'll dive into <b>Object-Oriented Programming (OOP) — Classes, Objects & Memory</b>. We'll learn how Java organizes data, where objects actually live in your computer's memory, and why <code>==</code> doesn't always work the way you'd expect. See you there!
+  <b>Day 01 Complete! 🎉</b><br>
+  Proceed to <b>Day 02</b>: <b>Object-Oriented Programming (OOP) — Classes, Objects & Memory Management</b>.<br>
+  <a href="../Day_02_OOP_Classes_Objects_Memory/Day_02_OOP_Classes_Objects_Memory.md"><b>Continue to Day 02 →</b></a>
 </p>

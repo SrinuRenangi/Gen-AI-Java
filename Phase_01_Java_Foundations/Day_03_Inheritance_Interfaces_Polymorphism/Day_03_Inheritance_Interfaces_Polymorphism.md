@@ -12,62 +12,66 @@
 
 ---
 
-## 📌 What Will You Learn Today?
-
-Welcome to Day 03, my friend! Today we're exploring one of the most liberating and superpower-granting ideas in software engineering: **Polymorphism and Interface-Driven Design**.
-
-Don't let the 12-letter Greek word scare you. "Polymorphism" just means *"many forms"* — the ability for different objects to respond to the same command in their own unique way. 
-
-Think about your TV remote: it has a `Power` button. You press `Power`, and the TV turns on. You don't care whether the TV's internal circuit board was made by Sony, LG, or Samsung. As long as it responds to the `Power` button, you're happy!
-
-In modern AI engineering with Spring AI, you almost **never** tie your code directly to one company like `OpenAiClient`. Why? What if OpenAI has an outage? Or what if your boss says, *"OpenAI is getting too expensive, let's switch to a free local AI model running on our own servers"*? 
-With interfaces and polymorphism, you can swap out OpenAI for a local AI model **without changing a single line of your business code**!
-
-By the end of today, you will clearly understand:
-- ✅ **The Power of Polymorphism**: How writing code against *contracts* instead of *vendors* makes your apps future-proof.
-- ✅ **Inheritance (`extends`)**: Reusing code with parent and child classes, using `super`, and knowing when to stop ("Composition over Inheritance").
-- ✅ **Interfaces (`implements`)**: The universal plug (like a USB-C port) of Java software architecture.
-- ✅ **The Diamond Problem**: Why Java lets you implement multiple interfaces, but only inherit from one class.
-- ✅ **Abstract Classes vs. Interfaces**: When you want a partial template vs. a 100% pure capability contract.
-- ✅ **Modern Java Interface Features**: `default` methods (adding new features safely) and `static` utility methods.
-- ✅ **Pattern Matching with `instanceof` (Java 21)**: The clean modern way to check and cast types in one easy step.
-- ✅ **Sealed Types (`sealed`, `permits`)**: Keeping your AI event streams strictly controlled and bug-free.
-- ✅ **The Spring AI Architecture Connection**: Seeing how Spring AI's `ChatModel` interface lets you swap AI providers with zero stress.
-
----
-
 ## 🗺️ Table of Contents
-
-- [1. Real-World Analogy: The Universal USB-C Port](#1-real-world-analogy-the-universal-usb-c-port)
-- [2. Inheritance (`extends`): Hierarchies and Code Reuse](#2-inheritance-extends-hierarchies-and-code-reuse)
-  - [2.1 Building an AI Message Hierarchy](#21-building-an-ai-message-hierarchy)
-  - [2.2 Method Overriding and `@Override`](#22-method-overriding-and-override)
-  - [2.3 The `super` Keyword](#23-the-super-keyword)
-- [3. Abstract Classes: Partial Blueprints](#3-abstract-classes-partial-blueprints)
-- [4. Interfaces: Pure Architectural Contracts](#4-interfaces-pure-architectural-contracts)
-  - [4.1 Why Interfaces Rule the Enterprise](#41-why-interfaces-rule-the-enterprise)
-  - [4.2 The Diamond Problem Solved](#42-the-diamond-problem-solved)
-  - [4.3 Default and Static Methods in Modern Java](#43-default-and-static-methods-in-modern-java)
-- [5. Polymorphism in Action: Swapping LLMs at Runtime](#5-polymorphism-in-action-swapping-llms-at-runtime)
-- [6. Modern Java: Pattern Matching & Sealed Types](#6-modern-java-pattern-matching--sealed-types)
-  - [6.1 Pattern Matching with `instanceof`](#61-pattern-matching-with-instanceof)
-  - [6.2 Sealed Interfaces (`sealed` & `permits`)](#62-sealed-interfaces-sealed--permits)
-- [7. Composition Over Inheritance: The Senior Rule](#7-composition-over-inheritance-the-senior-rule)
-- [8. The Spring AI Architecture Connection](#8-the-spring-ai-architecture-connection)
-- [9. Key Takeaways & Summary](#9-key-takeaways--summary)
-- [10. Practice Exercises & Full Solutions](#10-practice-exercises--full-solutions)
-- [11. Self-Check Quiz](#11-self-check-quiz)
+- [1. Topic Overview](#1-topic-overview)
+- [2. Basic Foundations (True Zero)](#2-basic-foundations-true-zero)
+  - [2.1 What is Inheritance, an Interface, and Polymorphism?](#21-what-is-inheritance-an-interface-and-polymorphism)
+  - [2.2 The USB-C Port Analogy](#22-the-usb-c-port-analogy)
+  - [2.3 Minimal Working Example: Swappable AI Echo](#23-minimal-working-example-swappable-ai-echo)
+  - [2.4 Line-by-Line Code Breakdown](#24-line-by-line-code-breakdown)
+- [3. Core Concept Walkthrough (Basic → Intermediate)](#3-core-concept-walkthrough-basic--intermediate)
+  - [3.1 Inheritance (`extends`) and the AI Message Hierarchy](#31-inheritance-extends-and-the-ai-message-hierarchy)
+  - [3.2 Method Overriding and `@Override`](#32-method-overriding-and-override)
+  - [3.3 Abstract Classes: Partial Blueprints with `abstract`](#33-abstract-classes-partial-blueprints-with-abstract)
+  - [3.4 Interfaces: Pure Architectural Contracts (`interface` & `implements`)](#34-interfaces-pure-architectural-contracts-interface--implements)
+  - [3.5 Modern Interface Features: `default` and `static` Methods](#35-modern-interface-features-default-and-static-methods)
+  - [3.6 Polymorphism in Action: Hot-Swapping AI Providers at Runtime](#36-polymorphism-in-action-hot-swapping-ai-providers-at-runtime)
+  - [3.7 Modern Java 21: Pattern Matching and Sealed Interfaces](#37-modern-java-21-pattern-matching-and-sealed-interfaces)
+- [4. Prerequisite & Supporting Concepts](#4-prerequisite--supporting-concepts)
+  - [Prerequisite / Supporting Concept: Overriding vs. Overloading](#prerequisite--supporting-concept-overriding-vs-overloading)
+  - [Prerequisite / Supporting Concept: The Diamond Problem & Multiple Inheritance](#prerequisite--supporting-concept-the-diamond-problem--multiple-inheritance)
+  - [Prerequisite / Supporting Concept: Composition Over Inheritance ("Is-A" vs. "Has-A")](#prerequisite--supporting-concept-composition-over-inheritance-is-a-vs-has-a)
+- [5. Advanced Depth (Intermediate → Advanced)](#5-advanced-depth-intermediate--advanced)
+  - [5.1 Dynamic Method Dispatch & JVM VTables (Virtual Method Tables)](#51-dynamic-method-dispatch--jvm-vtables-virtual-method-tables)
+  - [5.2 Common Mistakes & Misconceptions (With Bad vs. Good Code)](#52-common-mistakes--misconceptions-with-bad-vs-good-code)
+  - [5.3 Architectural Trade-Offs: Interface Decoupling vs. Indirection Cost](#53-architectural-trade-offs-interface-decoupling-vs-indirection-cost)
+- [6. Quick Recap](#6-quick-recap)
+- [7. Self-Check Questions & Practice Exercises](#7-self-check-questions--practice-exercises)
+  - [Self-Check Questions (Basic to Advanced)](#self-check-questions-basic-to-advanced)
+  - [Hands-On Practice Exercises with Full Solutions](#hands-on-practice-exercises-with-full-solutions)
 
 ---
 
-# 1. Real-World Analogy: The Universal USB-C Port
+# 1. Topic Overview
 
-> [!TIP]
-> ### 💡 New Word Alert: AI Terms You'll See Today
-> - **Ollama**: A free, open-source application that lets you run powerful AI models (like Meta's Llama 3) directly on your own computer or laptop! No credit card, no internet connection needed, completely private and free.
-> - **Streaming**: When you chat with ChatGPT, notice how words appear one by one like a typewriter? That's called "streaming"! Instead of waiting 10 seconds for the full paragraph, the AI sends tiny pieces (stream tokens) in real time.
+Inheritance, Interfaces, and Polymorphism form the contract and abstraction foundation of modern object-oriented software engineering. **Inheritance** enables code sharing across parent-child class hierarchies; **Interfaces** define strict behavioral contracts without mandating implementation details; and **Polymorphism** allows an application to interact with diverse concrete objects through a unified interface.
 
-Imagine your laptop. On the side is a **USB-C port**.
+### Why This Topic Matters
+In enterprise Generative AI engineering, you never couple your core business logic to a single AI vendor (such as OpenAI, Anthropic, or local Ollama instances). By designing around Java interfaces like Spring AI's `ChatModel`, your application can hot-swap between cloud-hosted models and zero-cost local on-premise models, mock AI responses during automated testing, and future-proof enterprise systems against API changes without modifying business code.
+
+> 💡 **New Word Alert — "Polymorphism"**: Derived from Greek meaning *"many forms"*. In Java, it allows a single variable of an interface type (e.g., `ChatModel`) to hold any valid implementation (`OpenAiChatModel`, `OllamaChatModel`) and invoke their specialized behaviors identically.
+
+> 💡 **New Word Alert — "Ollama"**: A free, open-source tool that lets you run modern open-weights Large Language Models (like Meta's Llama 3.2 or Mistral) locally on your own laptop or enterprise server with zero cloud API costs.
+
+> 💡 **New Word Alert — "Streaming"**: Receiving an AI model's response incrementally token-by-token (like a typewriter) rather than waiting several seconds for the full completed paragraph.
+
+---
+
+# 2. Basic Foundations (True Zero)
+
+If you have never built a class hierarchy or interface before, let's establish intuition from absolute scratch.
+
+### 2.1 What is Inheritance, an Interface, and Polymorphism?
+
+- **Inheritance (`extends`)**: When a child class inherits properties and actions from a parent class, just like a child inherits traits from parents. If `Animal` can eat, `Dog` inherits `eat()` automatically without rewriting it.
+- **Interface (`implements`)**: A formal contract of promises. An interface declares what actions an object can perform, but contains no state. If a class implements `Flyable`, it promises: *"I guarantee I have a `fly()` method."*
+- **Polymorphism**: Interacting with an object based on *what it can do* (its interface), rather than *what exact class it is*.
+
+---
+
+### 2.2 The USB-C Port Analogy
+
+Think about your laptop's **USB-C port**:
 
 ```
                            ┌────────────────────────┐
@@ -85,42 +89,88 @@ Imagine your laptop. On the side is a **USB-C port**.
   └───────────────┘             └───────────────┘             └───────────────┘
 ```
 
-Your laptop doesn't care who manufactured the device plugged into that port. It could be Apple, Samsung, Dell, or Anker. As long as the device follows the **USB-C Interface Standard**, it works seamlessly.
+Your laptop does not know or care who manufactured the cable plugged into its USB-C port (Apple, Samsung, Dell, or Anker). As long as the device adheres to the universal **USB-C standard**, it works seamlessly.
 
-In software:
-- **The USB-C Port** is a Java **Interface** (e.g., `ChatModel`).
-- **The Devices** are concrete **Classes** (e.g., `OpenAiChatModel`, `OllamaChatModel`, `ClaudeChatModel`).
-- **Your Laptop** is your **Business Service** (e.g., `CustomerSupportBot`). It only connects to the interface, not the specific vendor!
-
----
-
-## 🧭 The Plain English Bridge: Abstract Class vs. Interface Demystified
-
-Every Java interview asks: *"What is the difference between an Abstract Class and an Interface?"* Here is how to keep them crystal clear in your mind:
-
-| Dimension | Abstract Class (`abstract class`) | Interface (`interface`) | Plain English Rule |
-| :--- | :--- | :--- | :--- |
-| **Relationship** | **"IS-A"** identity (`Dog is an Animal`). | **"CAN-DO"** capability (`Dog can Run`, `Document can BePrinted`). | Inheritance is who you are; Interfaces are what you can do. |
-| **Instance Fields** | Can have regular variables (`protected int tokenCount;`). | **Cannot hold data.** Only fixed constants (`public static final`). | If you need fields to hold state, use an Abstract Class. |
-| **Inheritance Limit**| A class can extend **only ONE** abstract class. | A class can implement **as many interfaces as you want** (`implements A, B, C`). | Avoids confusion: no clashing parent variables. |
-| **Default Methods (Java 8+)** | Regular method with code inside. | Can also have `default` methods with code! | Lets framework creators add new methods without breaking your code. |
-| **Polymorphism in Spring** | Rarely used as the injected variable type. | **The industry standard.** Inject `ChatModel`, not `OpenAiChatModel`. | Write your code against the contract, never the vendor. |
-| **Java 21 Pattern Matching** | `if (obj instanceof String s)` | Auto-casts `obj` into `s` on the fly! | No more clunky old manual casting like `String s = (String) obj;`! |
+In Java:
+- The **USB-C Port** is a Java **Interface** (e.g., `ChatModel`).
+- The **Plugged Devices** are concrete **Classes** (e.g., `OpenAiChatModel`, `OllamaChatModel`).
+- Your **Laptop** is your **Business Service** (e.g., `CustomerSupportBot`). It depends only on the interface, never a vendor!
 
 ---
 
-# 2. Inheritance (`extends`): Hierarchies and Code Reuse
+### 2.3 Minimal Working Example: Swappable AI Echo
 
-Inheritance allows a child class (subclass) to inherit the state (fields) and behavior (methods) of a parent class (superclass).
+Let's write a minimal, fully runnable Java program that demonstrates an interface with two interchangeable implementations:
 
-### 2.1 Building an AI Message Hierarchy
+```java
+public class SimplePolymorphismDemo {
 
-In LLMs, chat messages share common attributes: all messages have text `content` and a creation `timestamp`. But:
-- A `UserMessage` may contain uploaded image attachments.
-- A `SystemMessage` contains system instructions and safety rules.
-- An `AssistantMessage` contains generated tokens and tool execution requests.
+    // 1. The Interface (The Contract)
+    interface TextGenerator {
+        String generate(String prompt);
+    }
 
-Let's model this with inheritance:
+    // 2. Concrete Implementation A
+    static class PoliteGenerator implements TextGenerator {
+        @Override
+        public String generate(String prompt) {
+            return "Certainly! Here is your answer to: " + prompt;
+        }
+    }
+
+    // 3. Concrete Implementation B
+    static class TerseGenerator implements TextGenerator {
+        @Override
+        public String generate(String prompt) {
+            return "Answer: " + prompt;
+        }
+    }
+
+    // 4. Client method that accepts the INTERFACE
+    static void printAIResponse(TextGenerator model, String prompt) {
+        // Polymorphic invocation!
+        System.out.println(model.generate(prompt));
+    }
+
+    public static void main(String[] args) {
+        TextGenerator polite = new PoliteGenerator();
+        TextGenerator terse = new TerseGenerator();
+
+        printAIResponse(polite, "What is Java?");
+        printAIResponse(terse, "What is Java?");
+    }
+}
+```
+
+---
+
+### 2.4 Line-by-Line Code Breakdown
+
+1. `interface TextGenerator`: Declares a contract. Any class claiming to be a `TextGenerator` must implement `String generate(String prompt)`.
+2. `class PoliteGenerator implements TextGenerator`: Uses `implements` to sign the contract.
+3. `@Override public String generate(...)`: Fulfills the promise by providing the actual method body.
+4. `static void printAIResponse(TextGenerator model, String prompt)`:
+   - Notice the type of `model`: it is `TextGenerator` (the interface), **not** `PoliteGenerator` or `TerseGenerator`.
+   - The method can accept *any* object that implements `TextGenerator`.
+5. In `main`:
+   - `printAIResponse(polite, ...)` outputs the polite response.
+   - `printAIResponse(terse, ...)` outputs the terse response.
+   - The method `printAIResponse` never changed; the object passed to it changed! That is polymorphism in its purest form.
+
+---
+
+# 3. Core Concept Walkthrough (Basic → Intermediate)
+
+Now let's build the full architectural structure used across enterprise Java and Spring AI.
+
+### 3.1 Inheritance (`extends`) and the AI Message Hierarchy
+
+In LLMs, all messages share common state: textual `content` and a creation `timestamp`. However:
+- A `UserMessage` may contain uploaded image attachment URLs.
+- A `SystemMessage` contains system behavioral instructions.
+- An `AssistantMessage` contains generated tokens and function execution payloads.
+
+Let's build this hierarchy using `extends`:
 
 ```java
 package com.javagenai.day03;
@@ -151,7 +201,7 @@ public class BaseMessage {
 }
 ```
 
-Now let's create `UserMessage` that inherits from `BaseMessage` using the `extends` keyword:
+Now let's create `UserMessage` inheriting from `BaseMessage`:
 
 ```java
 package com.javagenai.day03;
@@ -162,9 +212,9 @@ import java.util.List;
 public class UserMessage extends BaseMessage {
     private final List<String> attachmentUrls;
 
-    // 1. Calling the parent constructor using super(...)
+    // Child constructor calling parent via super(...)
     public UserMessage(String content, List<String> attachmentUrls) {
-        super(content); // Must be the VERY FIRST statement in constructor!
+        super(content); // Must be the FIRST statement in child constructor!
         this.attachmentUrls = (attachmentUrls != null) ? attachmentUrls : Collections.emptyList();
     }
 
@@ -176,7 +226,7 @@ public class UserMessage extends BaseMessage {
         return attachmentUrls;
     }
 
-    // 2. Overriding the parent's getRole() method
+    // Overriding the parent's getRole() method
     @Override
     public String getRole() {
         return "USER";
@@ -186,31 +236,16 @@ public class UserMessage extends BaseMessage {
 
 ---
 
-### 2.2 Method Overriding and `@Override`
+### 3.2 Method Overriding and `@Override`
 
-Notice the `@Override` annotation above `getRole()`.
-- **Method Overriding**: When a child class provides its own specific implementation of a method that is already defined in its parent class.
-- **Why `@Override` is critical**: It asks the compiler to double-check your method signature. If you accidentally misspelled `getRole` as `getrole()`, the compiler catches the typo immediately and stops the build!
-
----
-
-### 2.3 The `super` Keyword
-
-- `super(...)`: Invokes the constructor of the immediate parent class.
-- `super.someMethod()`: Invokes the parent's version of an overridden method.
+- **Method Overriding**: When a subclass provides a specialized version of a method already declared in its superclass.
+- **The `@Override` Annotation**: Informs the compiler that you intend to override a parent method. If you make a typo (e.g., `getrole()` instead of `getRole()`), the compiler flags it as an immediate error rather than silently treating it as a new method.
 
 ---
 
-# 3. Abstract Classes: Partial Blueprints
+### 3.3 Abstract Classes: Partial Blueprints with `abstract`
 
-Sometimes a base class represents a concept so generic that creating a direct object of it makes no sense.
-
-For example, what does a generic `BaseModel` look like? You cannot run inference on a "BaseModel"—you can only run inference on a specific model like `OpenAiModel` or `OllamaModel`.
-
-In Java, we mark such classes with the keyword **`abstract`**:
-- **Cannot be instantiated**: Calling `new AbstractLLMClient(...)` causes a compile-time error.
-- **Can contain abstract methods**: Methods with no body (no curly braces `{}`) that child classes **must** implement.
-- **Can contain concrete methods and state**: Common helper methods (like HTTP timeout handlers and retry logic) can be shared across all subclasses.
+Sometimes a parent class represents a concept so generic that directly creating an instance of it is meaningless. You cannot "execute" a generic `AbstractLLMClient`—you can only execute a concrete client like `OpenAiClient` or `OllamaClient`.
 
 ```java
 package com.javagenai.day03;
@@ -224,48 +259,47 @@ public abstract class AbstractLLMClient {
         this.timeoutSeconds = timeoutSeconds;
     }
 
-    // Concrete method shared by all LLM clients
+    // Concrete method shared by all subclasses
     public void logRequest(String prompt) {
         System.out.printf("[%s] Dispatching prompt to %s (Timeout: %ds)%n", 
                           java.time.Instant.now(), endpointUrl, timeoutSeconds);
     }
 
-    // Abstract method: Every specific client MUST write its own network logic!
+    // Abstract method: Every concrete subclass MUST provide this network implementation!
     public abstract String generateResponse(String prompt);
 }
 ```
 
+Key rules of `abstract`:
+- Cannot be instantiated with `new AbstractLLMClient(...)`.
+- Can contain both concrete methods (with code) and abstract methods (without code).
+- Subclasses must implement all abstract methods or be declared abstract themselves.
+
 ---
 
-# 4. Interfaces: Pure Architectural Contracts
+### 3.4 Interfaces: Pure Architectural Contracts (`interface` & `implements`)
 
-While an abstract class is a **partial blueprint**, an **Interface** is a **100% pure contract**. 
+While an abstract class is a partial blueprint with instance state, an **Interface** is a 100% pure capability contract.
 
-An interface says:
-> *"I do not care HOW you do it. I only care THAT you can do it. If you sign this contract (implement this interface), you must deliver these capabilities."*
-
-### 4.1 Why Interfaces Rule the Enterprise
-
-Let's look at how Spring AI defines its core `ChatModel` interface:
+Here is how Spring AI defines its core `ChatModel` interface:
 
 ```java
 package com.javagenai.day03;
 
 public interface ChatModel {
-
-    // Any class implementing ChatModel MUST provide this method
+    // Every implementing class MUST provide this method
     String call(String prompt);
 
-    // Optional: token calculation
+    // Default method (available in Java 8+)
     default int estimateTokens(String text) {
         return (text == null) ? 0 : (int) Math.ceil(text.length() / 4.0);
     }
 }
 ```
 
-Now let's implement this interface for **two completely different LLM providers**:
+Now let's implement this interface for two completely different AI engines:
 
-#### Implementation 1: OpenAI (Cloud)
+#### Implementation 1: OpenAI (Cloud API)
 ```java
 package com.javagenai.day03;
 
@@ -278,13 +312,12 @@ public class OpenAiChatModel implements ChatModel {
 
     @Override
     public String call(String prompt) {
-        // In real life: makes an HTTPS POST request to https://api.openai.com/v1/chat/completions
         return "[OpenAI GPT-4o Response to: '" + prompt + "']";
     }
 }
 ```
 
-#### Implementation 2: Ollama (Local & Free!)
+#### Implementation 2: Ollama (Local & Free)
 ```java
 package com.javagenai.day03;
 
@@ -297,7 +330,6 @@ public class OllamaChatModel implements ChatModel {
 
     @Override
     public String call(String prompt) {
-        // In real life: makes a local HTTP call to http://localhost:11434/api/generate
         return "[Ollama Llama-3.2 Local Response to: '" + prompt + "']";
     }
 }
@@ -305,68 +337,44 @@ public class OllamaChatModel implements ChatModel {
 
 ---
 
-### 4.2 The Diamond Problem Solved
+### 3.5 Modern Interface Features: `default` and `static` Methods
 
-Why doesn't Java allow a class to `extend` multiple classes (e.g., `class C extends A, B`)?
-
-Imagine Class A has a method `save()` and Class B has a method `save()`. If Class C inherits from both, which `save()` should it call? This ambiguity is known as the **Diamond Problem**.
-
-```
-          Class A (save)       Class B (save)
-                 \                  /
-                  \                /
-                   ▼              ▼
-                     Class C (???)
-```
-
-**Java's Solution**:
-- A class can only **extend ONE class** (Single Class Inheritance).
-- But a class can **implement MULTIPLE interfaces**!
-  `public class RAGService implements ChatModel, Searchable, AutoCloseable`
-Since interfaces only declare method signatures without conflicting state, there is zero ambiguity.
+- **`default` methods**: Allow interfaces to provide pre-built default logic without breaking existing classes that implement the interface.
+- **`static` methods**: Utility helper functions tied directly to the interface namespace (e.g., `ChatModel.builder()`).
 
 ---
 
-### 4.3 Default and Static Methods in Modern Java
+### 3.6 Polymorphism in Action: Hot-Swapping AI Providers at Runtime
 
-Prior to Java 8, interfaces could *only* declare method signatures. Modern Java allows two powerful additions:
-
-1. **`default` methods**: Methods with a default body. Implementing classes inherit this method automatically unless they choose to override it. This allows library designers (like the Spring team) to add new features to interfaces without breaking existing code!
-2. **`static` methods**: Utility helper functions tied directly to the interface namespace (e.g., `ChatModel.getDefaultClient()`).
-
----
-
-# 5. Polymorphism in Action: Swapping LLMs at Runtime
-
-Now witness the true power of polymorphism. Here is our enterprise `AIAssistantService`:
+Here is our production `AIAssistantService`:
 
 ```java
 package com.javagenai.day03;
 
 public class AIAssistantService {
 
-    // Notice: We hold a reference to the INTERFACE, not the concrete class!
+    // Depend on the INTERFACE, not the concrete implementation!
     private ChatModel chatModel;
 
     public AIAssistantService(ChatModel chatModel) {
         this.chatModel = chatModel;
     }
 
-    // Dynamic Hot-Swapping!
+    // Dynamic Hot-Swapping
     public void setChatModel(ChatModel chatModel) {
         this.chatModel = chatModel;
     }
 
     public void answerUserQuery(String query) {
         System.out.println("Processing user inquiry: " + query);
-        // Dynamic Method Dispatch: The JVM figures out WHICH model to call at runtime!
+        // Dynamic Method Dispatch: JVM invokes the correct vendor logic at runtime!
         String answer = this.chatModel.call(query);
         System.out.println("AI Answer: " + answer);
     }
 }
 ```
 
-Look at how this behaves in `main`:
+Executing with zero changes to `AIAssistantService`:
 
 ```java
 ChatModel cloudModel = new OpenAiChatModel("sk-prod-12345");
@@ -376,148 +384,189 @@ AIAssistantService bot = new AIAssistantService(cloudModel);
 bot.answerUserQuery("Explain Quantum Computing");
 // Output: AI Answer: [OpenAI GPT-4o Response to: 'Explain Quantum Computing']
 
-// OpenAI goes down? Or cost budget exceeded? Hot-swap to local Ollama on the fly!
+// OpenAI outage or cost exceeded? Hot-swap to local model on the fly!
 bot.setChatModel(localModel);
 bot.answerUserQuery("Explain Quantum Computing");
 // Output: AI Answer: [Ollama Llama-3.2 Local Response to: 'Explain Quantum Computing']
 ```
 
-> **The `AIAssistantService` did not change by a single line of code.** That is the beauty of Polymorphism.
-
 ---
 
-# 6. Modern Java: Pattern Matching & Sealed Types
+### 3.7 Modern Java 21: Pattern Matching and Sealed Interfaces
 
-Java 21 introduced modern language features that eliminate old-school casting and make domain modeling elegant.
+Java 21 introduces pattern matching and sealed types for domain modeling.
 
-### 6.1 Pattern Matching with `instanceof`
-
-In old Java, checking and casting types required two verbose steps:
+#### Pattern Matching with `instanceof`:
 ```java
-// OLD Java (pre-Java 16)
-if (message instanceof UserMessage) {
-    UserMessage userMsg = (UserMessage) message; // Manual ugly cast!
-    System.out.println("Attachments: " + userMsg.getAttachmentUrls());
-}
-```
-
-In **Modern Java (Java 21)**, you test and bind in a single elegant step:
-```java
-// MODERN Java 21 Pattern Matching:
+// Java 21: Tests and casts in a single clean expression
 if (message instanceof UserMessage userMsg) {
-    // userMsg is already cast and ready to use!
-    System.out.println("Attachments: " + userMsg.getAttachmentUrls());
+    System.out.println("Attachments count: " + userMsg.getAttachmentUrls().size());
 }
 ```
 
----
-
-### 6.2 Sealed Interfaces (`sealed` & `permits`)
-
-In mission-critical AI systems, you often want a closed hierarchy. For example: an LLM streaming token can **ONLY** be one of three things:
-1. A `TextToken` (regular word chunk)
-2. A `ToolCallToken` (model requested a database search)
-3. An `EndOfStreamToken` (stream finished)
-
-Before Java 17, any developer in any package could inherit from your interface and introduce rogue event types.
-
-**Sealed Types** allow you to restrict which classes are permitted to implement your interface:
+#### Sealed Interfaces (`sealed` & `permits`):
+Restricts which classes are permitted to implement an interface, ensuring a strictly bounded type hierarchy:
 
 ```java
 package com.javagenai.day03;
 
-// Only these three records are permitted to implement StreamEvent!
-public sealed interface StreamEvent permits TextToken, ToolCallToken, EndOfStreamToken {
-}
+public sealed interface StreamEvent permits TextToken, ToolCallToken, EndOfStreamToken {}
 
 record TextToken(String text) implements StreamEvent {}
 record ToolCallToken(String functionName, String jsonArgs) implements StreamEvent {}
 record EndOfStreamToken(int totalTokensUsed) implements StreamEvent {}
 ```
 
-Now, the Java compiler guarantees that **no other class in the world can implement `StreamEvent`**. When handling events in a modern `switch` statement, you don't even need a `default` case because the compiler knows all possible subclasses exhaustively!
+---
+
+# 4. Prerequisite & Supporting Concepts
+
+### Prerequisite / Supporting Concept: Overriding vs. Overloading
+
+| Dimension | Method Overriding | Method Overloading |
+| :--- | :--- | :--- |
+| **Location** | Between Parent and Child classes. | Within the same class. |
+| **Method Name** | Exactly identical. | Exactly identical. |
+| **Parameters** | Exactly identical signature and types. | Must differ in parameter types or count. |
+| **Return Type** | Must match (or be a subtype). | Can be anything. |
+| **Resolution** | Runtime (Dynamic Polymorphism). | Compile-time (Static Polymorphism). |
 
 ---
 
-# 7. Composition Over Inheritance: The Senior Rule
+### Prerequisite / Supporting Concept: The Diamond Problem & Multiple Inheritance
 
-A famous principle in enterprise Java is:
-> **"Favor Composition over Inheritance."**
-
-- **Inheritance** creates an **"IS-A"** relationship (`Dog IS-A Animal`, `UserMessage IS-A BaseMessage`). It tightly couples the child to every single field and quirk of the parent.
-- **Composition** creates a **"HAS-A"** relationship (`Car HAS-A Engine`, `AIAssistant HAS-A ChatModel`). It is loosely coupled, easily mocked in tests, and swappable at runtime.
-
-Whenever you want to reuse functionality, ask yourself: *"Does my class truly have an 'is-a' biological identity relationship, or does it simply need to USE a tool?"* If it just needs to use a tool, **use composition with an interface!**
+Why does Java reject `class C extends A, B`?
+If Class A has `save()` and Class B has `save()`, Class C inherits two conflicting versions. This is the **Diamond Problem**.
+Java resolves this by:
+- Allowing a class to extend **only one parent class**.
+- Allowing a class to implement **unlimited interfaces** (`implements ChatModel, AutoCloseable, Serializable`).
 
 ---
 
-# 8. The Spring AI Architecture Connection
+### Prerequisite / Supporting Concept: Composition Over Inheritance ("Is-A" vs. "Has-A")
 
-Let's look at the actual Spring AI dependency graph. Notice how everything we studied today forms its architectural backbone:
+- **Inheritance ("Is-A")**: `UserMessage IS-A BaseMessage`. Creates tight coupling between child and parent.
+- **Composition ("Has-A")**: `AIAssistantService HAS-A ChatModel`. Loosely coupled, testable, and swappable at runtime.
+- **The Senior Rule**: Always favor composition with interfaces over class inheritance whenever possible.
+
+---
+
+# 5. Advanced Depth (Intermediate → Advanced)
+
+### 5.1 Dynamic Method Dispatch & JVM VTables (Virtual Method Tables)
+
+When `chatModel.call(prompt)` executes, how does the JVM know which vendor method to execute without expensive `if-else` checks?
 
 ```
-                          ┌─────────────────────────────┐
-                          │    <<interface>> Model      │
-                          └──────────────┬──────────────┘
-                                         │
-                 ┌───────────────────────┴───────────────────────┐
-                 ▼                                               ▼
-   ┌───────────────────────────┐                   ┌───────────────────────────┐
-   │  <<interface>> ChatModel  │                   │<<interface>>EmbeddingModel│
-   └─────────────┬─────────────┘                   └─────────────┬─────────────┘
-                 │                                               │
-     ┌───────────┴───────────┐                       ┌───────────┴───────────┐
-     ▼                       ▼                       ▼                       ▼
-┌──────────────┐      ┌──────────────┐        ┌──────────────┐        ┌──────────────┐
-│OpenAiChat    │      │OllamaChat    │        │OpenAi        │        │Ollama        │
-│Model         │      │Model         │        │EmbeddingModel│        │EmbeddingModel│
-└──────────────┘      └──────────────┘        └──────────────┘        └──────────────┘
+Variable: chatModel (Type: ChatModel) ──► Points to Heap Object: OllamaChatModel
+                                                  │
+                                                  ▼
+                                      [ Object Header: Klass Pointer ]
+                                                  │
+                                                  ▼
+                                          [ VTable in Metaspace ]
+                                          Index 0: call() ──► &OllamaChatModel.call
 ```
 
-When you write a Spring Boot AI application in Phase 6, you will write:
+1. Each loaded class in the JVM maintains a **vtable (virtual method table)** in Metaspace containing pointers to its executable machine code.
+2. At compile-time, the compiler assigns an integer offset index to each method in the vtable (e.g., `call()` = index 0).
+3. At runtime, the JVM performs a single pointer dereference: `object->vtable[0]()`. This delivers method dispatch in just a few CPU cycles ($O(1)$).
+
+---
+
+### 5.2 Common Mistakes & Misconceptions (With Bad vs. Good Code)
+
+#### Mistake 1: Coupling to Concrete Classes Instead of Interfaces
+**Bad Code:**
 ```java
-@Autowired
-private ChatModel chatModel; // Injected automatically by Spring via Polymorphism!
+public class ChatService {
+    // ❌ Tightly coupled: Can never switch to Ollama or a mock for unit testing!
+    private OpenAiChatModel model = new OpenAiChatModel("key");
+}
 ```
-Spring Boot looks at your `application.yml` configuration. If you configured OpenAI, it injects `OpenAiChatModel`. If you configured Ollama, it injects `OllamaChatModel`. **Your code never changes.**
+**Correct Code:**
+```java
+public class ChatService {
+    // ✅ Loosely coupled: Accepts any ChatModel implementation
+    private final ChatModel model;
+
+    public ChatService(ChatModel model) {
+        this.model = model;
+    }
+}
+```
+
+#### Mistake 2: Forgetting `@Override` Causing Silent Overload Bugs
+**Bad Code:**
+```java
+public class CustomPrompt extends BaseMessage {
+    public CustomPrompt(String text) { super(text); }
+
+    // ❌ Bug: Typo in parameter or method name creates an overload, parent method never overridden!
+    public String getRole(int version) { 
+        return "CUSTOM"; 
+    }
+}
+```
+**Correct Code:**
+```java
+public class CustomPrompt extends BaseMessage {
+    public CustomPrompt(String text) { super(text); }
+
+    // ✅ Compiler verifies signature matches parent exactly
+    @Override
+    public String getRole() { 
+        return "CUSTOM"; 
+    }
+}
+```
 
 ---
 
-# 9. Key Takeaways & Summary
+### 5.3 Architectural Trade-Offs: Interface Decoupling vs. Indirection Cost
 
-```
-                  ┌─────────────────────────────────┐
-                  │       DAY 03 CHEAT SHEET        │
-                  └────────────────┬────────────────┘
-                                   │
-         ┌─────────────────────────┼─────────────────────────┐
-         ▼                         ▼                         ▼
-  [ Inheritance ]          [ Interfaces ]            [ Polymorphism ]
-  • 'extends' single class • 'implements' multiple   • Program to Interfaces,
-  • 'super()' calls parent • Pure API contract         not implementations
-  • Abstract classes for   • 'default' methods add   • Swappable AI engines
-    partial blueprints       backward compatibility  • Pattern matching:
-  • Favor Composition      • 'sealed' restricts        'if (obj instanceof T t)'
-    over Inheritance         permitted subclasses
-```
+| Design Approach | Pros | Cons | Best Used When |
+| :--- | :--- | :--- | :--- |
+| **Direct Concrete Class** | Zero indirection; straightforward navigation. | Impossible to mock or hot-swap without rewriting code. | Data transfer objects (DTOs), utility helper classes. |
+| **Interface Abstraction** | Complete modularity, testable with mocks, hot-swappable. | Slight architectural overhead; requires dependency injection. | All enterprise services, AI models, vector stores, repositories. |
 
 ---
 
-# 10. Practice Exercises & Full Solutions
+# 6. Quick Recap
 
-### 🏋️ Exercise 1: Build a Pluggable `VectorStore` Interface
+| Concept | Key Takeaway |
+| :--- | :--- |
+| **Inheritance (`extends`)** | Reuses fields and logic from a single parent; child uses `super()` to initialize parent state. |
+| **Interface (`implements`)** | Pure capability contract; a class can implement multiple interfaces. |
+| **Abstract Class** | Partial blueprint that can hold instance fields, constructors, and abstract methods. |
+| **Polymorphism** | Interacting with objects via interface references; swappable at runtime. |
+| **Pattern Matching (Java 21)**| `if (obj instanceof Class c)` checks and binds in one step. |
+| **Sealed Types** | `sealed interface ... permits ...` restricts permitted implementations for total domain control. |
 
-> [!TIP]
-> ### 💡 New Word Alert: Vector Store (Vector Database)
-> When you build AI applications that read your documents (like employee handbooks or product manuals), you convert paragraphs into numbers (embeddings) and store them in a database.
-> 
-> A database designed to store numbers and search by meaning is called a **Vector Store** (or Vector DB). In production, companies use systems like PostgreSQL (with `pgvector`), Milvus, or Pinecone.
-> 
-> But here's the beauty of Polymorphism: by defining an interface `SimpleVectorStore`, our code doesn't care whether the vectors are stored in real PostgreSQL or just inside a simple Java `HashMap` in RAM!
+---
 
-**The Task**: Create a pluggable `SimpleVectorStore` interface and implement a fast `InMemoryVectorStore` using a Java `Map`.
+# 7. Self-Check Questions & Practice Exercises
 
-#### Solution:
+### Self-Check Questions (Basic to Advanced)
+
+1. **Why does Java prohibit multiple inheritance for classes while permitting multiple interface implementation?**
+   - *Answer*: To avoid the Diamond Problem where two parent classes define conflicting method implementations. Interfaces contain contracts without conflicting state, eliminating ambiguity.
+2. **Can an abstract class have a constructor? If so, how is it invoked?**
+   - *Answer*: Yes. Even though it cannot be instantiated directly via `new`, its constructor runs when a subclass calls `super(...)` during initialization.
+3. **What is the purpose of the `@Override` annotation?**
+   - *Answer*: It informs the compiler to verify that a method signature exactly matches an inherited method in a superclass or interface, preventing accidental overloading bugs.
+4. **How does Polymorphism enable swapping OpenAI with Ollama in Spring AI?**
+   - *Answer*: Service classes interact exclusively with the `ChatModel` interface. At runtime, the application injects either `OpenAiChatModel` or `OllamaChatModel` without modifying service code.
+5. **What compile-time safety guarantee is provided by Java 21 `sealed` interfaces?**
+   - *Answer*: The compiler knows the exhaustive list of permitted subclasses, allowing `switch` expressions on sealed types without requiring a fallback `default` case.
+
+---
+
+### Hands-On Practice Exercises with Full Solutions
+
+#### 🏋️ Exercise 1: Build a Pluggable `SimpleVectorStore` Interface & In-Memory Store
+**Objective**: Build a clean interface `SimpleVectorStore` and implement a fast `InMemoryVectorStore` using a Java `Map`.
+
 ```java
 package com.javagenai.day03;
 
@@ -540,13 +589,12 @@ public class InMemoryVectorStore implements SimpleVectorStore {
     @Override
     public void addDocument(String id, String text, double[] embedding) {
         docMap.put(id, text);
-        System.out.println("[InMemoryVectorStore] Cached document id: " + id);
+        System.out.println("[InMemoryVectorStore] Stored document id: " + id);
     }
 
     @Override
     public List<String> similaritySearch(double[] queryEmbedding, int topK) {
-        System.out.printf("[InMemoryVectorStore] Searching %d documents in RAM...%n", docMap.size());
-        // Returns first topK matches for demo
+        System.out.printf("[InMemoryVectorStore] Searching %d documents in memory...%n", docMap.size());
         return new ArrayList<>(docMap.values()).subList(0, Math.min(topK, docMap.size()));
     }
 }
@@ -554,18 +602,9 @@ public class InMemoryVectorStore implements SimpleVectorStore {
 
 ---
 
-### 🏋️ Exercise 2: Modern Java 21 Pattern Matching on AI Stream Events
+#### 🏋️ Exercise 2: Modern Java 21 Pattern Matching on AI Stream Events
+**Objective**: Model a sealed streaming event hierarchy and write a pattern-matching processor that handles each event exhaustively.
 
-> [!TIP]
-> ### 💡 The Story Behind Streaming Events
-> When you talk to an AI model, it sends tokens back to your screen in real time (streaming). Along the way, different things can happen:
-> 1. `ChunkEvent`: A new word or sentence chunk arrived to display.
-> 2. `ErrorEvent`: Something failed (rate limit reached, API key expired).
-> 3. `FinishedEvent`: The AI is done answering, along with how many milliseconds it took.
-> 
-> By using a `sealed interface`, we guarantee that only these 3 specific events exist. The Java compiler will force you to handle all 3 — leaving zero room for unexpected surprises!
-
-#### Solution:
 ```java
 package com.javagenai.day03;
 
@@ -597,23 +636,8 @@ public class EventProcessor {
 
 ---
 
-## 11. Self-Check Quiz
-
-1. **Why does Java not support multiple inheritance for classes?**
-   - *Answer*: To prevent the Diamond Problem — confusion and ambiguity when two parent classes define the same method with different code bodies.
-2. **Can an abstract class have a constructor?**
-   - *Answer*: Yes! Even though you can't instantiate it directly with `new`, its constructor runs when a child class calls `super(...)` to set up shared fields.
-3. **What is the difference between a `default` method in an interface and an abstract method?**
-   - *Answer*: An abstract method has no code body and must be written by the child class. A `default` method has a pre-written code body that child classes can use directly or choose to customize.
-4. **How does Polymorphism enable swapping OpenAI with Ollama in Spring AI?**
-   - *Answer*: Your service code only talks to the `ChatModel` interface. At runtime, Spring supplies either `OpenAiChatModel` or `OllamaChatModel` without changing a single line of your code!
-5. **What does the `sealed` keyword on an interface achieve in Java 21?**
-   - *Answer*: It explicitly controls which classes or records are allowed to implement the interface, giving you a closed, safe set of types.
-
----
-
 <p align="center">
-  <b>Awesome job finishing Day 03! 🎉</b><br>
-  You've mastered Polymorphism, Interfaces, and Abstract Classes — the architectural backbone of Spring Boot and Spring AI.<br>
-  Tomorrow on <b>Day 04</b>, we'll dive into <b>Generics, Collections & Data Structures</b>: Lists, Sets, and HashMaps — the exact containers that store your AI prompts, tokens, and document chunks in memory! Keep up the momentum!
+  <b>Day 03 Complete! 🎉</b><br>
+  Proceed to <b>Day 04</b>: <b>Generics, Collections & Data Structures</b>.<br>
+  <a href="../Day_04_Generics_Collections_DataStructures/Day_04_Generics_Collections_DataStructures.md"><b>Continue to Day 04 →</b></a>
 </p>

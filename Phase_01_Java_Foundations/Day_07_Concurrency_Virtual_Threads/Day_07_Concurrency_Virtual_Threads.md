@@ -12,76 +12,75 @@
 
 ---
 
-## 📌 What Will You Learn Today?
-
-Hey there, friend! Welcome to Day 07. Today we're learning one of the absolute coolest and most celebrated modern features in Java: **Concurrency & Virtual Threads (Project Loom)**!
-
-Generative AI applications have a very unique personality: **they are overwhelmingly I/O-bound**.
-
-Think about what happens when your user asks an AI chatbot a question:
-1. Your backend server sends the prompt across the internet to an AI model (like OpenAI, Claude, or a local model).
-2. Your server's CPU does **almost zero work** while waiting. It simply sits there for 2 to 5 seconds waiting for the AI model to think and send back words.
-
-In traditional programming languages and older Java:
-- If 5,000 users connect at once, you need 5,000 operating system threads.
-- 5,000 OS threads eat **5 to 10 Gigabytes of RAM** just to exist!
-- The computer spends more time juggling threads than doing actual work, and eventually crashes with `OutOfMemoryError`.
-
-**Java 21 completely revolutionized this with Virtual Threads (Project Loom)!**
-
-By the end of today, you will clearly understand:
-- ✅ **The Concurrency Problem in AI**: Why slow network calls crush traditional servers.
-- ✅ **Platform Threads vs. Virtual Threads**: 1MB heavyweight OS threads vs. lightweight user-space threads.
-- ✅ **The Master Waiter Model**: How Java pauses waiting threads and frees up your CPU cores for other users.
-- ✅ **One-Line Virtual Threads**: Using `Executors.newVirtualThreadPerTaskExecutor()` to run 10,000 tasks effortlessly.
-- ✅ **Parallel AI with `CompletableFuture`**: Querying two different AI models at the same time and merging their answers.
-- ✅ **Thread Safety & Race Conditions**: Using `AtomicLong` to count tokens and rate-limit users safely.
-- ✅ **Why Java Beats Python for AI Microservices**: Understanding real-world multi-core throughput vs Python's GIL.
-
----
+![Traditional Platform Threads vs Java 21 Virtual Threads](assets/day07_virtual_threads.jpg)
 
 ## 🗺️ Table of Contents
-
-- [1. Real-World Analogy: The Restaurant Waiter vs. The Dedicated Butler](#1-real-world-analogy-the-restaurant-waiter-vs-the-dedicated-butler)
-- [2. The Concurrency Crisis in Generative AI](#2-the-concurrency-crisis-in-generative-ai)
-  - [2.1 Why LLM Calls Are Different from Normal Database Calls](#21-why-llm-calls-are-different-from-normal-database-calls)
-  - [2.2 The OS Platform Thread Limit](#22-the-os-platform-thread-limit)
-- [3. Virtual Threads (Project Loom) Explained](#3-virtual-threads-project-loom-explained)
-  - [3.1 How Virtual Threads Work Under the Hood](#31-how-virtual-threads-work-under-the-hood)
-  - [3.2 Mounting and Unmounting on Carrier Threads](#32-mounting-and-unmounting-on-carrier-threads)
-  - [3.3 Spawning 10,000 Virtual Threads in 3 Lines](#33-spawning-10000-virtual-threads-in-3-lines)
-- [4. Asynchronous Composition with `CompletableFuture`](#4-asynchronous-composition-with-completablefuture)
-  - [4.1 Parallel LLM Queries (Fan-Out / Fan-In)](#41-parallel-llm-queries-fan-out--fan-in)
-  - [4.2 Chaining Async Steps: `thenApply`, `thenCompose`](#42-chaining-async-steps-thenapply-thencompose)
-- [5. Thread Safety in Multi-User AI Backends](#5-thread-safety-in-multi-user-ai-backends)
-  - [5.1 The Race Condition Threat](#51-the-race-condition-threat)
-  - [5.2 Atomic Operations (`AtomicLong`, `AtomicInteger`)](#52-atomic-operations-atomiclong-atomicinteger)
-- [6. Python GIL vs. Java Virtual Threads: The Production Truth](#6-python-gil-vs-java-virtual-threads-the-production-truth)
-- [7. Key Takeaways & Summary](#7-key-takeaways--summary)
-- [8. Practice Exercises & Full Solutions](#8-practice-exercises--full-solutions)
-- [9. Self-Check Quiz](#9-self-check-quiz)
-- [10. 🔥 Java 8 CompletableFuture vs. Java 21 Virtual Threads Interview Masterclass](#10--java-8-completablefuture-vs-java-21-virtual-threads-interview-masterclass)
-  - [10.1 Top 7 Concurrency Interview Questions & In-Depth Answers](#101-top-7-concurrency-interview-questions--in-depth-answers)
+- [1. Topic Overview](#1-topic-overview)
+- [2. Basic Foundations (True Zero)](#2-basic-foundations-true-zero)
+  - [2.1 What is Concurrency, a Thread, and I/O-Bound Work?](#21-what-is-concurrency-a-thread-and-io-bound-work)
+  - [2.2 The Restaurant Waiter vs. Dedicated Butler Analogy](#22-the-restaurant-waiter-vs-dedicated-butler-analogy)
+  - [2.3 Minimal Working Example: Launching a Virtual Thread](#23-minimal-working-example-launching-a-virtual-thread)
+  - [2.4 Line-by-Line Code Breakdown](#24-line-by-line-code-breakdown)
+- [3. Core Concept Walkthrough (Basic → Intermediate)](#3-core-concept-walkthrough-basic--intermediate)
+  - [3.1 The Concurrency Crisis in Generative AI](#31-the-concurrency-crisis-in-generative-ai)
+  - [3.2 Platform Threads vs. Virtual Threads (Project Loom)](#32-platform-threads-vs-virtual-threads-project-loom)
+  - [3.3 How Virtual Threads Work: Mounting & Unmounting on Carrier Threads](#33-how-virtual-threads-work-mounting--unmounting-on-carrier-threads)
+  - [3.4 Spawning 10,000 Virtual Threads in 3 Lines](#34-spawning-10000-virtual-threads-in-3-lines)
+  - [3.5 Asynchronous Composition with `CompletableFuture`](#35-asynchronous-composition-with-completablefuture)
+  - [3.6 Thread Safety & Atomic Operations (`AtomicLong`)](#36-thread-safety--atomic-operations-atomiclong)
+  - [3.7 Python GIL vs. Java Virtual Threads: The Production Truth](#37-python-gil-vs-java-virtual-threads-the-production-truth)
+- [4. Prerequisite & Supporting Concepts](#4-prerequisite--supporting-concepts)
+  - [Prerequisite / Supporting Concept: OS Processes vs. Threads](#prerequisite--supporting-concept-os-processes-vs-threads)
+  - [Prerequisite / Supporting Concept: Race Conditions and Critical Sections](#prerequisite--supporting-concept-race-conditions-and-critical-sections)
+  - [Prerequisite / Supporting Concept: The Java Memory Model & Volatile Keyword](#prerequisite--supporting-concept-the-java-memory-model--volatile-keyword)
+- [5. Advanced Depth (Intermediate → Advanced)](#5-advanced-depth-intermediate--advanced)
+  - [5.1 Senior Deep Dive: `CompletableFuture` Composition (`thenApply`, `thenCompose`, `thenCombine`)](#51-senior-deep-dive-completablefuture-composition-thenapply-thencompose-thencombine)
+  - [5.2 Thread Starvation: The Default `ForkJoinPool.commonPool()` Hazard](#52-thread-starvation-the-default-forkjoinpoolcommonpool-hazard)
+  - [5.3 Virtual Thread Pinning: `synchronized` vs. `ReentrantLock`](#53-virtual-thread-pinning-synchronized-vs-reentrantlock)
+  - [5.4 Common Mistakes & Misconceptions (With Bad vs. Good Code)](#54-common-mistakes--misconceptions-with-bad-vs-good-code)
+  - [5.5 Architectural Trade-Offs: Virtual Threads vs. Reactive WebFlux](#55-architectural-trade-offs-virtual-threads-vs-reactive-webflux)
+- [6. Quick Recap](#6-quick-recap)
+- [7. Self-Check Questions & Practice Exercises](#7-self-check-questions--practice-exercises)
+  - [Self-Check Questions (Basic to Advanced)](#self-check-questions-basic-to-advanced)
+  - [Hands-On Practice Exercises with Full Solutions](#hands-on-practice-exercises-with-full-solutions)
 
 ---
 
-# 1. Real-World Analogy: The Restaurant Waiter vs. The Dedicated Butler
+# 1. Topic Overview
 
-> [!TIP]
-> ### 💡 New Word Alert: Concurrency Made Simple
-> - **Concurrency / Multithreading**: Handling multiple requests at the exact same time (like 1,000 people chatting with your AI assistant at once).
-> - **I/O-Bound vs CPU-Bound**:
->   - *CPU-Bound*: Your computer's processor is sweating at 100% doing heavy math.
->   - *I/O-Bound*: Your computer processor is idle, just waiting for network data to travel over the internet (like waiting 3 seconds for OpenAI's response).
-> - **Platform Thread (Old)**: A heavy operating system thread (takes ~1MB RAM). Making 5,000 of them crashes your server.
-> - **Virtual Thread (Java 21)**: A super lightweight thread created and managed by Java (takes ~1KB RAM). You can comfortably run 100,000 of them on a regular laptop!
-> - **Race Condition**: A bug where two threads try to update the exact same variable at the exact same millisecond, scrambling your data.
+Concurrency is the art of coordinating multiple independent tasks simultaneously. In Java 21, **Virtual Threads (Project Loom)** introduce ultra-lightweight, user-space threads that decouple execution logic from scarce operating system kernel threads, while **`CompletableFuture`** and **atomic primitives** enable expressive asynchronous composition and lock-free thread safety.
+
+### Why This Topic Matters
+Generative AI web applications are overwhelmingly **I/O-bound**. When a user requests an LLM inference, the server's CPU does virtually zero work while waiting 2 to 5 seconds for network packets to return from OpenAI, Claude, or local Ollama servers. With traditional operating system threads, handling 5,000 concurrent user requests consumes 5 to 10 GB of RAM and triggers server crashes. With Java 21 Virtual Threads, a single standard server can easily manage 100,000+ simultaneous connections with minimal memory and plain synchronous code.
+
+> 💡 **New Word Alert — "Virtual Thread"**: An ultra-lightweight thread managed entirely by the JVM rather than the OS kernel. It occupies only ~250 bytes of heap memory at creation and unmounts automatically during blocking network operations.
+
+> 💡 **New Word Alert — "I/O-Bound"**: A computing workload whose throughput is limited by data transfer speeds across network sockets or disk drives rather than raw CPU math.
+
+> 💡 **New Word Alert — "Race Condition"**: A concurrency defect occurring when multiple concurrent threads attempt to read and mutate the same shared state without synchronization, corrupting data.
+
+---
+
+# 2. Basic Foundations (True Zero)
+
+Let's start from true zero, assuming no prior experience with multithreading.
+
+### 2.1 What is Concurrency, a Thread, and I/O-Bound Work?
+
+- **Concurrency**: Doing multiple things at the same time (like cooking rice, baking chicken, and setting the table concurrently).
+- **Thread**: A single worker following a list of step-by-step instructions.
+- **CPU-Bound**: Heavy mathematics (e.g., training an AI model or rendering 3D graphics) where the CPU runs at 100%.
+- **I/O-Bound**: Waiting for external data (e.g., waiting 3 seconds for OpenAI's API to respond over the internet). The CPU is completely idle.
+
+---
+
+### 2.2 The Restaurant Waiter vs. Dedicated Butler Analogy
 
 ```
                      PLATFORM THREADS (The Dedicated Butler)
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ You hire 1 personal butler for each customer. When a customer orders steak, │
-│ the butler walks to the kitchen and STANDS IDLE for 30 minutes staring at   │
+│ the butler walks to the kitchen and STANDS FROZEN for 30 minutes waiting for│
 │ the oven. You need 1,000 butlers for 1,000 customers! Payroll goes bankrupt.│
 └─────────────────────────────────────────────────────────────────────────────┘
                                       vs.
@@ -89,120 +88,102 @@ By the end of today, you will clearly understand:
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ You hire 8 master waiters (Carrier Threads). When Table 1 orders steak, the │
 │ waiter submits the ticket to the kitchen, immediately walks to Table 2 to   │
-│ take their order, delivers water to Table 3, and returns to Table 1 only    │
-│ when the bell rings that the steak is ready!                                │
+│ take an order, pours water for Table 3, and returns to Table 1 only when    │
+│ the kitchen bell rings that the steak is ready!                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 In Java 21:
-- The **Customers** are your incoming HTTP requests from users.
-- The **Kitchen** is OpenAI / Ollama generating tokens over the network.
-- The **Waiters** are your physical CPU cores.
-- **Virtual Threads** allow millions of customer orders to be handled without needing a million physical waiters!
+- The **Customers** are incoming user requests.
+- The **Kitchen** is the external AI model generating tokens.
+- The **Waiters** are physical CPU cores (Carrier Threads).
+- **Virtual Threads** allow millions of orders to proceed concurrently without hiring millions of expensive physical butlers.
 
 ---
 
-# 2. The Concurrency Crisis in Generative AI
+### 2.3 Minimal Working Example: Launching a Virtual Thread
 
-### 2.1 Why LLM Calls Are Different from Normal Database Calls
+Let's write a minimal, fully runnable Java program launching a virtual thread:
+
+```java
+public class SimpleVirtualThreadDemo {
+
+    public static void main(String[] args) throws InterruptedException {
+        // Launch a lightweight virtual thread
+        Thread vThread = Thread.ofVirtual().start(() -> {
+            System.out.println("Running on Virtual Thread: " + Thread.currentThread());
+        });
+
+        // Wait for the virtual thread to complete
+        vThread.join();
+        System.out.println("Main thread completed.");
+    }
+}
+```
+
+---
+
+### 2.4 Line-by-Line Code Breakdown
+
+1. `Thread.ofVirtual().start(...)`: Instructs the JVM to create a user-space virtual thread in the Heap and begin running the lambda task immediately.
+2. `Thread.currentThread()`: Prints metadata revealing that the task is executing on a `VirtualThread` mounted on a `ForkJoinPool` carrier worker.
+3. `vThread.join()`: Pauses the calling main thread until the virtual thread finishes execution.
+
+---
+
+# 3. Core Concept Walkthrough (Basic → Intermediate)
+
+Now let's examine how Virtual Threads transform enterprise AI engineering.
+
+### 3.1 The Concurrency Crisis in Generative AI
 
 | Request Type | Typical Latency | What Thread Does During Latency |
 | :--- | :---: | :--- |
-| **PostgreSQL DB Query** | 2 ms – 10 ms | Waits briefly for indexed query |
-| **Redis Cache Lookup** | 0.5 ms – 1 ms | Near instantaneous |
-| **LLM Generation (GPT-4o)** | **2,000 ms – 10,000 ms** | **Sits completely frozen doing zero CPU work!** |
+| **Database Query** | 2 ms – 10 ms | Brief wait for indexed records |
+| **Cache Lookup** | 0.5 ms – 1 ms | Near instant |
+| **LLM Generation (GPT-4o)** | **2,000 ms – 10,000 ms** | **Stuck completely idle doing zero CPU work!** |
 
-Because LLM generation takes seconds instead of milliseconds, threads pile up. If 1,000 users connect, 1,000 threads are stuck waiting simultaneously.
-
----
-
-### 2.2 The OS Platform Thread Limit
-
-A traditional Java thread (`new Thread()`) is a direct wrapper around an **Operating System kernel thread**.
-- **Memory footprint**: Each OS thread allocates **1 MB to 2 MB of stack space** off-heap.
-  - 1,000 threads $\approx$ 1 GB RAM.
-  - 10,000 threads $\approx$ 10 GB to 20 GB RAM!
-- **Context-Switching Overhead**: The Linux or Windows kernel must save CPU registers, switch page tables, and restore state thousands of times per second.
+Because LLM generation takes seconds instead of milliseconds, waiting requests pile up rapidly. With traditional threads, 1,000 concurrent users tie up 1,000 operating system threads, crashing servers with `OutOfMemoryError: unable to create native thread`.
 
 ---
 
-# 3. Virtual Threads (Project Loom) Explained
+### 3.2 Platform Threads vs. Virtual Threads (Project Loom)
 
-Let's look at how Java 21 changes concurrency forever:
-
-![Traditional Platform Threads vs Java 21 Virtual Threads](assets/day07_virtual_threads.jpg)
-
-### 💡 The Mid-Level Java Developer Bridge: How Your Concurrency Code Changes
-
-In Core Java, you were taught to be terrified of creating threads:
-> *"Never do `new Thread()`! Always use an `ExecutorService` with a fixed pool of 50 or 100 threads, or your server will crash with `OutOfMemoryError: unable to create native thread`!"*
-
-Here is the exact code change in Java 21:
-
-#### The Old Core Java Way (Heavy OS Pool):
-```java
-// OLD WAY: You must limit to 50 threads because each thread costs 1MB of RAM!
-// If 51 requests arrive, request #51 sits in a queue waiting.
-ExecutorService executor = Executors.newFixedThreadPool(50);
-```
-
-#### The Modern Java 21 Way (Virtual Threads):
-```java
-// MODERN WAY: Each virtual thread costs ~1KB of RAM!
-// You can spawn 100,000 virtual threads without breaking a sweat!
-ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
-```
-
----
-
-### 💡 Plain-English Glossary: Virtual Threads Demystified
-
-| Term | Plain-English Translation | Real-World Analogy |
+| Dimension | Platform Thread (Legacy) | Virtual Thread (Java 21) |
 | :--- | :--- | :--- |
-| **Platform Thread (OS Thread)** | A heavy thread allocated directly by Windows/Linux. Costs 1MB to 2MB RAM. | A massive semi-truck. Great for hauling, but takes up an entire highway lane. |
-| **Virtual Thread** | A featherweight thread created in Java heap memory. Costs ~1KB RAM. | A person on a bicycle. You can fit 1,000 bicycles in the space of one semi-truck. |
-| **Carrier Thread** | The underlying OS thread (usually equal to your CPU cores, e.g. 8 or 16) that physically runs virtual threads. | The highway lane that bicycles ride on. |
-| **Mounting & Unmounting** | When your code makes an LLM network call or `Thread.sleep()`, the JVM immediately parks the virtual thread and assigns the carrier thread to work on another user! | Stepping off the bicycle while waiting at a red light so someone else can use the lane. |
+| **Management** | OS Kernel | JVM User-Space |
+| **Memory Stack Size** | 1 MB to 2 MB fixed | ~250 bytes dynamically growing on Heap |
+| **Creation Cost** | Heavy system call (~1ms) | Fast Java object allocation (nanoseconds) |
+| **Safe Concurrency Limit**| ~2,000 to 5,000 per JVM | **1,000,000+ per JVM** |
+| **Context Switching** | Expensive OS kernel switch | Lightweight Java continuation swap |
+| **Pooling Rule** | **Must pool** (`FixedThreadPool`) | **NEVER pool** (create per task!) |
 
 ---
 
-### 3.1 How Virtual Threads Work Under the Hood
-
-Virtual threads are **user-space threads** managed entirely by the **Java Virtual Machine (JVM)**, completely detached from the operating system kernel.
+### 3.3 How Virtual Threads Work: Mounting & Unmounting on Carrier Threads
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        JVM USER-SPACE MEMORY                           │
-│                                                                        │
 │   [VT 1]   [VT 2]   [VT 3]   [VT 4]   ...   [VT 100,000]               │
 │   (Tiny: ~250 bytes stack per virtual thread, stored in Java Heap)     │
 └───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                         Mounts & Unmounts dynamically
-                                    │
+                                    │ Mounts & Unmounts dynamically
                                     ▼
 ┌────────────────────────────────────────────────────────────────────────┐
 │                   CARRIER THREADS (ForkJoinPool)                       │
 │                   Pool size = Number of CPU Cores (e.g. 16 cores)      │
 │   [Core 1]  [Core 2]  [Core 3]  ...  [Core 16]                         │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                    OS KERNEL & PHYSICAL HARDWARE                       │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-1. **Stack Memory**: Starts at just **~250 to 300 bytes** (grows dynamically on the Heap only when needed).
-2. **Mounting**: When a virtual thread has CPU code to run, the JVM mounts it onto an available OS **Carrier Thread**.
-3. **Unmounting (The Secret Sauce)**: When the virtual thread makes a blocking call (e.g., `socket.read()`, `HttpClient.send()`, `Thread.sleep()`), the JVM **unmounts** the virtual thread, preserves its stack frame on the Heap, and frees the Carrier Thread immediately to run other tasks!
-4. When network data arrives from OpenAI, the JVM wakes up the virtual thread and mounts it onto any available carrier thread to resume execution.
+1. **Mounting**: When a virtual thread has CPU code to run, the JVM mounts it onto an available OS **Carrier Thread**.
+2. **Unmounting**: When the virtual thread performs a blocking operation (e.g., `HttpClient.send()`, `socket.read()`, `Thread.sleep()`), the JVM **unmounts** it, parks its stack on the Heap, and frees the Carrier Thread immediately to run another user's task!
+3. **Resumption**: When the network response arrives, the JVM wakes up the virtual thread and mounts it onto any available carrier thread to resume execution.
 
 ---
 
-### 3.2 Spawning 10,000 Virtual Threads in 3 Lines
-
-Look at how simple it is in modern Java 21:
+### 3.4 Spawning 10,000 Virtual Threads in 3 Lines
 
 ```java
 package com.javagenai.day07;
@@ -216,49 +197,37 @@ public class VirtualThreadScaleDemo {
     public static void main(String[] args) {
         Instant start = Instant.now();
 
-        // 1. Create a virtual thread executor
+        // 1. Create a Virtual-Thread-Per-Task Executor
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             for (int i = 1; i <= 10_000; i++) {
                 final int taskId = i;
                 executor.submit(() -> {
                     // Simulating 1 second of blocking network I/O from an LLM call
                     Thread.sleep(Duration.ofSeconds(1));
-                    if (taskId % 2000 == 0) {
-                        System.out.printf("Completed simulated LLM call #%,d on %s%n", 
+                    if (taskId % 2500 == 0) {
+                        System.out.printf("Finished simulated LLM call #%,d on %s%n", 
                                           taskId, Thread.currentThread());
                     }
                     return taskId;
                 });
             }
-        } // try-with-resources automatically waits for ALL 10,000 tasks to finish!
+        } // try-with-resources automatically awaits all 10,000 tasks!
 
         Duration elapsed = Duration.between(start, Instant.now());
-        System.out.printf("Finished 10,000 concurrent LLM calls in: %d ms!%n", elapsed.toMillis());
+        System.out.printf("Completed 10,000 concurrent LLM calls in: %d ms!%n", elapsed.toMillis());
     }
 }
 ```
 
-**Output on a standard laptop:**
-```text
-Completed simulated LLM call #2,000 on VirtualThread[#2047]/runnable@ForkJoinPool-1-worker-3
-Completed simulated LLM call #4,000 on VirtualThread[#4051]/runnable@ForkJoinPool-1-worker-7
-Completed simulated LLM call #6,000 on VirtualThread[#6055]/runnable@ForkJoinPool-1-worker-1
-Completed simulated LLM call #8,000 on VirtualThread[#8059]/runnable@ForkJoinPool-1-worker-5
-Completed simulated LLM call #10,000 on VirtualThread[#10063]/runnable@ForkJoinPool-1-worker-2
-Finished 10,000 concurrent LLM calls in: 1420 ms!
-```
-
-> **10,000 simulated LLM requests completed in ~1.4 seconds with negligible RAM usage.** If you attempted this with platform threads, your operating system would freeze or crash.
+**Result**: 10,000 concurrent tasks finish in $\approx 1.4$ seconds on a regular laptop with negligible RAM usage.
 
 ---
 
-# 4. Asynchronous Composition with `CompletableFuture`
+### 3.5 Asynchronous Composition with `CompletableFuture`
 
-Sometimes you need to coordinate multiple AI tasks simultaneously:
-- Query **OpenAI** AND **Claude** at the exact same time.
-- Retrieve the **fastest response**, or combine both outputs for consensus verification.
-
-### 4.1 Parallel LLM Queries (Fan-Out / Fan-In)
+In AI systems, you frequently need to coordinate multiple models:
+- Query **OpenAI** AND **Claude** concurrently.
+- Merge the outputs when both complete (Fan-Out / Fan-In).
 
 ```java
 package com.javagenai.day07;
@@ -269,35 +238,35 @@ public class AsyncModelEnsemble {
 
     public static CompletableFuture<String> callOpenAI(String prompt) {
         return CompletableFuture.supplyAsync(() -> {
-            simulateNetworkDelay(500); // 500ms
-            return "[OpenAI Result: 42]";
+            simulateLatency(500);
+            return "[OpenAI Output: 42]";
         });
     }
 
     public static CompletableFuture<String> callClaude(String prompt) {
         return CompletableFuture.supplyAsync(() -> {
-            simulateNetworkDelay(800); // 800ms
-            return "[Claude Result: 42]";
+            simulateLatency(800);
+            return "[Claude Output: 42]";
         });
     }
 
     public static void main(String[] args) {
-        String prompt = "Calculate the optimal batch size.";
+        String prompt = "Find optimal batch size";
 
-        // Fan-Out: Launch both simultaneously
-        CompletableFuture<String> openAiFuture = callOpenAI(prompt);
-        CompletableFuture<String> claudeFuture = callClaude(prompt);
+        // Fan-Out: Launch both models in parallel
+        CompletableFuture<String> openAi = callOpenAI(prompt);
+        CompletableFuture<String> claude = callClaude(prompt);
 
-        // Fan-In: Combine results when BOTH complete!
-        CompletableFuture<String> consensus = openAiFuture.thenCombine(
-            claudeFuture, 
+        // Fan-In: Combine results when both complete
+        CompletableFuture<String> combined = openAi.thenCombine(
+            claude,
             (res1, res2) -> "Consensus Verified: " + res1 + " == " + res2
         );
 
-        System.out.println(consensus.join()); // Blocks only until both are done!
+        System.out.println(combined.join());
     }
 
-    private static void simulateNetworkDelay(int ms) {
+    private static void simulateLatency(int ms) {
         try { Thread.sleep(ms); } catch (InterruptedException ignored) {}
     }
 }
@@ -305,44 +274,11 @@ public class AsyncModelEnsemble {
 
 ---
 
-### 4.2 Chaining Async Steps: `thenApply`, `thenCompose`
+### 3.6 Thread Safety & Atomic Operations (`AtomicLong`)
 
-In RAG pipelines, you often chain sequential async steps:
-`Fetch User Query` $\rightarrow$ `Generate Embeddings` $\rightarrow$ `Search Vector DB` $\rightarrow$ `Synthesize Answer`.
+When thousands of concurrent requests increment a shared token counter, `count++` creates race conditions because `++` is not atomic (read $\rightarrow$ modify $\rightarrow$ write).
 
-```java
-CompletableFuture<String> answerPipeline = CompletableFuture
-    .supplyAsync(() -> fetchUserPrompt())
-    .thenApply(prompt -> cleanText(prompt))
-    .thenCompose(cleaned -> queryVectorStoreAsync(cleaned))
-    .thenApply(context -> generateLLMResponse(context));
-```
-
----
-
-# 5. Thread Safety in Multi-User AI Backends
-
-### 5.1 The Race Condition Threat
-
-Imagine a shared counter tracking the number of tokens used today across 10,000 concurrent web requests:
-
-```java
-// BROKEN: Not thread-safe!
-public class BadTokenTracker {
-    private long totalTokens = 0;
-
-    public void recordUsage(long tokens) {
-        totalTokens += tokens; // READ -> MODIFY -> WRITE race condition!
-    }
-}
-```
-Two threads reading `totalTokens` at the same time will overwrite each other's increments, undercounting your token bill by 30%!
-
----
-
-### 5.2 Atomic Operations (`AtomicLong`, `AtomicInteger`)
-
-Instead of heavy locks (`synchronized`), modern Java provides **lock-free atomic variables** backed by CPU-level **Compare-And-Swap (CAS)** machine instructions:
+Java provides lock-free atomic variables backed by CPU-level **Compare-And-Swap (CAS)** machine instructions:
 
 ```java
 package com.javagenai.day07;
@@ -351,19 +287,19 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class AtomicTokenBudget {
     private final AtomicLong tokensConsumed = new AtomicLong(0);
-    private final long maxBudgetTokens;
+    private final long maxBudget;
 
-    public AtomicTokenBudget(long maxBudgetTokens) {
-        this.maxBudgetTokens = maxBudgetTokens;
+    public AtomicTokenBudget(long maxBudget) {
+        this.maxBudget = maxBudget;
     }
 
     public boolean tryConsume(long tokens) {
         while (true) {
             long current = tokensConsumed.get();
-            if (current + tokens > maxBudgetTokens) {
-                return false; // Budget exceeded!
+            if (current + tokens > maxBudget) {
+                return false; // Budget exhausted!
             }
-            // Atomically update only if another thread hasn't changed it in between
+            // Atomically update only if another thread hasn't modified it in between
             if (tokensConsumed.compareAndSet(current, current + tokens)) {
                 return true;
             }
@@ -378,48 +314,146 @@ public class AtomicTokenBudget {
 
 ---
 
-# 6. Python GIL vs. Java Virtual Threads: The Production Truth
-
-Why are enterprise backend teams choosing Java over Python for production AI microservices?
+### 3.7 Python GIL vs. Java Virtual Threads: The Production Truth
 
 | Feature | Python (FastAPI / asyncio) | Java 21 (Spring Boot + Virtual Threads) |
 | :--- | :--- | :--- |
-| **Concurrency Model** | Single-threaded Event Loop + GIL | Multi-Core Virtual Threads (Zero GIL) |
-| **Syntax Style** | Async/Await coloring (`async def`, `await`) | **Plain synchronous code** (`chatModel.call()`) that scales automatically! |
-| **Thread Debugging** | Stack traces across `asyncio` are fragmented | Clean, standard Java stack traces |
-| **CPU Utilization** | Limited to 1 core unless multi-process | Automatically spreads across all 16–128 CPU cores |
-| **Throughput** | ~5,000 concurrent connections before degradation | **100,000+ concurrent connections on a single JVM** |
-
-> In Java 21, you **never** have to color your functions with `async` and `await`. You write plain, straightforward, readable blocking code—and the JVM makes it non-blocking under the hood!
+| **Concurrency Engine** | Single-threaded Event Loop + GIL | Multi-Core Virtual Threads (No GIL) |
+| **Code Structure** | `async def` / `await` syntax coloring | **Plain synchronous code** that scales automatically |
+| **Debugging** | Complex fragmented stack traces | Unified, standard Java stack traces |
+| **Multi-Core Usage** | Bound to 1 core without multi-process | Automatically spreads across all 16–128 CPU cores |
+| **Throughput** | Degrades after ~5,000 connections | **100,000+ connections per single JVM instance** |
 
 ---
 
-# 7. Key Takeaways & Summary
+# 4. Prerequisite & Supporting Concepts
 
+### Prerequisite / Supporting Concept: OS Processes vs. Threads
+
+- **Process**: An isolated running program with its own dedicated memory space (e.g., the JVM process).
+- **Thread**: A lightweight path of execution running inside a process, sharing heap memory with sibling threads.
+
+---
+
+### Prerequisite / Supporting Concept: Race Conditions and Critical Sections
+
+A **critical section** is a block of code accessing shared mutable state. If multiple threads enter this section simultaneously without synchronization, a **race condition** occurs, producing corrupted data.
+
+---
+
+### Prerequisite / Supporting Concept: The Java Memory Model & Volatile Keyword
+
+The **Java Memory Model (JMM)** governs how CPU caches synchronize with main RAM. Marking a variable `volatile` guarantees that reads and writes bypass local CPU registers and flush directly to main memory, ensuring cross-thread visibility.
+
+---
+
+# 5. Advanced Depth (Intermediate → Advanced)
+
+### 5.1 Senior Deep Dive: `CompletableFuture` Composition (`thenApply`, `thenCompose`, `thenCombine`)
+
+| Method | Role | Analogy | Return Type |
+| :--- | :--- | :--- | :--- |
+| **`thenApply(Function)`** | Transforms result synchronously. | Like Stream `map()` | `CompletableFuture<U>` |
+| **`thenCompose(Function)`**| Chains dependent async task. | Like Stream `flatMap()` | `CompletableFuture<U>` (avoids nesting) |
+| **`thenCombine(BiFunction)`**| Combines two independent futures.| Fork-Join parallel merge | `CompletableFuture<V>` |
+
+---
+
+### 5.2 Thread Starvation: The Default `ForkJoinPool.commonPool()` Hazard
+
+By default, `CompletableFuture.supplyAsync(supplier)` executes on the shared `ForkJoinPool.commonPool()`, which has a thread pool size equal to `CPU Cores - 1` (e.g., 7 threads on an 8-core machine).
+- **Hazard**: Executing blocking LLM network requests on the common pool blocks all 7 threads, starving the entire JVM and freezing background tasks!
+- **Best Practice**: Always supply a custom executor or a virtual thread executor:
+  ```java
+  CompletableFuture.supplyAsync(supplier, Executors.newVirtualThreadPerTaskExecutor());
+  ```
+
+---
+
+### 5.3 Virtual Thread Pinning: `synchronized` vs. `ReentrantLock`
+
+When a virtual thread executes inside a `synchronized` block or method, the JVM **pins** the virtual thread to its OS carrier thread:
+- **The Issue**: If the virtual thread makes a blocking network call while pinned, the carrier thread is blocked too, defeating virtual thread scalability!
+- **The Fix**: In modern high-concurrency Java, replace `synchronized` with **`java.util.concurrent.locks.ReentrantLock`**, which allows virtual threads to unmount freely during locks.
+
+---
+
+### 5.4 Common Mistakes & Misconceptions (With Bad vs. Good Code)
+
+#### Mistake 1: Pooling Virtual Threads
+**Bad Code:**
+```java
+// ❌ ANTI-PATTERN: Never pool virtual threads!
+ExecutorService pool = Executors.newFixedThreadPool(100, Thread.ofVirtual().factory());
 ```
-                  ┌─────────────────────────────────┐
-                  │       DAY 07 CHEAT SHEET        │
-                  └────────────────┬────────────────┘
-                                   │
-         ┌─────────────────────────┼─────────────────────────┐
-         ▼                         ▼                         ▼
-  [ Virtual Threads ]       [ CompletableFuture ]     [ Thread Safety ]
-  • Lightweight user-space  • Fan-Out / Fan-In for    • AtomicLong / AtomicInt
-    threads (~250 bytes)      multi-model consensus     for lock-free counters
-  • Unmounts on blocking    • supplyAsync: non-block  • ConcurrentHashMap for
-    network I/O sockets       execution                 thread-safe caches
-  • Scale to 100,000+       • thenCombine: merge two  • No async/await syntax
-    concurrent LLM streams    independent async tasks   coloring needed
+**Why it's wrong**: Virtual threads cost only ~250 bytes. Pooling them adds memory management overhead.
+**Correct Code:**
+```java
+// ✅ Create a new virtual thread per task!
+ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+```
+
+#### Mistake 2: Non-Atomic Increments in Multi-User Handlers
+**Bad Code:**
+```java
+private long totalTokens = 0;
+public void record(long tokens) { totalTokens += tokens; } // ❌ Race condition!
+```
+**Correct Code:**
+```java
+private final AtomicLong totalTokens = new AtomicLong(0);
+public void record(long tokens) { totalTokens.addAndGet(tokens); } // ✅ Lock-free atomic
 ```
 
 ---
 
-# 8. Practice Exercises & Full Solutions
+### 5.5 Architectural Trade-Offs: Virtual Threads vs. Reactive WebFlux
 
-### 🏋️ Exercise 1: Build a Multi-Model Race Controller
-**Objective**: Query two simulated LLM endpoints (`FastDraftModel` and `SlowDeepModel`) simultaneously. Return whichever result finishes first using `CompletableFuture.anyOf()`.
+| Dimension | Spring WebFlux (Reactive) | Virtual Threads (Java 21) |
+| :--- | :--- | :--- |
+| **Programming Model** | Complex reactive streams (`Mono`, `Flux`) | **Plain imperative, blocking Java code** |
+| **Stack Traces** | Fragmented, hard to debug | Clean, linear, native stack traces |
+| **Learning Curve** | Very High | Zero (standard Java code) |
+| **Throughput** | High | **Equally High (100k+ concurrent requests)** |
+| **Verdict** | Legacy alternative | **The modern industry standard baseline** |
 
-#### Solution:
+---
+
+# 6. Quick Recap
+
+| Concept | Key Property |
+| :--- | :--- |
+| **Virtual Threads** | Lightweight user-space threads managed by JVM; unmount during blocking I/O. |
+| **Carrier Threads** | OS threads backing virtual threads (sized to available CPU cores). |
+| **`newVirtualThreadPerTaskExecutor`** | Standard executor for running concurrent I/O tasks. |
+| **`CompletableFuture`** | Orchestrates asynchronous pipelines and multi-model fan-out/fan-in queries. |
+| **`AtomicLong` / `AtomicInteger`** | Lock-free thread-safe counters using CPU Compare-And-Swap (CAS). |
+| **Thread Pinning** | Avoid `synchronized` around blocking calls; use `ReentrantLock` instead. |
+
+---
+
+# 7. Self-Check Questions & Practice Exercises
+
+### Self-Check Questions (Basic to Advanced)
+
+1. **Why do Virtual Threads prevent memory exhaustion during thousands of concurrent LLM calls?**
+   - *Answer*: Traditional platform threads allocate 1MB–2MB of fixed OS stack memory each. Virtual threads start at only ~250 bytes of heap memory, enabling millions to coexist without exhausting RAM.
+2. **What occurs when a Virtual Thread executes a blocking socket read?**
+   - *Answer*: The JVM unmounts the virtual thread from its OS carrier thread, parking its state on the heap, freeing the carrier thread to immediately execute other virtual threads.
+3. **What is the difference between `CompletableFuture.allOf()` and `CompletableFuture.anyOf()`?**
+   - *Answer*: `allOf()` waits for all specified futures to complete. `anyOf()` returns as soon as the first future finishes, returning its result.
+4. **Why is `counter++` unsafe in multi-threaded code?**
+   - *Answer*: It is not an atomic operation; it performs three distinct machine steps (read, modify, write). Multiple threads reading simultaneously will overwrite each other's increments.
+5. **What is "Virtual Thread Pinning" and how is it resolved?**
+   - *Answer*: When a virtual thread executes inside a native method or `synchronized` block, it is pinned to its carrier thread and cannot unmount during blocking I/O. It is resolved by replacing `synchronized` with `ReentrantLock`.
+
+---
+
+### Hands-On Practice Exercises with Full Solutions
+
+#### 🏋️ Exercise 1: Build a Multi-Model Race Controller
+**Objective**: Query two simulated LLM endpoints concurrently and return whichever response arrives first using `CompletableFuture.anyOf()`.
+
 ```java
 package com.javagenai.day07;
 
@@ -438,7 +472,6 @@ public class ModelRaceController {
         CompletableFuture<String> fastModel = queryModel("Llama-3.2-1B", 150, "Quick summary");
         CompletableFuture<String> slowModel = queryModel("GPT-4o-Heavy", 600, "In-depth treatise");
 
-        // anyOf returns when the FIRST one finishes
         Object winner = CompletableFuture.anyOf(fastModel, slowModel).join();
         return (String) winner;
     }
@@ -447,16 +480,14 @@ public class ModelRaceController {
 
 ---
 
-### 🏋️ Exercise 2: Virtual Thread Batch Document Embedding Simulator
-**Objective**: Write a method that simulates embedding 500 documents concurrently with a 200ms network delay each, measuring total time taken with `Executors.newVirtualThreadPerTaskExecutor()`.
+#### 🏋️ Exercise 2: Virtual Thread Batch Document Embedding Simulator
+**Objective**: Simulate embedding 500 documents concurrently with a 200ms network delay each, measuring total time taken with `Executors.newVirtualThreadPerTaskExecutor()`.
 
-#### Solution:
 ```java
 package com.javagenai.day07;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 import java.util.concurrent.Executors;
 
 public class BatchEmbeddingSimulator {
@@ -483,135 +514,8 @@ public class BatchEmbeddingSimulator {
 
 ---
 
-## 9. Self-Check Quiz
-
-1. **Why do Virtual Threads solve the memory problem of platform threads?**
-   - *Answer*: Platform threads allocate 1MB–2MB of fixed OS stack memory. Virtual threads start at only ~250 bytes of heap memory, growing dynamically, allowing millions of threads to coexist without memory exhaustion.
-2. **What happens when a Virtual Thread makes a blocking call like `socket.read()`?**
-   - *Answer*: The JVM unmounts the virtual thread from its underlying OS carrier thread, parking its state on the heap, allowing the carrier thread to immediately execute other virtual threads.
-3. **What is the purpose of `CompletableFuture.thenCombine()`?**
-   - *Answer*: It runs two independent asynchronous operations in parallel and combines their results with a BiFunction when both complete.
-4. **Why is `totalTokens++` not thread-safe in a multi-threaded web application?**
-   - *Answer*: Because `++` is not an atomic operation. It consists of three distinct steps: read current value, increment, write back. Multiple threads will read the same initial value and overwrite each other.
-5. **How do Java Virtual Threads compare to Python's `asyncio`?**
-   - *Answer*: Java Virtual Threads require zero syntax changes (`async`/`await` coloring) and run on multiple CPU cores without a Global Interpreter Lock (GIL), while Python's `asyncio` is confined to a single core and requires colored functions.
-
----
-
----
-
-# 10. 🔥 Java 8 CompletableFuture vs. Java 21 Virtual Threads Interview Masterclass
-
-Concurrency is one of the highest-weight topics in technical interviews. Interviewers will test your depth on Java 8's asynchronous `CompletableFuture` API and how Java 21's Virtual Threads revolutionize modern concurrency.
-
-Here are the **Top 7 Concurrency Interview Questions**:
-
----
-
-### 10.1 Top 7 Concurrency Interview Questions & In-Depth Answers
-
-#### 💡 Q1: Why was `CompletableFuture` introduced in Java 8 to replace Java 5's `Future<T>`?
-**Answer**:
-Java 5's standard `Future<T>` had severe architectural limitations:
-1. **Blocking by Nature**: The only way to retrieve a value was `future.get()`, which blocks the calling thread until completion.
-2. **No Chaining or Pipelining**: You could not trigger an action automatically when the future finished without manually polling or blocking.
-3. **Cannot Combine Multiple Futures**: There was no native way to say: *"When Future A and Future B both complete, combine them and run Future C."*
-4. **No Exception Handling Pipeline**: No functional way to catch exceptions (`.exceptionally()`, `.handle()`).
-
-**Java 8 Solution**: `CompletableFuture<T>` introduced non-blocking callback chaining, reactive composition (`thenApply`, `thenCompose`, `thenCombine`), and explicit manual completion (`future.complete(val)`).
-
----
-
-#### 💡 Q2: What is the difference between `supplyAsync()` and `runAsync()`?
-**Answer**:
-- **`CompletableFuture.supplyAsync(Supplier<U>)`**: Takes a `Supplier<U>` (which returns a value) and runs it asynchronously. Returns `CompletableFuture<U>`.
-- **`CompletableFuture.runAsync(Runnable)`**: Takes a `Runnable` (which returns `void`) and runs it asynchronously. Returns `CompletableFuture<Void>`.
-
-```java
-// Produces a result:
-CompletableFuture<String> dataFuture = CompletableFuture.supplyAsync(() -> fetchVectorFromDb());
-
-// Performs a background fire-and-forget task (logging, metrics):
-CompletableFuture<Void> logFuture = CompletableFuture.runAsync(() -> sendMetricsToDatadog());
-```
-
----
-
-#### 💡 Q3: What is the difference between `thenApply()`, `thenCompose()`, and `thenCombine()`? (The Big Three!)
-**Answer**:
-This is tested in almost every senior Java interview:
-
-| Method | Analogy | Input Function | Purpose | Return Type |
-| :--- | :--- | :--- | :--- | :--- |
-| **`thenApply()`** | Like Stream `map()` | `Function<T, U>` | Synchronous transformation of the completed result. | `CompletableFuture<U>` |
-| **`thenCompose()`** | Like Stream `flatMap()` | `Function<T, CompletableFuture<U>>` | Chains dependent async operations where step 2 depends on step 1 and returns another Future. Prevents nested `CompletableFuture<CompletableFuture<U>>`. | `CompletableFuture<U>` |
-| **`thenCombine()`** | Parallel Fork-Join | `BiFunction<T, U, V>` | Executes two independent futures concurrently and combines their outputs when both finish. | `CompletableFuture<V>` |
-
-```java
-// 1. thenApply: Map String to Integer
-CompletableFuture<Integer> length = CompletableFuture.supplyAsync(() -> "hello")
-    .thenApply(String::length);
-
-// 2. thenCompose: Chain another async task (avoid nesting!)
-CompletableFuture<String> summary = CompletableFuture.supplyAsync(() -> fetchArticle(id))
-    .thenCompose(article -> callLlmSummaryAsync(article));
-
-// 3. thenCombine: Run two LLM calls in parallel and merge results
-CompletableFuture<String> fast = CompletableFuture.supplyAsync(() -> callLlama());
-CompletableFuture<String> deep = CompletableFuture.supplyAsync(() -> callGpt4o());
-CompletableFuture<String> merged = fast.thenCombine(deep, (r1, r2) -> "Fast: " + r1 + " | Deep: " + r2);
-```
-
----
-
-#### 💡 Q4: What is the difference between `future.get()` and `future.join()`?
-**Answer**:
-- **`get()`**: Throws **checked exceptions** (`InterruptedException`, `ExecutionException`). Requires clumsy `try-catch` blocks. Supports a timeout: `get(5, TimeUnit.SECONDS)`.
-- **`join()`**: Throws an **unchecked exception** (`CompletionException`). Specifically designed for functional pipelines and Stream operations where checked exceptions cannot be thrown:
-  ```java
-  List<String> results = futures.stream()
-      .map(CompletableFuture::join) // Clean! No checked exception handling required!
-      .toList();
-  ```
-
----
-
-#### 💡 Q5: What thread pool does `CompletableFuture` use by default? What is the production danger?
-**Answer**:
-By default, `CompletableFuture.supplyAsync(...)` runs on **`ForkJoinPool.commonPool()`**.
-
-**The Production Danger**:
-The common pool is shared across the **entire JVM** and has a fixed thread pool size equal to `Runtime.getRuntime().availableProcessors() - 1` (e.g., 7 threads on an 8-core CPU).
-If a developer runs **blocking I/O operations** (like slow LLM REST API calls or JDBC database queries) on the default pool, all common pool threads become blocked. **This starves the entire JVM**, causing other unrelated parts of your application (parallel streams, background tasks) to completely freeze!
-
-**Best Practice**: Always supply a custom `Executor` (or Java 21's Virtual Thread executor):
-```java
-ExecutorService aiExecutor = Executors.newVirtualThreadPerTaskExecutor();
-CompletableFuture.supplyAsync(() -> callOpenAI(prompt), aiExecutor);
-```
-
----
-
-#### 💡 Q6: What is the difference between `CompletableFuture.allOf()` and `CompletableFuture.anyOf()`?
-**Answer**:
-- **`allOf(Future<?>... cfs)`**: Waits for **ALL** futures to complete. Returns `CompletableFuture<Void>`. To collect results, you map over the original futures and call `.join()`.
-- **`anyOf(Future<?>... cfs)`**: Waits for the **FIRST** future to finish (speculative execution / race condition). Returns `CompletableFuture<Object>` containing the fastest result.
-
----
-
-#### 💡 Q7: If Java 21 has Virtual Threads, is `CompletableFuture` obsolete?
-**Answer**:
-**NO, but its primary role has changed:**
-- **What Virtual Threads Replaced**: Virtual threads make traditional synchronous, blocking code ultra-efficient without thread starvation. You no longer need reactive programming (WebFlux, RxJava) or complex callback chains just to handle thousands of concurrent requests.
-- **Where `CompletableFuture` Remains Essential**:
-  1. **Async Fan-Out / Fan-In**: Firing 5 parallel LLM queries and combining them (`allOf`, `anyOf`, `thenCombine`).
-  2. **Event-Driven Architectures**: Passing a future between decoupled services to be completed asynchronously when a Kafka or WebSocket event arrives (`future.complete(event)`).
-
----
-
 <p align="center">
-  <b>Awesome job finishing Day 07! 🎉</b><br>
-  You now understand how Java handles massive multi-user AI traffic with Virtual Threads and <code>CompletableFuture</code>.<br>
-  Tomorrow on <b>Day 08</b>, we conclude Phase 1 with <b>I/O, Modern HTTP Client, Jackson JSON & Testing (JUnit 5 + Mockito)</b> — giving you all the practical tools to make real network calls to OpenAI and Claude! Let's cross the Phase 1 finish line together!
+  <b>Day 07 Complete! 🎉</b><br>
+  Proceed to <b>Day 08</b>: <b>I/O, Modern HTTP Client, JSON & Testing (JUnit 5 + Mockito)</b>.<br>
+  <a href="../Day_08_IO_HTTP_JSON_Testing/Day_08_IO_HTTP_JSON_Testing.md"><b>Continue to Day 08 →</b></a>
 </p>
-

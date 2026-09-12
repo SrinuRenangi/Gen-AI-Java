@@ -12,147 +12,148 @@
 
 ---
 
-## 📌 What Will You Learn Today?
-
-Hey there, friend! Welcome to Day 04. Today we're learning how real applications hold, organize, and search through lots of data: **Generics (`<T>`)** and the **Java Collections Framework** (`List`, `Set`, `Map`, and `PriorityQueue`).
-
-In modern AI engineering, you never deal with just one single sentence at a time. Think about it:
-- You process **batches of numbers** representing text (`List<float[]>`).
-- You track a **full conversation history** between the user and the bot (`List<ChatMessage>`).
-- You index **thousands of document paragraphs with their metadata** (`Map<String, Object>`).
-- You keep a **clean list of unique words without duplicates** (`Set<String>`).
-- You search a library to find the **Top-3 best answers** for a user question (`PriorityQueue<ScoredDocument>`).
-
-In dynamic languages like Python, you can throw anything into a `list` or `dict` — numbers, strings, or booleans — and pray your app doesn't crash when someone uses it. 
-In Java, **Generics (`<T>`)** give you a safety shield: the Java compiler checks every single item *before* your program runs, making sure bugs are caught while you type rather than crashing on your users!
-
-By the end of today, you will clearly understand:
-- ✅ **The Generics Mental Model**: Why `<T>` exists and how it prevents annoying `ClassCastException` bugs.
-- ✅ **Type Erasure**: The JVM's secret trick for keeping old and new Java code running together.
-- ✅ **The PECS Rule**: How Producer `extends` and Consumer `super` (`? extends T`) make your generic methods super flexible.
-- ✅ **The Big Three**: `List<T>`, `Set<T>`, and `Map<K,V>` — when to use which and why.
-- ✅ **`ArrayList` vs `LinkedList`**: Why modern computers make `ArrayList` 10x faster in real life.
-- ✅ **`HashMap` Under the Hood**: How hash buckets, collisions, and Java 8's Red-Black trees give you instant search.
-- ✅ **`PriorityQueue<T>` for AI RAG**: How to easily grab the "Top-K" most relevant paragraphs for an AI prompt.
-- ✅ **Modern Immutable Collections**: Fast and safe collections using `List.of()`, `Set.of()`, and `Map.of()`.
-
----
-
 ## 🗺️ Table of Contents
-
-- [1. Real-World Analogy: Labeled Cargo Shipping Containers](#1-real-world-analogy-labeled-cargo-shipping-containers)
-- [2. Generics (`<T>`): Compile-Time Type Safety](#2-generics-t-compile-time-type-safety)
-  - [2.1 The Danger of Raw Types](#21-the-danger-of-raw-types)
-  - [2.2 Writing Your Own Generic Class](#22-writing-your-own-generic-class)
-  - [2.3 Type Erasure: The Compiler's Secret](#23-type-erasure-the-compilers-secret)
-  - [2.4 Bounded Wildcards: The PECS Rule](#24-bounded-wildcards-the-pecs-rule)
-- [3. The Java Collections Framework (JCF) Hierarchy](#3-the-java-collections-framework-jcf-hierarchy)
-- [4. `List<T>`: Ordered Sequences for AI Pipelines](#4-listt-ordered-sequences-for-ai-pipelines)
-  - [4.1 `ArrayList` vs. `LinkedList`](#41-arraylist-vs-linkedlist)
-  - [4.2 Chunking a Document with `List`](#42-chunking-a-document-with-list)
-- [5. `Set<T>`: Uniqueness and Deduplication](#5-sett-uniqueness-and-deduplication)
-  - [5.1 `HashSet` vs `TreeSet` vs `LinkedHashSet`](#51-hashset-vs-treeset-vs-linkedhashset)
-  - [5.2 Deduplicating Document Chunks](#52-deduplicating-document-chunks)
-- [6. `Map<K, V>`: Key-Value Associations](#6-mapk-v-key-value-associations)
-  - [6.1 Under the Hood of `HashMap`](#61-under-the-hood-of-hashmap)
-  - [6.2 `ConcurrentHashMap` for Multi-Threaded AI](#62-concurrenthashmap-for-multi-threaded-ai)
-- [7. `PriorityQueue<T>`: The Top-K Engine for RAG](#7-priorityqueuet-the-top-k-engine-for-rag)
-- [8. Modern Immutable Collections (`List.of`, `Map.of`)](#8-modern-immutable-collections-listof-mapof)
-- [9. Key Takeaways & Summary](#9-key-takeaways--summary)
-- [10. Practice Exercises & Full Solutions](#10-practice-exercises--full-solutions)
-- [11. Self-Check Quiz](#11-self-check-quiz)
-- [12. 🔥 Java 8 Collections & HashMap Interview Masterclass](#12--java-8-collections--hashmap-interview-masterclass)
-  - [12.1 Top 5 Java 8 Collection Interview Questions](#121-top-5-java-8-collection-interview-questions)
+- [1. Topic Overview](#1-topic-overview)
+- [2. Basic Foundations (True Zero)](#2-basic-foundations-true-zero)
+  - [2.1 What is a Collection and What are Generics?](#21-what-is-a-collection-and-what-are-generics)
+  - [2.2 The Shipping Container Analogy](#22-the-shipping-container-analogy)
+  - [2.3 Minimal Working Example: A Type-Safe AI Message History](#23-minimal-working-example-a-type-safe-ai-message-history)
+  - [2.4 Line-by-Line Code Breakdown](#24-line-by-line-code-breakdown)
+- [3. Core Concept Walkthrough (Basic → Intermediate)](#3-core-concept-walkthrough-basic--intermediate)
+  - [3.1 Building Generic Classes: `AIResponse<T>`](#31-building-generic-classes-airesponset)
+  - [3.2 Type Erasure: How the JVM Executes Generics](#32-type-erasure-how-the-jvm-executes-generics)
+  - [3.3 Bounded Wildcards & the PECS Rule](#33-bounded-wildcards--the-pecs-rule)
+  - [3.4 The Java Collections Framework Hierarchy](#34-the-java-collections-framework-hierarchy)
+  - [3.5 `List<T>`: `ArrayList` vs. `LinkedList` & Document Chunking](#35-listt-arraylist-vs-linkedlist--document-chunking)
+  - [3.6 `Set<T>`: Uniqueness and Deduplicating AI Chunks](#36-sett-uniqueness-and-deduplicating-ai-chunks)
+  - [3.7 `Map<K, V>`: `HashMap` Internals & `ConcurrentHashMap`](#37-mapk-v-hashmap-internals--concurrenthashmap)
+  - [3.8 `PriorityQueue<T>`: The Top-K Scoring Engine for RAG](#38-priorityqueuet-the-top-k-scoring-engine-for-rag)
+  - [3.9 Modern Immutable Collections (`List.of`, `Map.of`)](#39-modern-immutable-collections-listof-mapof)
+- [4. Prerequisite & Supporting Concepts](#4-prerequisite--supporting-concepts)
+  - [Prerequisite / Supporting Concept: Arrays vs. Dynamic Collections](#prerequisite--supporting-concept-arrays-vs-dynamic-collections)
+  - [Prerequisite / Supporting Concept: Autoboxing & Unboxing (Primitives vs. Wrappers)](#prerequisite--supporting-concept-autoboxing--unboxing-primitives-vs-wrappers)
+  - [Prerequisite / Supporting Concept: Fail-Fast vs. Fail-Safe Iterators](#prerequisite--supporting-concept-fail-fast-vs-fail-safe-iterators)
+- [5. Advanced Depth (Intermediate → Advanced)](#5-advanced-depth-intermediate--advanced)
+  - [5.1 Java 8+ HashMap Internals: Treeification & Collisions](#51-java-8-hashmap-internals-treeification--collisions)
+  - [5.2 High-Performance Map Operations: `computeIfAbsent()` & `merge()`](#52-high-performance-map-operations-computeifabsent--merge)
+  - [5.3 Common Mistakes & Misconceptions (With Bad vs. Good Code)](#53-common-mistakes--misconceptions-with-bad-vs-good-code)
+  - [5.4 Architectural Trade-Offs: Contiguous Memory (`ArrayList`) vs. Scattered Pointers (`LinkedList`)](#54-architectural-trade-offs-contiguous-memory-arraylist-vs-scattered-pointers-linkedlist)
+- [6. Quick Recap](#6-quick-recap)
+- [7. Self-Check Questions & Practice Exercises](#7-self-check-questions--practice-exercises)
+  - [Self-Check Questions (Basic to Advanced)](#self-check-questions-basic-to-advanced)
+  - [Hands-On Practice Exercises with Full Solutions](#hands-on-practice-exercises-with-full-solutions)
 
 ---
 
-# 1. Real-World Analogy: Labeled Cargo Shipping Containers
+# 1. Topic Overview
 
-> [!TIP]
-> ### 💡 New Word Alert: Data Terms Made Simple
-> - **Generics (`<T>`)**: Putting a label on a container. For example, `List<String>` means *"this is a list that ONLY holds text Strings"*. If you try to slip an integer into it, Java stops you immediately!
-> - **Top-K**: In AI and search engines, "Top-K" simply means finding the top $K$ best results (like the Top-3 most relevant paragraphs in a 500-page book).
-> - **Deduplication**: Filtering out duplicate items so you don't waste memory or send the exact same text to an AI twice.
-> - **PECS**: A handy memory trick: *"Producer Extends, Consumer Super"*. If a collection gives you data (produces), use `extends`. If a collection takes data in (consumes), use `super`. We'll see simple examples shortly!
+The **Java Collections Framework (JCF)** provides standardized, high-performance data structures (`List`, `Set`, `Map`, `Queue`) for storing, sorting, filtering, and retrieving groups of objects in memory. In conjunction with collections, **Generics (`<T>`)** enforce strict compile-time type safety, ensuring that containers hold only permitted object types.
 
-Imagine an international shipping port.
+### Why This Topic Matters
+In modern AI engineering, data rarely exists as single values. AI pipelines ingest batches of floating-point vectors (`List<float[]>`), maintain multi-turn chat dialogues (`List<ChatMessage>`), store prompt variables and metadata filters (`Map<String, Object>`), deduplicate scraped web chunks (`Set<String>`), and select the Top-3 most relevant passages via priority heaps (`PriorityQueue<ScoredChunk>`). Mastering generics and collections ensures your AI pipelines run with maximum speed and zero type-cast errors.
+
+> 💡 **New Word Alert — "Generics (`<T>`)"**: A language feature allowing classes, interfaces, and methods to operate on specified data types while providing compile-time type verification.
+
+> 💡 **New Word Alert — "Top-K"**: An information retrieval technique that returns only the highest-ranking $K$ items (e.g., the 3 best matching document passages for an AI prompt) from a large pool of thousands.
+
+> 💡 **New Word Alert — "Deduplication"**: The process of identifying and removing redundant identical data chunks to reduce memory consumption and LLM token costs.
+
+---
+
+# 2. Basic Foundations (True Zero)
+
+Let's begin with absolute basics, assuming no prior experience with data structures.
+
+### 2.1 What is a Collection and What are Generics?
+
+- **Collection**: A container object that groups multiple elements into a single unit (like a shopping cart holding grocery items).
+- **Generics (`<T>`)**: A label placed on that container specifying exactly what kind of items are permitted inside (like labeling a crate *"Apples Only"*).
+
+In dynamically typed languages like Python or JavaScript, a list can hold numbers, strings, and dictionaries simultaneously (`[1, "hello", True]`). While flexible, if a function expects a number and encounters a string, the application crashes at runtime.
+
+Java uses **Generics** to verify types during compilation. If a container is labeled `List<String>`, attempting to insert a number fails before your code ever runs.
+
+---
+
+### 2.2 The Shipping Container Analogy
 
 ```
-                      UNMARKED WOODEN CRATES (Raw Types / Python Lists)
-                      ┌──────────────────────────────────────────────┐
-                      │ Contains: Bananas? Uranium? Dynamite? Glass? │
-                      │ You only find out when you open it at home!  │
-                      └──────────────────────────────────────────────┘
-                                             vs.
-                      STANDARDIZED STEEL CONTAINERS (Java Generics)
-                      ┌──────────────────────────────────────────────┐
-                      │ LABEL: "REFRIGERATED MEDICINE ONLY" <Vaccine>│
-                      │ Port cranes reject any attempt to load coal  │
-                      │ into it before the ship ever leaves dock!     │
-                      └──────────────────────────────────────────────┘
+                  UNMARKED WOODEN CRATES (Raw Types / Ancient Java)
+                  ┌──────────────────────────────────────────────┐
+                  │ Contains: Bananas? Uranium? Dynamite? Glass? │
+                  │ You only find out when you open it at home!  │
+                  └──────────────────────────────────────────────┘
+                                         vs.
+                  STANDARDIZED STEEL CONTAINERS (Java Generics)
+                  ┌──────────────────────────────────────────────┐
+                  │ LABEL: "REFRIGERATED MEDICINE ONLY" <Vaccine>│
+                  │ Port cranes reject any attempt to load coal  │
+                  │ into it before the ship ever leaves dock!     │
+                  └──────────────────────────────────────────────┘
 ```
 
-Without generics, a collection is an unmarked crate holding `Object`. Anyone can put a `String` into a list intended for numbers, and the program will compile silently — only to explode with a `ClassCastException` at runtime.
-
-With generics (`List<Double>`), the Java compiler acts as a strict port authority: **It refuses to compile if anything other than a `Double` attempts to enter the container.**
+Generics act as strict port authority guards: they verify the cargo type at the loading dock (compile-time) so that your ship never sinks at sea (runtime).
 
 ---
 
-## 🧭 The Plain English Bridge: Generics & Collections Demystified
+### 2.3 Minimal Working Example: A Type-Safe AI Message History
 
-Here is your cheat sheet to clear up the most common points of confusion:
-
-| Concept | The Academic Definition | What It Actually Means in Plain English |
-| :--- | :--- | :--- |
-| **Generics (`<T>`)** | Parameterized type polymorphism. | Putting a label on a box: *"Only items of type T allowed inside."* |
-| **Type Erasure** | Generic type metadata removed at bytecode compilation. | Generics exist **only to protect you while writing code**. Once compiled into `.class` bytecode, Java removes `<String>` back to plain `Object` so older Java code doesn't break. |
-| **`<? extends Number>`** | Covariant wildcard (PECS: Producer Extends). | **Read-only access!** You can safely read items out as `Number`, but Java won't let you `.add()` new items because it doesn't know if the list is specifically `Integer` or `Double`. |
-| **`<? super Integer>`** | Contravariant wildcard (PECS: Consumer Super). | **Write-safe access!** You can safely `.add(42)` because the list is guaranteed to accept `Integer` or its parent types (`Number`, `Object`). |
-| **`List.of("A", "B")`** | Immutable unmodifiable list (Java 9+). | Cannot `.add()` or `.set()`. Fast, lightweight, and thread-safe. Throws an error if someone tries to change it. |
-| **`ConcurrentHashMap`** | Lock-striping thread-safe map. | Unlike regular `HashMap` which breaks if multiple threads write to it at the same time, `ConcurrentHashMap` lets thousands of threads read and write safely at the same time. |
-
----
-
-# 2. Generics (`<T>`): Compile-Time Type Safety
-
-### 2.1 The Danger of Raw Types
-
-In ancient Java (prior to Java 5), collections held raw `Object` references:
+Let's write a minimal, fully runnable Java program managing a conversation history with generics:
 
 ```java
-// DANGEROUS: Raw Type
-List vector = new ArrayList();
-vector.add(0.245);
-vector.add(0.891);
-vector.add("corrupted_text"); // Accidental bug! Compiles without error!
+import java.util.ArrayList;
+import java.util.List;
 
-// Later in the math engine:
-for (int i = 0; i < vector.size(); i++) {
-    Double val = (Double) vector.get(i); // BOOM! Crashes on index 2 with ClassCastException!
+public class MessageHistoryDemo {
+
+    public static void main(String[] args) {
+        // 1. Declare a List that ONLY accepts String items
+        List<String> chatHistory = new ArrayList<>();
+
+        // 2. Add valid strings
+        chatHistory.add("User: What is Java?");
+        chatHistory.add("Assistant: Java is a class-based programming language.");
+
+        // 3. The compiler blocks invalid types immediately:
+        // chatHistory.add(12345); // COMPILE ERROR! Incompatible types.
+
+        // 4. Retrieve and print items without manual casting
+        for (String message : chatHistory) {
+            System.out.println(message);
+        }
+    }
 }
 ```
 
-With Generics:
-```java
-// SAFE: Strictly parameterized
-List<Double> vector = new ArrayList<>();
-vector.add(0.245);
-vector.add(0.891);
-// vector.add("corrupted_text"); // COMPILE ERROR! Compiler prevents the bug immediately!
-```
+---
+
+### 2.4 Line-by-Line Code Breakdown
+
+1. `List<String> chatHistory = new ArrayList<>();`:
+   - `List<String>`: The interface type, parameterized with `<String>`.
+   - `new ArrayList<>()`: Instantiates a resizable array container in Heap memory. The diamond operator `<>` infers the type automatically.
+2. `chatHistory.add(...)`: Appends elements to the end of the list in sequential order.
+3. `// chatHistory.add(12345);`: Generics prevent invalid types from ever entering the list.
+4. `for (String message : chatHistory)`: Iterates through elements directly as `String` with no manual `(String)` cast needed.
 
 ---
 
-### 2.2 Writing Your Own Generic Class
+# 3. Core Concept Walkthrough (Basic → Intermediate)
 
-Let's build a generic **`AIResponse<T>`** container. In AI, a model response might contain raw text (`String`), structured JSON parsed into a record (`Invoice`), or embedding vectors (`float[]`):
+Now let's build the generic containers and data structures used across production AI engineering.
+
+### 3.1 Building Generic Classes: `AIResponse<T>`
+
+In AI applications, an LLM call might return plain text (`String`), structured JSON parsed into a POJO (`Invoice`), or a numerical embedding vector (`float[]`).
+
+Instead of creating separate classes for each, we create a generic container:
 
 ```java
 package com.javagenai.day04;
 
 import java.time.Instant;
 
-// T is a generic type parameter placeholder
+// T represents an arbitrary payload type
 public class AIResponse<T> {
     private final T payload;
     private final int promptTokens;
@@ -181,67 +182,65 @@ public class AIResponse<T> {
 }
 ```
 
-Look at how cleanly this adapts to any data type:
+Using `AIResponse<T>` cleanly for different data types:
 
 ```java
-// 1. Text response
-AIResponse<String> textResp = new AIResponse<>("The capital of France is Paris.", 12, 8);
-String text = textResp.getPayload(); // No casting required!
+// 1. Holding a String text response
+AIResponse<String> textResp = new AIResponse<>("Paris is the capital of France.", 10, 8);
+String text = textResp.getPayload(); // Pure String, zero casting!
 
-// 2. Structured response
+// 2. Holding an Integer count
 AIResponse<Integer> countResp = new AIResponse<>(42, 5, 2);
-int count = countResp.getPayload(); // Auto-unboxing directly to primitive int!
+int count = countResp.getPayload(); // Auto-unboxed to primitive int!
 ```
 
 ---
 
-### 2.3 Type Erasure: The Compiler's Secret
+### 3.2 Type Erasure: How the JVM Executes Generics
 
-How does the JVM execute generics without bloating memory?
+How does the JVM execute generics without breaking backward compatibility or bloating memory?
 
 Through **Type Erasure**:
-1. During compilation, the compiler inspects all types (e.g., verifying you only put `Double` in `List<Double>`).
-2. Once validated, the compiler **erases** `<Double>` from the bytecode and replaces it with raw `Object` (plus automatic synthetic casts).
-3. **At runtime on the JVM, `List<String>` and `List<Double>` are the exact same class (`ArrayList.class`)!**
+1. During compilation, `javac` verifies all types (e.g., ensuring only `String` is added to `List<String>`).
+2. Once validated, the compiler **erases** `<String>` from the bytecode, replacing it with `Object` and inserting synthetic casts at call sites.
+3. At runtime on the JVM, `List<String>` and `List<Integer>` both execute as raw `ArrayList.class`.
 
 > [!NOTE]
-> Because of Type Erasure, you cannot do `new T()` or `new T[10]` directly inside a generic class.
+> Because generic types are erased at runtime, you cannot instantiate generic types directly with `new T()` or `new T[10]`.
 
 ---
 
-### 2.4 Bounded Wildcards: The PECS Rule
+### 3.3 Bounded Wildcards & the PECS Rule
 
-What if you want a method that accepts a list of *any numbers* (integers, floats, doubles) to calculate embedding magnitudes?
+Suppose you want a method that calculates the sum of a list of numbers (integers, floats, or doubles):
 
 ```java
-// Fails! A List<Integer> is NOT a subclass of List<Number> in Java generics!
-public static double calculateMagnitude(List<Number> numbers) { ... }
+// ❌ COMPILE ERROR: List<Integer> is NOT a subtype of List<Number>!
+public static double sum(List<Number> list) { ... }
 ```
 
-To solve this, Java provides **Wildcards (`?`)**:
+To enable polymorphism across generic collections, Java provides **Wildcards (`?`)**:
 - **`? extends T` (Upper Bounded)**: Accepts `T` or any subclass of `T`.
 - **`? super T` (Lower Bounded)**: Accepts `T` or any superclass of `T`.
 
-#### The Senior Rule: PECS (Producer Extends, Consumer Super)
-- If your method **reads data out** of the collection (it *produces* data for you to use), use **`? extends T`**.
-- If your method **writes data into** the collection (it *consumes* data from you), use **`? super T`**.
+#### The PECS Rule: Producer Extends, Consumer Super
+- **Producer (`extends`)**: If your method **reads data out** of the collection, use `? extends T`.
+- **Consumer (`super`)**: If your method **writes data into** the collection, use `? super T`.
 
 ```java
 // Reading data OUT of list (Producer -> extends)
-public static double sumVectors(List<? extends Number> numbers) {
+public static double calculateMagnitude(List<? extends Number> numbers) {
     double sum = 0.0;
     for (Number n : numbers) {
-        sum += n.doubleValue(); // Safe! Everything inside is guaranteed to be a Number
+        sum += n.doubleValue(); // Safe! Guaranteed to be a Number
     }
-    return sum;
+    return Math.sqrt(sum);
 }
 ```
 
 ---
 
-# 3. The Java Collections Framework (JCF) Hierarchy
-
-All major collection interfaces inherit from the root `java.lang.Iterable` and `java.util.Collection`:
+### 3.4 The Java Collections Framework Hierarchy
 
 ```
                             ┌────────────────────────┐
@@ -263,7 +262,7 @@ All major collection interfaces inherit from the root `java.lang.Iterable` and `
 ArrayList   LinkedList       HashSet         TreeSet          │  PriorityQueue   │
                                                               └──────────────────┘
 
-*Note: Map<K,V> is so fundamental that it stands in its own separate hierarchy!
+*Map<K,V> stands in its own separate hierarchy:
 ┌──────────────────┐
 │<<interface>> Map │ ──► HashMap, TreeMap, LinkedHashMap, ConcurrentHashMap
 └──────────────────┘
@@ -271,27 +270,17 @@ ArrayList   LinkedList       HashSet         TreeSet          │  PriorityQueue
 
 ---
 
-# 4. `List<T>`: Ordered Sequences for AI Pipelines
-
-A `List` is an ordered collection that allows duplicates and provides indexed access (`get(i)`).
-
-### 4.1 `ArrayList` vs. `LinkedList`
+### 3.5 `List<T>`: `ArrayList` vs. `LinkedList` & Document Chunking
 
 | Feature | `ArrayList<T>` | `LinkedList<T>` |
 | :--- | :--- | :--- |
-| **Internal Structure** | Resizable array in contiguous memory | Doubly-linked nodes scattered across Heap |
-| **Random Access (`get(i)`)** | **$O(1)$ Instant** | $O(N)$ Traverses from head |
-| **Append (`add(item)`)** | $O(1)$ amortized | $O(1)$ |
-| **CPU Cache Locality** | **Phenomenal** (elements sit adjacent in RAM) | Terrible (CPU cache misses on every node pointer) |
-| **Memory Overhead** | Minimal (plain array buffer) | High (24 bytes of pointer overhead per element) |
-| **Verdict** | **Use in 99.9% of AI applications** | Almost never used in modern high-performance Java |
+| **Backing Structure** | Contiguous resizable array | Scattered doubly-linked nodes |
+| **Random Access (`get(i)`)**| **$O(1)$ Instant** | $O(N)$ Sequential scan |
+| **CPU Cache Hits** | **Maximum** (sequential memory) | Poor (pointer chasing) |
+| **Memory Overhead** | Lowest | High (24 bytes of pointer overhead per item) |
+| **Industry Practice** | **Standard in 99.9% of applications** | Rarely used in modern high-performance Java |
 
----
-
-### 4.2 Chunking a Document with `List`
-
-In RAG, a 50-page document must be split into smaller 500-token chunks. Here is how clean document chunking looks with `ArrayList`:
-
+#### Splitting a Document into Chunks with `ArrayList`:
 ```java
 package com.javagenai.day04;
 
@@ -302,9 +291,7 @@ public class TextChunker {
 
     public static List<String> chunkText(String fullText, int chunkSizeChars) {
         List<String> chunks = new ArrayList<>();
-        if (fullText == null || fullText.isBlank()) {
-            return chunks;
-        }
+        if (fullText == null || fullText.isBlank()) return chunks;
 
         int start = 0;
         while (start < fullText.length()) {
@@ -319,23 +306,9 @@ public class TextChunker {
 
 ---
 
-# 5. `Set<T>`: Uniqueness and Deduplication
+### 3.6 `Set<T>`: Uniqueness and Deduplicating AI Chunks
 
-A `Set` is a collection that guarantees **no duplicate elements**.
-
-### 5.1 `HashSet` vs `TreeSet` vs `LinkedHashSet`
-
-| Implementation | Ordering | Lookup Time | Under The Hood |
-| :--- | :--- | :---: | :--- |
-| **`HashSet`** | None (random bucket order) | **$O(1)$** | Backed by a `HashMap` table |
-| **`LinkedHashSet`** | Preserves insertion order | $O(1)$ | Hash table + doubly-linked list |
-| **`TreeSet`** | Natural sorted order (e.g. A-Z) | $O(\log N)$ | Red-Black self-balancing binary search tree |
-
----
-
-### 5.2 Deduplicating Document Chunks
-
-When scraping web data or ingesting PDFs for RAG, the same paragraph often appears multiple times (e.g., disclaimers, headers). A `Set` removes duplicates in $O(N)$ linear time:
+A `Set` guarantees that no duplicate elements exist.
 
 ```java
 List<String> rawChunks = List.of(
@@ -345,63 +318,41 @@ List<String> rawChunks = List.of(
     "PostgreSQL pgvector is fast."
 );
 
+// LinkedHashSet preserves insertion order while stripping duplicates
 Set<String> uniqueChunks = new LinkedHashSet<>(rawChunks);
 System.out.println("Unique chunks count: " + uniqueChunks.size()); // 3!
 ```
 
 ---
 
-# 6. `Map<K, V>`: Key-Value Associations
+### 3.7 `Map<K, V>`: `HashMap` Internals & `ConcurrentHashMap`
 
-A `Map` associates a unique key with a value. In AI, maps store:
-- HTTP headers for LLM API calls (`Authorization: Bearer sk-...`)
-- Prompt template parameters (`{ "username": "Alice", "topic": "Java" }`)
-- Metadata filters in vector search (`{ "author": "John", "year": 2025 }`)
+A `Map` maps unique keys to values.
 
-### 6.1 Under the Hood of `HashMap`
+#### How `HashMap` Retrieves Data in $O(1)$ Time:
+1. `map.get(key)` calculates `key.hashCode()`.
+2. Hashing math maps the hash code to a bucket index: `index = (n - 1) & hash`.
+3. If multiple keys land in the same bucket (collision):
+   - Stored in a linked list.
+   - When a bucket exceeds 8 items, it converts into a **Red-Black Tree** ($O(\log N)$ search time).
 
-How does `map.get("user")` find its value in instant $O(1)$ time among 1,000,000 entries?
-
-```
-Key ("user") ──► hashCode() ──► Hashing Math ──► Bucket Index (e.g. Bucket 4)
-                                                       │
-                                                       ▼
-                                        Bucket 4: [Node: key="user", val="Alice"]
-```
-
-1. **Bucket Array**: A `HashMap` maintains an internal array of `Node<K,V>[]` (default initial size: 16).
-2. **Hash Function**: The key's `hashCode()` is mapped to an array index via `(n - 1) & hash`.
-3. **Collision Handling**: If two different keys land in the same bucket:
-   - In Java 7: Stored as a singly-linked list ($O(N)$ scan).
-   - In Java 8+: When a bucket accumulates $> 8$ items, it dynamically converts into a **Red-Black Tree**! Search time drops from $O(N)$ to **$O(\log N)$**, preventing Denial-of-Service (HashDoS) attacks!
-4. **Load Factor**: Default is `0.75`. When 75% of buckets are occupied, the HashMap automatically doubles its array size and rehashes all elements.
+#### Multi-Threaded Services: `ConcurrentHashMap`
+Standard `HashMap` is **not thread-safe**. When serving concurrent web requests, use **`ConcurrentHashMap`**, which uses bucket-level locks and atomic Compare-And-Swap (CAS) instructions for high concurrency.
 
 ---
 
-### 6.2 `ConcurrentHashMap` for Multi-Threaded AI
+### 3.8 `PriorityQueue<T>`: The Top-K Scoring Engine for RAG
 
-In a web application serving 1,000 simultaneous users, standard `HashMap` is **not thread-safe**. Modifying it concurrently from multiple threads will cause corrupted state and infinite loops.
+In Vector Search and RAG, an application calculates similarity scores for thousands of passages, but only needs the **Top-K most relevant** (e.g., Top-3).
 
-**`ConcurrentHashMap`** solves this without locking the entire map! It uses fine-grained **bucket-level locking** (via Compare-And-Swap / CAS), allowing hundreds of threads to read and write simultaneously with near-zero contention.
-
----
-
-# 7. `PriorityQueue<T>`: The Top-K Engine for RAG
-
-In Vector Search and RAG, after calculating cosine similarity scores between a query and 10,000 document chunks, you only want the **Top-K most relevant chunks** (e.g., Top-3).
-
-Sorting all 10,000 items takes $O(N \log N)$ time.
-Using a **Min-Heap (`PriorityQueue`) of size $K$** takes only **$O(N \log K)$** time!
+Using a **Min-Heap (`PriorityQueue`) of size $K$** allows Top-K extraction in **$O(N \log K)$** time rather than sorting all items in $O(N \log N)$:
 
 ```java
 package com.javagenai.day04;
 
-import java.util.PriorityQueue;
-
 public record ScoredChunk(String text, double similarityScore) 
        implements Comparable<ScoredChunk> {
 
-    // Smallest score has highest priority (Min-Heap)
     @Override
     public int compareTo(ScoredChunk other) {
         return Double.compare(this.similarityScore, other.similarityScore);
@@ -410,6 +361,11 @@ public record ScoredChunk(String text, double similarityScore)
 ```
 
 ```java
+package com.javagenai.day04;
+
+import java.util.List;
+import java.util.PriorityQueue;
+
 public class TopKRanker {
 
     public static PriorityQueue<ScoredChunk> getTopK(List<ScoredChunk> allChunks, int k) {
@@ -430,12 +386,12 @@ public class TopKRanker {
 
 ---
 
-# 8. Modern Immutable Collections (`List.of`, `Map.of`)
+### 3.9 Modern Immutable Collections (`List.of`, `Map.of`)
 
-In AI applications, configuration parameters and system prompts should be **immutable** (cannot be altered after creation):
+Java 9+ provides factory methods for creating unmodifiable collections:
 
 ```java
-// Immutable List (read-only)
+// Immutable List
 List<String> allowedModels = List.of("gpt-4o", "claude-3-5-sonnet", "llama-3.2");
 // allowedModels.add("gemini"); // Throws UnsupportedOperationException!
 
@@ -449,32 +405,143 @@ Map<String, Double> modelPrices = Map.of(
 
 ---
 
-# 9. Key Takeaways & Summary
+# 4. Prerequisite & Supporting Concepts
 
+### Prerequisite / Supporting Concept: Arrays vs. Dynamic Collections
+
+- **Arrays (`String[]`)**: Fixed capacity determined at allocation. Fast, minimal overhead, but cannot grow dynamically.
+- **Dynamic Collections (`ArrayList<String>`)**: Backed by an array that automatically doubles its internal buffer when full, providing a flexible resizable API.
+
+---
+
+### Prerequisite / Supporting Concept: Autoboxing & Unboxing (Primitives vs. Wrappers)
+
+Java collections can only store object references, not raw primitives:
+- Primitive `int` $\rightarrow$ Wrapper `Integer`
+- Primitive `double` $\rightarrow$ Wrapper `Double`
+- **Autoboxing**: Automatic conversion of primitive to wrapper (`list.add(5)` converts to `Integer.valueOf(5)`).
+- **Unboxing**: Automatic conversion of wrapper to primitive (`int x = list.get(0)`).
+
+---
+
+### Prerequisite / Supporting Concept: Fail-Fast vs. Fail-Safe Iterators
+
+- **Fail-Fast** (`ArrayList`, `HashMap`): Detects concurrent structural modifications during iteration via an internal `modCount`. If modified, it throws `ConcurrentModificationException` immediately.
+- **Fail-Safe / Weakly Consistent** (`ConcurrentHashMap`, `CopyOnWriteArrayList`): Operates on an internal snapshot, permitting concurrent reads and writes without throwing exceptions.
+
+---
+
+# 5. Advanced Depth (Intermediate → Advanced)
+
+### 5.1 Java 8+ HashMap Internals: Treeification & Collisions
+
+When hash collisions occur, `HashMap` manages bucket structures dynamically:
+- **`TREEIFY_THRESHOLD = 8`**: When a single bucket exceeds 8 elements AND the total table capacity is $\ge 64$, the bucket transforms from a linked list into a balanced Red-Black Tree.
+- **`UNTREEIFY_THRESHOLD = 6`**: When deletions reduce bucket size to 6, it converts back to a linked list to conserve memory.
+
+---
+
+### 5.2 High-Performance Map Operations: `computeIfAbsent()` & `merge()`
+
+#### The Eager Trap: `putIfAbsent` vs. `computeIfAbsent`
+```java
+Map<String, List<String>> userRoles = new HashMap<>();
+
+// ❌ WASTEFUL: Allocates a new ArrayList() on EVERY call even if the key exists!
+userRoles.putIfAbsent("admin", new ArrayList<>());
+
+// ✅ OPTIMIZED: The lambda executes LAZILY only if the key is missing!
+userRoles.computeIfAbsent("admin", k -> new ArrayList<>()).add("ROLE_SUPERUSER");
 ```
-                  ┌─────────────────────────────────┐
-                  │       DAY 04 CHEAT SHEET        │
-                  └────────────────┬────────────────┘
-                                   │
-         ┌─────────────────────────┼─────────────────────────┐
-         ▼                         ▼                         ▼
-  [ Generics & Types ]      [ JCF Data Structures ]   [ Modern Best Practice ]
-  • <T> ensures compile-    • ArrayList: $O(1)$ fast  • Use List.of() and
-    time type safety          random access             Map.of() for immutability
-  • Type Erasure: erased    • HashSet: $O(1)$ unique  • ConcurrentHashMap for
-    to Object at runtime    • HashMap: $O(1)$ lookup    multi-threaded services
-  • PECS: Producer Extends, • PriorityQueue: Top-K    • Prefer ArrayList over
-    Consumer Super            heap ranking for RAG      LinkedList always
+
+#### Counting with `Map.merge()`:
+```java
+Map<String, Integer> tokenCounts = new HashMap<>();
+
+// Clean atomic increment using Map.merge:
+tokenCounts.merge("gpt-4o", 150, Integer::sum);
 ```
 
 ---
 
-# 10. Practice Exercises & Full Solutions
+### 5.3 Common Mistakes & Misconceptions (With Bad vs. Good Code)
 
-### 🏋️ Exercise 1: Build an In-Memory Document Tag Index
-**Objective**: Build an index `DocumentTagIndex` that maps tags (e.g., `"finance"`, `"medical"`, `"legal"`) to sets of document IDs using `Map<String, Set<String>>`.
+#### Mistake 1: Modifying a Collection During a For-Each Loop
+**Bad Code:**
+```java
+// ❌ CRASHES with ConcurrentModificationException!
+for (String token : promptTokens) {
+    if (token.isBlank()) {
+        promptTokens.remove(token);
+    }
+}
+```
+**Correct Code (Java 8+):**
+```java
+// ✅ Safe, atomic removal using Predicate
+promptTokens.removeIf(token -> token == null || token.isBlank());
+```
 
-#### Solution:
+#### Mistake 2: Using Raw Types
+**Bad Code:**
+```java
+// ❌ Raw type loses type safety; throws ClassCastException at runtime
+List rawList = new ArrayList();
+rawList.add("Text");
+rawList.add(100);
+```
+**Correct Code:**
+```java
+// ✅ Parameterized type checked at compile-time
+List<String> safeList = new ArrayList<>();
+```
+
+---
+
+### 5.4 Architectural Trade-Offs: Contiguous Memory (`ArrayList`) vs. Scattered Pointers (`LinkedList`)
+
+Modern CPU hardware uses high-speed L1/L2 caches. When an array element is read, the CPU pre-fetches adjacent memory into the cache lines.
+- **`ArrayList`**: Contiguous memory layout guarantees maximum CPU cache hits.
+- **`LinkedList`**: Every node is an isolated object in Heap memory. Traversal requires pointer chasing, triggering constant CPU cache misses.
+- **Conclusion**: In almost all production scenarios, `ArrayList` significantly outperforms `LinkedList`.
+
+---
+
+# 6. Quick Recap
+
+| Collection / Concept | Key Property | Typical AI Use Case |
+| :--- | :--- | :--- |
+| **Generics (`<T>`)** | Compile-time type verification. | Ensuring type safety for responses and embeddings. |
+| **`ArrayList<T>`** | Contiguous memory, $O(1)$ random access. | Document chunk sequences, token lists. |
+| **`HashSet<T>`** | Unordered, $O(1)$ lookup, zero duplicates. | Document ID deduplication, stop-word filtering. |
+| **`HashMap<K, V>`** | $O(1)$ key-value associations. | Metadata filters, prompt templates, local caches. |
+| **`ConcurrentHashMap`**| Lock-striping thread-safe map. | Multi-threaded AI chat caches and sessions. |
+| **`PriorityQueue<T>`**| Min/Max binary heap, $O(\log K)$. | Top-K similarity passage ranking in RAG. |
+
+---
+
+# 7. Self-Check Questions & Practice Exercises
+
+### Self-Check Questions (Basic to Advanced)
+
+1. **Why does `ArrayList` outperform `LinkedList` on modern CPUs?**
+   - *Answer*: `ArrayList` elements reside in contiguous memory, enabling CPU cache pre-fetching and high cache-hit rates. `LinkedList` scatters nodes across the Heap, causing CPU cache misses on every node traversal.
+2. **What does the PECS mnemonic dictate in Java Generics?**
+   - *Answer*: Producer `extends`, Consumer `super`. Use `? extends T` when reading items out of a collection, and `? super T` when writing items into a collection.
+3. **What occurs inside a `HashMap` when 9 keys collide in a single bucket in Java 8+?**
+   - *Answer*: If table capacity is $\ge 64$, the bucket converts from a singly-linked list into a balanced Red-Black Tree, reducing lookup latency from $O(N)$ to $O(\log N)$.
+4. **Why is `computeIfAbsent()` preferred over `putIfAbsent()` for expensive object allocations?**
+   - *Answer*: `putIfAbsent()` evaluates its value expression eagerly on every invocation, whereas `computeIfAbsent()` evaluates its lambda lazily only when the key is absent.
+5. **What is Type Erasure in Java?**
+   - *Answer*: The compile-time process where generic type annotations are verified by the compiler and then removed from the generated bytecode, replaced with raw `Object` or bounds for backward compatibility.
+
+---
+
+### Hands-On Practice Exercises with Full Solutions
+
+#### 🏋️ Exercise 1: Build an In-Memory Document Tag Index
+**Objective**: Build a `DocumentTagIndex` mapping string tags (e.g., `"finance"`, `"medical"`) to sets of document IDs using `Map<String, Set<String>>` and lazy initialization.
+
 ```java
 package com.javagenai.day04;
 
@@ -485,7 +552,6 @@ public class DocumentTagIndex {
 
     public void addDocument(String docId, List<String> tags) {
         for (String tag : tags) {
-            // computeIfAbsent creates the HashSet if the tag doesn't exist yet!
             index.computeIfAbsent(tag.toLowerCase(), k -> new HashSet<>()).add(docId);
         }
     }
@@ -502,10 +568,9 @@ public class DocumentTagIndex {
 
 ---
 
-### 🏋️ Exercise 2: Top-3 Context Passage Selector
-**Objective**: Given a list of passages with cosine similarity scores ranging from `0.0` to `1.0`, return the Top-3 passages in descending order of similarity.
+#### 🏋️ Exercise 2: Top-K Context Passage Selector
+**Objective**: Given candidate document chunks with similarity scores, extract the Top-K highest-ranking passages in descending order using a min-heap.
 
-#### Solution:
 ```java
 package com.javagenai.day04;
 
@@ -522,13 +587,12 @@ public class ContextPassageSelector {
             if (minHeap.size() < k) {
                 minHeap.offer(candidate);
             } else if (candidate.similarityScore() > minHeap.peek().similarityScore()) {
-                minHeap.poll();
+                minHeap.poll(); // Evict lowest score
                 minHeap.offer(candidate);
             }
         }
 
         List<ScoredChunk> result = new ArrayList<>(minHeap);
-        // Sort descending so highest score appears first
         result.sort((a, b) -> Double.compare(b.similarityScore(), a.similarityScore()));
         return result;
     }
@@ -537,107 +601,8 @@ public class ContextPassageSelector {
 
 ---
 
-## 11. Self-Check Quiz
-
-1. **Why does `ArrayList` outperform `LinkedList` in modern CPU architectures?**
-   - *Answer*: `ArrayList` stores elements in contiguous memory blocks, maximizing CPU L1/L2 cache hits. `LinkedList` scatters node objects across the heap, incurring cache misses on every node pointer traversal.
-2. **What does the PECS acronym stand for in Java Generics?**
-   - *Answer*: Producer `extends`, Consumer `super`. Use `? extends T` when reading data from a collection, and `? super T` when writing data into a collection.
-3. **What happens inside a `HashMap` when 9 keys collide in the same bucket in Java 8+?**
-   - *Answer*: The linked list converts into a balanced Red-Black Tree, reducing search time from $O(N)$ to $O(\log N)$.
-4. **Why should you use `ConcurrentHashMap` instead of `HashMap` in a Spring Boot web service?**
-   - *Answer*: Spring Boot handles requests across multiple threads concurrently. `HashMap` is not thread-safe and can become corrupted, while `ConcurrentHashMap` uses bucket-level lock-free CAS operations for thread safety.
-5. **What is Type Erasure?**
-   - *Answer*: The process where the Java compiler enforces type safety during compilation and then strips out generic type parameters, replacing them with `Object` in the generated bytecode for backward compatibility.
-
----
-
-# 12. 🔥 Java 8 Collections & HashMap Interview Masterclass
-
-Here's an insider secret: collections are the **#1 favorite topic in Java technical interviews**! 
-
-When interviewers ask about `HashMap` and Java 8 collection methods, they want to see if you understand performance, memory, and clean code. Here are the **Top 5 Java 8 Collection Questions** explained simply so you can answer with total confidence:
-
----
-
-### 12.1 Top 5 Java 8 Collection Interview Questions
-
-#### 💡 Q1: What happens internally to a `HashMap` under hash collisions in Java 8+?
-**Answer**:
-In Java 7, collisions in a bucket were stored as a singly linked list ($O(N)$ lookup time). If many keys ended up in the same bucket, lookups became slow.
-
-**Java 8 Solution**:
-- **Treeification**: When a single bucket reaches **`TREEIFY_THRESHOLD = 8`** elements AND the total table capacity is at least **64**, the bucket converts from a singly linked list (`Node`) into a balanced **Red-Black Tree (`TreeNode`)**.
-- **Lookup Performance**: Time complexity drops from $O(N)$ to **$O(\log N)$** — keeping your lookups lightning-fast!
-- **Untreeification**: If elements are removed and the bucket drops to **`UNTREEIFY_THRESHOLD = 6`**, it converts back to a simple linked list to save memory.
-
----
-
-#### 💡 Q2: What is the difference between `Map.putIfAbsent()` and `Map.computeIfAbsent()`? (The Classic Eager Trap!)
-**Answer**:
-This is a favorite interview trap:
-- **`putIfAbsent(key, value)`**: The `value` expression is evaluated **EAGERLY** every time, even if the key is already present!
-- **`computeIfAbsent(key, Function)`**: The lambda function is evaluated **LAZILY** only if the key is absent or mapped to `null`!
-
-```java
-Map<String, List<String>> userRoles = new HashMap<>();
-
-// ❌ WASTEFUL: new ArrayList<>() is allocated EVERY single call even if "admin" already exists!
-userRoles.putIfAbsent("admin", new ArrayList<>());
-
-// ✅ HIGH PERFORMANCE: new ArrayList<>() is ONLY allocated if "admin" does not exist!
-userRoles.computeIfAbsent("admin", k -> new ArrayList<>()).add("ROLE_SUPERUSER");
-```
-
----
-
-#### 💡 Q3: How does `Map.merge()` work and when should you use it?
-**Answer**:
-`Map.merge(key, value, BiFunction)` is the cleanest way to update values when a key already exists (like counting word frequencies or token costs):
-
-```java
-// Word count old way (Java 7):
-Integer count = map.get(word);
-if (count == null) {
-    map.put(word, 1);
-} else {
-    map.put(word, count + 1);
-}
-
-// Word count modern way (Java 8 Map.merge):
-map.merge(word, 1, Integer::sum);
-// If word is absent: inserts 1.
-// If word is present: runs Integer.sum(oldValue, 1) and updates the map!
-```
-
----
-
-#### 💡 Q4: What is the difference between a "Fail-Fast" and a "Fail-Safe" iterator?
-**Answer**:
-- **Fail-Fast** (e.g., `ArrayList`, `HashSet`, `HashMap`):
-  - Traverses the collection directly while checking a modification counter (`modCount`).
-  - If another thread modifies the collection during traversal, it immediately throws **`ConcurrentModificationException`** to protect against corrupted data.
-- **Fail-Safe / Weakly Consistent** (e.g., `CopyOnWriteArrayList`, `ConcurrentHashMap`):
-  - Operates on a safe snapshot or handles concurrent updates gracefully without throwing `ConcurrentModificationException`.
-
----
-
-#### 💡 Q5: How do you safely remove elements from a Collection while iterating?
-**Answer**:
-- **In Java 7**: You had to explicitly obtain an `Iterator` and call `iterator.remove()`.
-- **In Java 8+**: Use the built-in **`Collection.removeIf(Predicate)`** method for a clean one-liner:
-  ```java
-  List<String> promptTokens = new ArrayList<>(List.of("start", "", "prompt", null, "end"));
-  
-  // Clean one-liner in Java 8+:
-  promptTokens.removeIf(token -> token == null || token.isBlank());
-  ```
-
----
-
 <p align="center">
-  <b>Fantastic work finishing Day 04! 🎉</b><br>
-  You now know how to safely organize, filter, and rank data with Generics, Lists, Sets, HashMaps, and PriorityQueues.<br>
-  Tomorrow on <b>Day 05</b>, we explore <b>Modern Java: Records, Optional & Sealed Types</b> — modern Java features that make AI pipelines clean, expressive, and immune to <code>NullPointerException</code>s! You're making real progress!
+  <b>Day 04 Complete! 🎉</b><br>
+  Proceed to <b>Day 05</b>: <b>Modern Java — Records, Optional & Sealed Types</b>.<br>
+  <a href="../Day_05_Modern_Java_Records_Optional_Sealed/Day_05_Modern_Java_Records_Optional_Sealed.md"><b>Continue to Day 05 →</b></a>
 </p>
-

@@ -12,285 +12,212 @@
 
 ---
 
-## 📌 What Will You Learn Today?
-
-Hey there, friend! Welcome to Day 06. If you've ever had to write three nested `for` loops, three temporary lists, and five `if` conditions just to clean up a list of text, today is going to feel like absolute magic!
-
-Today, we're unlocking **Functional Programming and the Java Stream API** (`filter`, `map`, `flatMap`, and lambdas `->`).
-
-In AI engineering, getting your data ready (preprocessing) is 80% of the work. Before sending text to an AI model or vector database, you need to:
-1. Read a list of documents or user messages.
-2. Filter out blank or corrupt entries.
-3. Clean up spaces and convert text to lowercase.
-4. Chop long articles into smaller paragraphs.
-5. Package everything into a clean list for the AI.
-
-In older Java (traditional `for` loops with `if` checks), this took 50+ lines of messy code with multiple temporary variables. 
-In **Functional Java**, this entire pipeline is expressed in **one clean, beautiful, readable Stream pipeline** that reads almost like plain English!
-
-By the end of today, you will clearly understand:
-- ✅ **The Functional Mindset**: Declarative ("WHAT you want") vs Imperative ("step-by-step HOW to do it").
-- ✅ **Lambda Expressions (`->`)**: Treating short pieces of code like variables that you can pass into methods.
-- ✅ **Core Functional Interfaces**: The Big 4: `Predicate<T>`, `Function<T,R>`, `Consumer<T>`, and `Supplier<T>`.
-- ✅ **Method References (`::`)**: A clean shorthand for calling methods (like `String::toLowerCase`).
-- ✅ **Stream Anatomy**: Source $\rightarrow$ Intermediate Operations (lazy) $\rightarrow$ Terminal Operation (eager).
-- ✅ **Essential Operations**: How `filter`, `map`, `flatMap`, `distinct`, and `sorted` work.
-- ✅ **Power Collectors**: Gathering results with `toList()`, `groupingBy()`, and `joining()`.
-- ✅ **Parallel Streams (`.parallelStream()`)**: Using all your computer's CPU cores for heavy batch processing with zero multithreading headaches.
-
----
-
-## 🗺️ Table of Contents
-
-- [1. Real-World Analogy: The Factory Assembly Line](#1-real-world-analogy-the-factory-assembly-line)
-- [2. The Plain English Bridge: From `for` Loops to Streams](#2-the-plain-english-bridge-from-for-loops-to-streams)
-- [3. Lambda Expressions & Functional Interfaces](#3-lambda-expressions--functional-interfaces)
-  - [3.1 Syntax of a Lambda (`->`)](#31-syntax-of-a-lambda--)
-  - [3.2 The Big 4 Functional Interfaces](#32-the-big-4-functional-interfaces)
-  - [3.3 Method References (`::`)](#33-method-references-)
-- [4. The Stream API: Architecture & Laziness](#4-the-stream-api-architecture--laziness)
-  - [4.1 The 3 Stages of a Stream](#41-the-3-stages-of-a-stream)
-  - [4.2 Lazy Evaluation: Why Streams Are Fast](#42-lazy-evaluation-why-streams-are-fast)
-- [5. Intermediate Operations: Transforming AI Data](#5-intermediate-operations-transforming-ai-data)
-  - [5.1 `filter`: Removing Low-Quality Documents](#51-filter-removing-low-quality-documents)
-  - [5.2 `map`: Extracting & Transforming Fields](#52-map-extracting--transforming-fields)
-  - [5.3 `flatMap`: Flattening Chunks into a Single Stream](#53-flatmap-flattening-chunks-into-a-single-stream)
-- [6. Terminal Operations & Advanced Collectors](#6-terminal-operations--advanced-collectors)
-  - [6.1 `collect(Collectors.toList())`](#61-collectcollectorstolist)
-  - [6.2 `groupingBy`: Partitioning AI Requests by Model](#62-groupingby-partitioning-ai-requests-by-model)
-  - [6.3 `joining`: Building Multi-Chunk LLM Prompts](#63-joining-building-multi-chunk-llm-prompts)
-- [7. Parallel Streams: Multi-Core Ingestion](#7-parallel-streams-multi-core-ingestion)
-- [8. Key Takeaways & Summary](#8-key-takeaways--summary)
-- [9. Practice Exercises & Full Solutions](#9-practice-exercises--full-solutions)
-- [10. Self-Check Quiz](#10-self-check-quiz)
-- [11. 🔥 Java 8 Masterclass: Top 15 Technical Interview Questions & Answers](#11--java-8-masterclass-top-15-technical-interview-questions--answers)
-  - [11.1 All Java 8 Features Summary](#111-all-java-8-features-summary)
-  - [11.2 Top 15 Interview Questions & In-Depth Answers](#112-top-15-interview-questions--in-depth-answers)
-
----
-
-# 1. Real-World Analogy: The Factory Assembly Line
-
-> [!TIP]
-> ### 💡 New Word Alert: Functional Programming Vocabulary
-> - **Lambda (`->`)**: A quick shortcut for a function without needing to give it a name or create a new class file. Example: `s -> s.length()` means *"given a string s, give me its length"*.
-> - **Declarative vs Imperative**: Imperative is like giving step-by-step directions to a driver: *"turn left, drive 50 meters, shift to 2nd gear, stop"*. Declarative is like putting the destination in Google Maps: *"take me to the airport"*. You describe **WHAT** you want, and Java handles the details!
-> - **Stream**: Not a data container, but a moving conveyor belt of items that you can inspect, filter, and transform as they pass by.
-> - **Lazy Evaluation**: The conveyor belt doesn't even start moving until the packaging station at the end (`.toList()`) calls for it! This prevents wasted computation.
-
-If you come from core Java and have always written traditional `for` loops, **Streams might initially feel mysterious or intimidating**. 
-
-Let's demystify them completely with a simple physical picture:
-
 ![How Java Streams Work: The Factory Conveyor Belt Model](assets/day06_java_streams.jpg)
 
-Imagine a modern manufacturing plant:
-1. **The Source (The Crate of Raw Materials)**:
-   You have a warehouse crate holding raw objects (in Java: an `ArrayList`, a `Set`, or database records).
-2. **The Stream (The Factory Conveyor Belt)**:
-   When you call `.stream()`, you push that crate onto a moving conveyor belt. The items begin rolling down the line one by one.
-3. **Intermediate Operations (Robotic Workstations on the Belt)**:
-   As items move along the belt, specialized robotic arms inspect and transform them:
-   - **Station 1: `.filter(...)`** — A quality inspection camera. If an item fails the check, an arm kicks it into the discard bin. Only valid items continue down the belt.
-   - **Station 2: `.map(...)`** — A machine tool. It takes each item, cleans or transforms it (e.g. extracts its text or doubles its value), and puts the transformed item back onto the belt.
-4. **The Terminal Operation (The Packaging Station)**:
-   At the very end of the conveyor belt sits a packaging robot (like `.toList()`, `.count()`, or `.collect()`). It collects all the processed items coming off the belt and seals them into a brand new box!
-
-> [!IMPORTANT]
-> **The Golden Rule of Streams: They are LAZY!**
-> The conveyor belt does not turn on and not a single item moves until the packaging robot at the end (`.toList()` or terminal operation) is turned on! If you only write `list.stream().filter(...)` without a terminal operation, **zero work is done**.
+## 🗺️ Table of Contents
+- [1. Topic Overview](#1-topic-overview)
+- [2. Basic Foundations (True Zero)](#2-basic-foundations-true-zero)
+  - [2.1 What is Functional Programming, a Lambda, and a Stream?](#21-what-is-functional-programming-a-lambda-and-a-stream)
+  - [2.2 The Factory Assembly Line Model](#22-the-factory-assembly-line-model)
+  - [2.3 Minimal Working Example: Cleaning AI Text Chunks](#23-minimal-working-example-cleaning-ai-text-chunks)
+  - [2.4 Line-by-Line Code Breakdown](#24-line-by-line-code-breakdown)
+- [3. Core Concept Walkthrough (Basic → Intermediate)](#3-core-concept-walkthrough-basic--intermediate)
+  - [3.1 The Big 4 Functional Interfaces](#31-the-big-4-functional-interfaces)
+  - [3.2 Method References (`::`): Clean Syntactic Shorthand](#32-method-references--clean-syntactic-shorthand)
+  - [3.3 Anatomy of a Stream: Source, Intermediate, and Terminal Stages](#33-anatomy-of-a-stream-source-intermediate-and-terminal-stages)
+  - [3.4 Lazy Evaluation in Action: Proof of Zero Work Until Terminal](#34-lazy-evaluation-in-action-proof-of-zero-work-until-terminal)
+  - [3.5 Core Intermediate Operations: `filter`, `map`, and `flatMap`](#35-core-intermediate-operations-filter-map-and-flatmap)
+  - [3.6 Power Collectors: `toList()`, `groupingBy()`, and `joining()`](#36-power-collectors-tolist-groupingby-and-joining)
+  - [3.7 Multi-Core Acceleration with `parallelStream()`](#37-multi-core-acceleration-with-parallelstream)
+- [4. Prerequisite & Supporting Concepts](#4-prerequisite--supporting-concepts)
+  - [Prerequisite / Supporting Concept: Imperative vs. Declarative Programming](#prerequisite--supporting-concept-imperative-vs-declarative-programming)
+  - [Prerequisite / Supporting Concept: Single Abstract Method (SAM) & @FunctionalInterface](#prerequisite--supporting-concept-single-abstract-method-sam--functionalinterface)
+  - [Prerequisite / Supporting Concept: Effectively Final Variables in Lambdas](#prerequisite--supporting-concept-effectively-final-variables-in-lambdas)
+- [5. Advanced Depth (Intermediate → Advanced)](#5-advanced-depth-intermediate--advanced)
+  - [5.1 Senior Deep Dive: `map()` vs. `flatMap()` with Nested Embeddings](#51-senior-deep-dive-map-vs-flatmap-with-nested-embeddings)
+  - [5.2 Short-Circuiting Operations: `limit()`, `findFirst()`, and `anyMatch()`](#52-short-circuiting-operations-limit-findfirst-and-anymatch)
+  - [5.3 Common Mistakes & Misconceptions (With Bad vs. Good Code)](#53-common-mistakes--misconceptions-with-bad-vs-good-code)
+  - [5.4 Architectural Trade-Offs: Stream Pipeline Overhead vs. Primitive Loops](#54-architectural-trade-offs-stream-pipeline-overhead-vs-primitive-loops)
+- [6. Quick Recap](#6-quick-recap)
+- [7. Self-Check Questions & Practice Exercises](#7-self-check-questions--practice-exercises)
+  - [Self-Check Questions (Basic to Advanced)](#self-check-questions-basic-to-advanced)
+  - [Hands-On Practice Exercises with Full Solutions](#hands-on-practice-exercises-with-full-solutions)
 
 ---
 
-# 2. The Plain English Bridge: From `for` Loops to Streams
+# 1. Topic Overview
 
-Let's look at the code you probably write every day in core Java, and see how Streams make it 5x cleaner and bug-free.
+**Functional Programming** in Java treats computation as the evaluation of mathematical functions, avoiding mutable state and side-effects. The **Java Stream API (`java.util.stream`)** complements this paradigm by providing declarative, composable pipelines for processing collections of data through transformations such as filtering, mapping, sorting, and aggregation.
 
-### The Problem: Filtering and Cleaning AI Document Chunks
+### Why This Topic Matters
+In Generative AI systems, data preprocessing constitutes over 80% of data engineering pipelines. Before feeding raw documents into vector embeddings or LLM prompts, an application must filter out empty chunks, strip metadata noise, extract text representations, normalize case, and concatenate context passages. Traditional nested `for` loops create brittle, verbose code. The Stream API transforms these operations into clean, declarative, high-throughput pipelines that can be effortlessly parallelized across multi-core CPUs.
 
-Suppose you have a list of raw text documents. You want to:
-1. Keep only documents that are longer than 20 characters (discard empty junk).
-2. Convert all text to clean lowercase.
-3. Save the results into a new clean list.
+> 💡 **New Word Alert — "Lambda (`->`)"**: An anonymous function (a function without a name) that can be passed as a variable or argument to methods.
 
-#### The Old Core Java Way (Traditional Imperative Loop):
+> 💡 **New Word Alert — "Stream"**: A sequence of elements supporting sequential and parallel aggregate operations, representing a pipeline of computation rather than a data storage container.
+
+> 💡 **New Word Alert — "Lazy Evaluation"**: An execution strategy where intermediate operations are not evaluated until a terminal operation is invoked, optimizing performance by performing only the minimal work needed.
+
+---
+
+# 2. Basic Foundations (True Zero)
+
+Let's start from true zero, assuming you have only written traditional `for` loops in Java.
+
+### 2.1 What is Functional Programming, a Lambda, and a Stream?
+
+- **Imperative Programming (Old Way)**: Telling the computer step-by-step *HOW* to do something (`int i = 0; i < list.size(); i++`).
+- **Declarative / Functional Programming (New Way)**: Telling the computer *WHAT* you want done (`list.stream().filter(...).toList()`), letting the runtime optimize the traversal.
+- **Lambda (`->`)**: An arrow representing a formula: `(input) -> action`. For example, `s -> s.length() > 10` means *"take string s and check if its length exceeds 10"*.
+- **Stream**: A moving conveyor belt. It does not store items in RAM; it moves items from a source through inspection stations and packages them at the end.
+
+---
+
+### 2.2 The Factory Assembly Line Model
+
+```
+  1. SOURCE CRATE             2. INTERMEDIATE CONVEYOR BELT           3. TERMINAL PACKAGING
+┌──────────────────┐       ┌─────────────────────────────────┐     ┌─────────────────────┐
+│ rawList.stream() │  ──►  │ .filter(qualityCheck)           │ ──► │ .toList()           │
+│                  │       │ .map(cleanText)                 │     │                     │
+└──────────────────┘       └─────────────────────────────────┘     └─────────────────────┘
+                               (Lazy: Sets up conveyor belt)         (Eager: Runs the line!)
+```
+
+1. **The Source**: Raw materials in a warehouse crate (`ArrayList`).
+2. **Intermediate Stations**: Robotic arms on the belt (`filter`, `map`). They reject defectives and transform valid items.
+3. **The Terminal Station**: The packaging station (`toList()`). **Nothing moves on the belt until this station is turned on!**
+
+---
+
+### 2.3 Minimal Working Example: Cleaning AI Text Chunks
+
+Let's compare the imperative way vs. the modern functional stream way:
+
 ```java
-// How you do it today in Core Java:
-List<String> rawDocuments = List.of("Short", "Enterprise Spring AI Architecture Guide", "", "Deep Learning Vector Search Manual");
+import java.util.List;
 
-List<String> cleanDocuments = new ArrayList<>();
-for (String doc : rawDocuments) {
-    if (doc.length() > 20) {                     // Manual check
-        String cleaned = doc.toLowerCase();      // Manual transformation
-        cleanDocuments.add(cleaned);              // Manual list mutation
+public class StreamMinimalDemo {
+
+    public static void main(String[] args) {
+        List<String> rawChunks = List.of(
+            "Short", 
+            "Enterprise Spring AI Architecture Guide", 
+            "", 
+            "Deep Learning Vector Search Manual"
+        );
+
+        // Modern Declarative Stream Pipeline
+        List<String> cleanChunks = rawChunks.stream()
+            .filter(text -> text.length() > 20)     // Keep only text > 20 chars
+            .map(String::toLowerCase)               // Convert to lowercase
+            .toList();                              // Collect into an unmodifiable List
+
+        System.out.println(cleanChunks);
     }
 }
-System.out.println(cleanDocuments);
 ```
-*What's wrong with this?*
-- You had to manually create an empty mutable `ArrayList`.
-- You had to write boilerplate loop syntax (`for (String doc : rawDocuments)`).
-- If multiple threads touch `cleanDocuments`, your program can throw `ConcurrentModificationException` or corrupt memory.
-
-#### The Modern Java Stream Way (Declarative Pipeline):
-```java
-// How you write it with Streams:
-List<String> cleanDocuments = rawDocuments.stream()
-    .filter(doc -> doc.length() > 20)      // Step 1: Keep only docs > 20 chars
-    .map(doc -> doc.toLowerCase())         // Step 2: Convert to lowercase
-    .toList();                             // Step 3: Collect into an unmodifiable List!
-
-System.out.println(cleanDocuments);
-```
-
-Notice the difference:
-- **Zero temporary lists created by hand.**
-- **Zero manual loop index counters.**
-- **You tell Java *WHAT* you want, not *HOW* to manually increment a loop.**
 
 ---
 
-# 3. Demystifying Lambdas (`->`) and Method References (`::`)
+### 2.4 Line-by-Line Code Breakdown
 
-The biggest reason Java developers avoid Streams is the confusing syntax: `->` and `::`. Let's translate both into plain English.
+1. `rawChunks.stream()`: Pushes the list onto a functional stream conveyor belt.
+2. `.filter(text -> text.length() > 20)`: An intermediate operation using a `Predicate`. Discards `"Short"` and `""` because their lengths do not exceed 20.
+3. `.map(String::toLowerCase)`: An intermediate operation using a method reference. Transforms `"Enterprise Spring AI..."` to `"enterprise spring ai..."`.
+4. `.toList()`: The terminal operation. Flips the switch, runs the pipeline, and collects results into an immutable `List<String>`.
+5. Output: `[enterprise spring ai architecture guide, deep learning vector search manual]`. Zero index counters, zero temporary variables!
 
-### 3.1 What is a Lambda (`->`) in Plain English?
+---
 
-In traditional Java, if you wanted to pass a custom calculation into a method, you had to create an entire `new Class()` or anonymous inner class:
+# 3. Core Concept Walkthrough (Basic → Intermediate)
 
-```java
-// THE UGLY OLD WAY (Anonymous Inner Class - 7 lines of boilerplate!)
-Collections.sort(documents, new Comparator<String>() {
-    @Override
-    public int compare(String a, String b) {
-        return Integer.compare(a.length(), b.length());
-    }
-});
-```
+Now let's build the functional toolchain used across enterprise microservices and Spring AI.
 
-A **Lambda** is simply a **miniature function with no name** that can be passed directly as a variable.
-Think of the arrow `->` as saying: *"Take this input on the left, and do this action on the right"*:
+### 3.1 The Big 4 Functional Interfaces
 
-```java
-// THE CLEAN MODERN WAY (Lambda Expression - 1 readable line!)
-Collections.sort(documents, (a, b) -> Integer.compare(a.length(), b.length()));
-```
+Java provides four primary functional interfaces in `java.util.function`:
 
-```
- ( input parameters )   ──►   { what to do with them }
-      (doc)              ->    doc.length() > 20
-```
-
-### 3.2 The 4 Functional Interfaces You Actually Need to Know
-
-Java provides 4 standard "shapes" of lambdas in `java.util.function`. You don't need to memorize dozens—just these four:
-
-| Interface Name | Plain English Translation | What It Takes | What It Returns | Real-World AI Example |
+| Interface Name | Method Signature | Plain English Meaning | Common Stream Method | AI Example |
 | :--- | :--- | :--- | :--- | :--- |
-| **`Predicate<T>`** | **"The Bouncer / Checker"** | Takes 1 item | Returns `boolean` (`true`/`false`) | `chunk -> chunk.hasValidEmbedding()` (used in `.filter()`) |
-| **`Function<T, R>`** | **"The Transformer"** | Takes 1 item | Returns a converted item | `doc -> doc.getContent()` (used in `.map()`) |
-| **`Consumer<T>`** | **"The Worker / Consumer"** | Takes 1 item | Returns `void` (does side effect) | `prompt -> System.out.println(prompt)` (used in `.forEach()`) |
-| **`Supplier<T>`** | **"The Factory / Provider"** | Takes nothing | Returns a new item | `() -> new OpenAiClient()` |
+| **`Predicate<T>`** | `boolean test(T t)` | The Bouncer: returns `true` or `false`. | `.filter()` | `chunk -> chunk.tokenCount() >= 50` |
+| **`Function<T, R>`**| `R apply(T t)` | The Transformer: converts $T$ to $R$. | `.map()` | `doc -> doc.getContent()` |
+| **`Consumer<T>`** | `void accept(T t)` | The Worker: performs an action, returns nothing. | `.forEach()` | `prompt -> log.info("Prompt: {}", prompt)` |
+| **`Supplier<T>`** | `T get()` | The Factory: takes nothing, creates a new $T$. | `.orElseGet()` | `() -> new OpenAiClient(key)` |
 
 ---
 
-### 3.3 What is a Method Reference (`::`)?
+### 3.2 Method References (`::`): Clean Syntactic Shorthand
 
-Whenever your lambda does **nothing except call one existing method on its parameter**, Java lets you shorten it with double colons `::`:
+When a lambda does nothing except invoke an existing method on its parameter, replace it with a **Method Reference (`::`)**:
 
-```java
-// Instead of writing this lambda:
-.map(doc -> doc.toLowerCase())
-
-// You can write this exact equivalent method reference:
-.map(String::toLowerCase)
-```
-
-Think of `::` as saying: *"Hey Java, just apply the `toLowerCase` method of the `String` class to every item that passes through."*
-
-| Verbose Lambda Syntax | Clean Method Reference Equivalent | What It Does |
+| Verbose Lambda | Method Reference | Meaning |
 | :--- | :--- | :--- |
-| `s -> s.toUpperCase()` | `String::toUpperCase` | Calls method on each string |
-| `item -> System.out.println(item)` | `System.out::println` | Prints each item to terminal |
-| `doc -> doc.getId()` | `Document::getId` | Extracts the ID getter |
-| `() -> new ArrayList<>()` | `ArrayList::new` | Calls the constructor |
+| `s -> s.toLowerCase()` | `String::toLowerCase` | Call instance method on argument |
+| `item -> System.out.println(item)` | `System.out::println` | Pass argument to print stream |
+| `doc -> doc.getId()` | `Document::getId` | Call getter on object |
+| `() -> new ArrayList<>()` | `ArrayList::new` | Call constructor |
 
 ---
 
-# 4. The 3 Stages of Every Stream Pipeline
+### 3.3 Anatomy of a Stream: Source, Intermediate, and Terminal Stages
 
-Every stream in Java strictly follows 3 phases:
+Every stream has 3 distinct stages:
+1. **Source**: Collection, array, or I/O channel (`list.stream()`, `Files.lines(path)`).
+2. **Intermediate Operations**: Return a new stream and register transformation steps lazily (`filter`, `map`, `flatMap`, `sorted`, `distinct`).
+3. **Terminal Operation**: Triggers traversal, produces a final result, and closes the stream (`toList`, `count`, `reduce`, `findFirst`).
 
-```
-  1. THE SOURCE              2. INTERMEDIATE OPERATIONS              3. TERMINAL OPERATION
-┌──────────────────┐       ┌─────────────────────────────────┐     ┌─────────────────────┐
-│ rawList.stream() │  ──►  │ .filter(...)                    │ ──► │ .toList()           │
-│ Set.stream()     │       │ .map(...)                       │     │ .count()            │
-│ Files.lines(path)│       │ .sorted(...)                    │     │ .collect(...)       │
-└──────────────────┘       └─────────────────────────────────┘     └─────────────────────┘
-                               (Lazy: Sets up conveyor belt)         (Eager: Flips the switch on!)
-```
+---
 
-Intermediate operations are **lazy**. They do not execute when you call `.map()` or `.filter()`. They only execute when a **terminal operation** (like `.collect()` or `.findFirst()`) is triggered.
+### 3.4 Lazy Evaluation in Action: Proof of Zero Work Until Terminal
+
+Intermediate operations **never run** until a terminal operation is called:
 
 ```java
-List<String> rawPrompts = List.of("Short", "A very long detailed prompt for LLM", "Hi");
+List<String> prompts = List.of("Short", "A very detailed prompt for LLM", "Hi");
 
 // This pipeline does NOT execute yet!
-Stream<String> stream = rawPrompts.stream()
+var stream = prompts.stream()
     .filter(p -> {
         System.out.println("Filtering: " + p);
         return p.length() > 10;
     });
 
-System.out.println("Stream defined. Triggering terminal operation now...");
+System.out.println("Pipeline created. Triggering terminal operation now...");
 String firstMatch = stream.findFirst().orElse("None");
 System.out.println("Result: " + firstMatch);
 ```
 
-**Console Output:**
+**Output:**
 ```text
-Stream defined. Triggering terminal operation now...
+Pipeline created. Triggering terminal operation now...
 Filtering: Short
-Filtering: A very long detailed prompt for LLM
-Result: A very long detailed prompt for LLM
+Filtering: A very detailed prompt for LLM
+Result: A very detailed prompt for LLM
 ```
-Notice: The stream stopped processing immediately after finding the first match! It **never even inspected `"Hi"`**. That is the efficiency of lazy evaluation.
+Notice: The stream stopped as soon as it found the first match! It **never inspected `"Hi"`**. That is the efficiency of lazy short-circuiting.
 
 ---
 
-# 4. Intermediate Operations: Transforming AI Data
+### 3.5 Core Intermediate Operations: `filter`, `map`, and `flatMap`
 
-### 4.1 `filter`: Removing Low-Quality Documents
-
+#### 1. `filter`: Discarding invalid elements
 ```java
-List<Document> cleanDocs = rawDocuments.stream()
+List<Document> validDocs = documents.stream()
     .filter(d -> d.content() != null && !d.content().isBlank())
-    .filter(d -> d.tokenCount() >= 50) // Discard tiny fragments
     .toList();
 ```
 
----
-
-### 4.2 `map`: Extracting & Transforming Fields
-
-`map` transforms each element $T$ into an element $R$:
-
+#### 2. `map`: 1-to-1 field transformation
 ```java
-// Extracting only text strings from documents
-List<String> promptTexts = cleanDocs.stream()
+List<String> contents = validDocs.stream()
     .map(Document::content)
     .map(String::trim)
     .toList();
 ```
 
----
-
-### 4.3 `flatMap`: Flattening Chunks into a Single Stream
-
-Suppose each `Document` has a method `List<Chunk> getChunks()`.
-- Using `.map(Document::getChunks)` would return `Stream<List<Chunk>>` (a stream of lists).
-- Using **`.flatMap(d -> d.getChunks().stream())`** unpacks each list and flattens everything into a single `Stream<Chunk>`!
+#### 3. `flatMap`: 1-to-Many flattening
+If each `Document` has a method `List<Chunk> getChunks()`, using `.map()` would produce `Stream<List<Chunk>>`. Using `.flatMap()` flattens all chunks into a single unified `Stream<Chunk>`:
 
 ```
  Document 1 ──► [ Chunk 1A, Chunk 1B ]
@@ -298,30 +225,25 @@ Suppose each `Document` has a method `List<Chunk> getChunks()`.
  Document 2 ──► [ Chunk 2A, Chunk 2B ]
 ```
 
----
-
-# 5. Terminal Operations & Advanced Collectors
-
-### 5.1 `collect(Collectors.toList())`
-
-In Java 16+, you can write `.toList()` directly!
-
----
-
-### 5.2 `groupingBy`: Partitioning AI Requests by Model
-
-Imagine your backend processed 10,000 LLM calls today. You want to group them by model name to analyze usage:
-
 ```java
-public record LLMCallLog(String model, int tokensUsed, double latencyMs) {}
+List<Chunk> allChunks = validDocs.stream()
+    .flatMap(doc -> doc.getChunks().stream())
+    .toList();
+```
 
-List<LLMCallLog> logs = fetchLogs();
+---
 
-// Grouping by model: Map<String, List<LLMCallLog>>
+### 3.6 Power Collectors: `toList()`, `groupingBy()`, and `joining()`
+
+#### 1. Partitioning by Model with `groupingBy`:
+```java
+public record LLMCallLog(String model, int tokensUsed) {}
+
+// Grouping into Map<String, List<LLMCallLog>>
 Map<String, List<LLMCallLog>> logsByModel = logs.stream()
     .collect(Collectors.groupingBy(LLMCallLog::model));
 
-// Calculating total tokens per model: Map<String, Integer>
+// Aggregating total tokens per model: Map<String, Integer>
 Map<String, Integer> tokensPerModel = logs.stream()
     .collect(Collectors.groupingBy(
         LLMCallLog::model,
@@ -329,93 +251,181 @@ Map<String, Integer> tokensPerModel = logs.stream()
     ));
 ```
 
----
-
-### 5.3 `joining`: Building Multi-Chunk LLM Prompts
-
-In RAG, you retrieve 3 document chunks and need to merge them into a single context string separated by dividers:
+#### 2. Concatenating Context with `joining`:
+In RAG, multiple retrieved passages must be formatted into a single prompt string:
 
 ```java
-List<String> retrievedChunks = List.of(
-    "Chunk 1: Virtual threads run on carrier threads.",
-    "Chunk 2: Spring AI 1.0 supports pgvector.",
-    "Chunk 3: PostgreSQL HNSW indexes accelerate vector search."
+List<String> chunks = List.of(
+    "Virtual threads reduce memory footprint.",
+    "Spring AI supports PostgreSQL pgvector.",
+    "HNSW indexes optimize vector similarity searches."
 );
 
-String combinedContext = retrievedChunks.stream()
-    .collect(Collectors.joining("\n---\n", "[BEGIN CONTEXT]\n", "\n[END CONTEXT]"));
+String promptContext = chunks.stream()
+    .collect(Collectors.joining("\n---\n", "[CONTEXT START]\n", "\n[CONTEXT END]"));
 
-System.out.println(combinedContext);
-```
-
-**Output:**
-```text
-[BEGIN CONTEXT]
-Chunk 1: Virtual threads run on carrier threads.
----
-Chunk 2: Spring AI 1.0 supports pgvector.
----
-Chunk 3: PostgreSQL HNSW indexes accelerate vector search.
-[END CONTEXT]
+System.out.println(promptContext);
 ```
 
 ---
 
-# 6. Parallel Streams: 16-Core Multi-Threaded Ingestion
+### 3.7 Multi-Core Acceleration with `parallelStream()`
 
-When generating embeddings or normalizing 50,000 document paragraphs, a single CPU core is slow.
-
-By changing `.stream()` to **`.parallelStream()`**, Java automatically splits your collection across all CPU cores using the **ForkJoinPool**:
+For CPU-heavy in-memory transformations (such as computing cosine similarities or vector normalization across 50,000 items), `.parallelStream()` splits the work across all available CPU cores using the **ForkJoinPool**:
 
 ```java
-// Sequential: Uses 1 CPU Core
-List<double[]> embeddingsSeq = documents.stream()
-    .map(this::heavyVectorComputation)
+// Uses ALL available CPU cores automatically:
+List<double[]> normalizedVectors = rawVectors.parallelStream()
+    .map(VectorMath::normalize)
     .toList();
-
-// Parallel: Uses ALL available CPU cores automatically!
-List<double[]> embeddingsPar = documents.parallelStream()
-    .map(this::heavyVectorComputation)
-    .toList();
-```
-
-> [!WARNING]
-> Only use `parallelStream()` for **CPU-intensive math or in-memory batch operations**. Do not use `parallelStream()` for blocking network I/O calls to external APIs—we will learn how **Virtual Threads** handle high-concurrency network calls in Day 07!
-
----
-
-# 7. Key Takeaways & Summary
-
-```
-                  ┌─────────────────────────────────┐
-                  │       DAY 06 CHEAT SHEET        │
-                  └────────────────┬────────────────┘
-                                   │
-         ┌─────────────────────────┼─────────────────────────┐
-         ▼                         ▼                         ▼
-  [ Functional Core ]      [ Stream Pipeline ]       [ Collectors & Parallel ]
-  • Predicate: test -> bool• Source -> Intermediates • .toList() for immutable
-  • Function: apply -> R     -> Terminal               result lists
-  • Consumer: accept(v)    • filter: conditional drop• groupingBy: SQL-like
-  • Supplier: get() -> V   • map: transform elements   groupings in memory
-  • Method Reference (::)  • flatMap: flatten lists  • parallelStream(): 
-    for clean readability  • Lazy until terminal       instant multi-core math
 ```
 
 ---
 
-# 8. Practice Exercises & Full Solutions
+# 4. Prerequisite & Supporting Concepts
 
-### 🏋️ Exercise 1: Build an AI Document Preprocessing Pipeline
-**Objective**: Given a list of raw document texts, build a single fluent Stream pipeline that:
-1. Filters out null or blank strings.
-2. Strips leading/trailing whitespace.
-3. Removes strings with $< 20$ characters.
-4. Converts all text to uppercase.
-5. Limits the result to the first 3 documents.
-6. Collects into a list.
+### Prerequisite / Supporting Concept: Imperative vs. Declarative Programming
 
-#### Solution:
+- **Imperative**: The programmer manages state mutations, loop indices, and flow control manually. Prone to off-by-one errors and concurrency bugs.
+- **Declarative**: The programmer specifies desired transformations through composable operations, delegating traversal mechanics to the runtime engine.
+
+---
+
+### Prerequisite / Supporting Concept: Single Abstract Method (SAM) & @FunctionalInterface
+
+A functional interface contains **exactly one abstract method**. It can have any number of `default` or `static` methods. The `@FunctionalInterface` annotation instructs the compiler to verify that only one abstract method exists.
+
+---
+
+### Prerequisite / Supporting Concept: Effectively Final Variables in Lambdas
+
+Any local variable defined outside a lambda and referenced inside it must be `final` or **effectively final** (its value is never reassigned). This prevents race conditions and stack frame synchronization issues.
+
+```java
+int limit = 50; // Never modified -> Effectively final!
+prompts.stream().filter(p -> p.length() > limit); // ✅ Compiles!
+
+int badLimit = 50;
+badLimit = 100; // Reassigned!
+// prompts.stream().filter(p -> p.length() > badLimit); // ❌ COMPILE ERROR!
+```
+
+---
+
+# 5. Advanced Depth (Intermediate → Advanced)
+
+### 5.1 Senior Deep Dive: `map()` vs. `flatMap()` with Nested Embeddings
+
+A classic interview and production problem:
+- **`map()`**: Produces a stream where each input element results in exactly one output element ($T \rightarrow R$).
+- **`flatMap()`**: Produces a stream where each input element is mapped to a stream of sub-elements, which are then merged into a single continuous stream ($T \rightarrow \text{Stream}<R>$).
+
+```java
+List<String> sentences = List.of("hello world", "java twenty one streams");
+
+// 1. map(): List of 2 String[] arrays
+List<String[]> nested = sentences.stream()
+    .map(s -> s.split(" "))
+    .toList();
+
+// 2. flatMap(): Flattened List of 5 individual word strings!
+List<String> words = sentences.stream()
+    .flatMap(s -> Arrays.stream(s.split(" ")))
+    .toList(); // ["hello", "world", "java", "twenty", "one", "streams"]
+```
+
+---
+
+### 5.2 Short-Circuiting Operations: `limit()`, `findFirst()`, and `anyMatch()`
+
+Short-circuiting operations terminate processing the instant their condition is fulfilled, allowing streams to operate on infinite sources without hanging:
+- `limit(n)`: Stops after $n$ elements.
+- `anyMatch(Predicate)`: Returns `true` the moment the first match is encountered.
+- `findFirst()` / `findAny()`: Returns an `Optional` containing the first located element.
+
+---
+
+### 5.3 Common Mistakes & Misconceptions (With Bad vs. Good Code)
+
+#### Mistake 1: Reusing a Closed Stream
+**Bad Code:**
+```java
+Stream<String> stream = List.of("a", "b").stream();
+stream.forEach(System.out::println); // Terminal operation executed!
+
+// ❌ CRASHES with IllegalStateException: stream has already been operated upon or closed!
+long count = stream.count();
+```
+**Correct Code:**
+```java
+List<String> list = List.of("a", "b");
+list.forEach(System.out::println);
+long count = list.stream().count(); // ✅ Obtain a new stream!
+```
+
+#### Mistake 2: Mutating External Shared State in Lambdas
+**Bad Code:**
+```java
+// ❌ Thread-unsafe, violates functional purity!
+List<String> results = new ArrayList<>();
+rawDocs.stream().filter(d -> d.length() > 10).forEach(results::add);
+```
+**Correct Code:**
+```java
+// ✅ Clean, thread-safe collection
+List<String> results = rawDocs.stream()
+    .filter(d -> d.length() > 10)
+    .toList();
+```
+
+#### Mistake 3: Using `parallelStream()` for Blocking HTTP Calls
+The common `ForkJoinPool` has a thread count equal to CPU cores. Blocking worker threads with slow HTTP calls starves all other parallel streams in the entire JVM! Use **Virtual Threads** (Day 07) for I/O concurrency.
+
+---
+
+### 5.4 Architectural Trade-Offs: Stream Pipeline Overhead vs. Primitive Loops
+
+For tiny collections ($N < 20$) of primitive numbers, a traditional `for` loop executes in slightly fewer CPU cycles because it avoids stream object allocations. However, for collections of objects ($N \ge 100$), the readability, immutability, and parallelization advantages of Streams far outweigh microscopic nanosecond differences.
+
+---
+
+# 6. Quick Recap
+
+| Operation | Type | What It Does |
+| :--- | :--- | :--- |
+| **`filter(Predicate)`** | Intermediate (Lazy) | Keeps elements satisfying condition. |
+| **`map(Function)`** | Intermediate (Lazy) | Transforms $T \rightarrow R$ in 1-to-1 mapping. |
+| **`flatMap(Function)`**| Intermediate (Lazy) | Transforms $T \rightarrow \text{Stream}<R>$ and flattens results. |
+| **`distinct()`** | Intermediate (Lazy) | Filters duplicates via `equals()` / `hashCode()`. |
+| **`toList()`** | Terminal (Eager) | Collects into an unmodifiable `List<T>`. |
+| **`groupingBy(key)`** | Terminal (Eager) | Groups items into a `Map<K, List<V>>`. |
+| **`joining(delim)`** | Terminal (Eager) | Concatenates strings into a formatted block. |
+| **`parallelStream()`** | Multi-Core Pipeline | Parallelizes CPU-bound tasks via ForkJoinPool. |
+
+---
+
+# 7. Self-Check Questions & Practice Exercises
+
+### Self-Check Questions (Basic to Advanced)
+
+1. **What is the difference between an intermediate operation and a terminal operation?**
+   - *Answer*: Intermediate operations (like `filter`, `map`) are lazy and return a new `Stream` without executing. Terminal operations (like `toList`, `count`) are eager, trigger the traversal, and produce a result or side-effect.
+2. **When should you use `flatMap()` instead of `map()`?**
+   - *Answer*: Use `map()` for 1-to-1 transformations. Use `flatMap()` when each element maps to a collection or stream (1-to-many), flattening nested streams into a single composite stream.
+3. **What occurs if you attempt to invoke a terminal operation on a Stream that has already executed a terminal operation?**
+   - *Answer*: The JVM throws an `IllegalStateException: stream has already been operated upon or closed`. Streams are single-use only.
+4. **Why is `parallelStream()` unsuitable for blocking network I/O calls to AI APIs?**
+   - *Answer*: `parallelStream()` uses the shared common `ForkJoinPool`, which has a small fixed thread pool equal to CPU cores. Blocking these threads with network latency starves the entire JVM.
+5. **How does `Collectors.joining()` aid in RAG prompt engineering?**
+   - *Answer*: It concatenates multiple retrieved text chunks into a unified context prompt string with custom delimiters, prefixes, and suffixes.
+
+---
+
+### Hands-On Practice Exercises with Full Solutions
+
+#### 🏋️ Exercise 1: Build an AI Document Preprocessing Pipeline
+**Objective**: Given raw document texts, build a fluent Stream pipeline that filters null/blank strings, strips whitespace, removes text $< 20$ characters, converts to uppercase, limits to 3 items, and collects into a list.
+
 ```java
 package com.javagenai.day06;
 
@@ -437,11 +447,9 @@ public class DocumentPipeline {
 
 ---
 
-### 🏋️ Exercise 2: LLM Cost & Usage Analytics with `Collectors`
-**Objective**: Given a list of `LLMRecord(String model, int promptTokens, int completionTokens)`, compute a `Map<String, Double>` calculating the total USD cost per model.
-(Assume: `gpt-4o`: \$2.50 / 1M tokens, `llama-3.2`: \$0.00 / 1M tokens).
+#### 🏋️ Exercise 2: LLM Cost & Usage Analytics with `Collectors.groupingBy()`
+**Objective**: Given a list of `LLMRecord(String model, int promptTokens, int completionTokens)`, calculate a `Map<String, Double>` computing total USD cost per model.
 
-#### Solution:
 ```java
 package com.javagenai.day06;
 
@@ -469,320 +477,32 @@ public class UsageAnalytics {
 
 ---
 
-## 9. Self-Check Quiz
-
-1. **What is the difference between an intermediate operation and a terminal operation in a Stream?**
-   - *Answer*: Intermediate operations (like `filter`, `map`) are lazy and return a new `Stream` without processing data immediately. Terminal operations (like `toList`, `count`, `forEach`) are eager, trigger the traversal, and produce a result or side effect.
-2. **When should you use `flatMap()` instead of `map()`?**
-   - *Answer*: Use `map()` for one-to-one transformations ($T \rightarrow R$). Use `flatMap()` for one-to-many transformations where each element maps to a collection or stream ($T \rightarrow \text{Stream}<R>$), flattening the nested streams into a single stream.
-3. **What is a Method Reference (`::`)?**
-   - *Answer*: A concise syntactic shorthand for a lambda expression that calls an existing named method without executing it immediately (e.g., `String::toLowerCase` instead of `s -> s.toLowerCase()`).
-4. **Why is `parallelStream()` not recommended for blocking HTTP API calls?**
-   - *Answer*: `parallelStream()` uses the shared common `ForkJoinPool`, which has a small fixed number of threads equal to your CPU core count. Blocking them with slow HTTP I/O starves the entire JVM of worker threads.
-5. **How does `Collectors.joining()` assist in Prompt Engineering?**
-   - *Answer*: It concatenates multiple retrieved text chunks into a single formatted context prompt string with custom delimiters, prefixes, and suffixes.
-
----
-
-# 10. 🔥 Java 8 Masterclass: Top 15 Technical Interview Questions & Answers
-
-If you are interviewing for any Java role (Junior, Mid-Level, or Senior), **Java 8 features are tested in 95%+ of all technical interviews**. Interviewers use these questions to gauge whether you understand modern functional paradigms or are still stuck writing procedural Java 7 code.
-
-Here is the definitive Senior Architect breakdown of the **Top 15 Java 8 Interview Questions**:
-
----
-
-### 10.1 All Java 8 Features Summary (The 60-Second Interview Elevator Pitch)
-
-> **Interview Question 1**: *"Can you list the major features introduced in Java 8?"*
-
-**Best Answer**:
-*"Java 8 (released in March 2014) was the most revolutionary update in Java history because it shifted Java from a purely object-oriented language to a hybrid functional-OOP language. The major features include:*
-1. * **Lambda Expressions (`->`)**: Enables passing anonymous functions as first-class citizens.*
-2. * **Functional Interfaces & `@FunctionalInterface`**: Single Abstract Method (SAM) interfaces (`Predicate`, `Function`, `Consumer`, `Supplier`).*
-3. * **Stream API (`java.util.stream`)**: Declarative pipeline processing for collections with lazy evaluation and internal iteration.*
-4. * **Method References (`::`)**: Shorthand syntax for lambda expressions calling existing methods.*
-5. * **`Optional<T>`**: Container object to eliminate `NullPointerException` and represent nullable return values explicitly.*
-6. * **Default & Static Methods in Interfaces**: Allows adding new methods to interfaces without breaking existing implementing classes (backward compatibility).*
-7. * **New Date & Time API (`java.time`)**: Immutable, thread-safe date/time models (`LocalDate`, `LocalDateTime`, `Instant`) replacing broken `java.util.Date` and `Calendar`.*
-8. * **`CompletableFuture`**: Asynchronous, non-blocking reactive programming.*
-9. * **Base64 Encoding/Decoding**: Built-in `java.util.Base64` utility class.*
-10. * **Nashorn JavaScript Engine**: Embedded JS runtime (later deprecated in Java 11).*
-
----
-
-### 10.2 Top 15 Interview Questions & In-Depth Answers
-
----
-
-#### 💡 Q2: What is a Functional Interface? What are the "Big Four" standard interfaces?
-
-**Answer**:
-A **Functional Interface** is an interface that contains **exactly ONE abstract method** (known as the Single Abstract Method or SAM). It can have any number of `default` or `static` methods.
-
-The `@FunctionalInterface` annotation is optional, but best practice because it forces the compiler to throw an error if a second abstract method is added.
-
-The **Big Four** built-in functional interfaces in `java.util.function` are:
-
-| Interface | Method Signature | Purpose | Real-World Example |
-| :--- | :--- | :--- | :--- |
-| **`Predicate<T>`** | `boolean test(T t)` | Evaluates a condition; returns `true` or `false`. | `s -> s.length() > 5` (Used in `.filter()`) |
-| **`Function<T, R>`** | `R apply(T t)` | Transforms an input of type $T$ to an output of type $R$. | `doc -> doc.getText()` (Used in `.map()`) |
-| **`Consumer<T>`** | `void accept(T t)` | Consumes an input and performs an action (side-effect); returns nothing. | `s -> System.out.println(s)` (Used in `.forEach()`) |
-| **`Supplier<T>`** | `T get()` | Takes no input; produces/supplies a value of type $T$. | `() -> new ArrayList<>()` (Used in `.orElseGet()`) |
-
-> [!TIP]
-> **Two-Argument Variants**: Java 8 also provides `BiPredicate<T, U>`, `BiFunction<T, U, R>`, and `BiConsumer<T, U>` for operations requiring two inputs.
-> **Primitive Variants**: To avoid auto-boxing overhead, Java 8 provides `IntPredicate`, `LongFunction<R>`, `DoubleConsumer`, etc.
-
----
-
-#### 💡 Q3: What is the difference between `Collection` and `Stream`?
-
-**Answer**:
-
-| Dimension | Collection (e.g., `List`, `Set`) | Stream (`java.util.stream.Stream`) |
-| :--- | :--- | :--- |
-| **Storage** | An in-memory data structure that **holds** elements. | A computational pipeline that **transports** and transforms data; stores zero elements! |
-| **Iteration** | **External iteration**: Developer writes explicit loops (`for (T item : list)`). | **Internal iteration**: The library manages traversal internally (`stream.forEach(...)`). |
-| **Reusability** | Can be traversed and iterated infinite times. | **Single-use only!** Once a terminal operation completes, the stream is consumed and closed. |
-| **Evaluation** | **Eager**: Elements are created, calculated, and stored immediately. | **Lazy**: Intermediate operations are not evaluated until a terminal operation is called. |
-| **Modification** | Can add or remove elements (`list.add()`). | Cannot modify the underlying source collection. |
-
----
-
-#### 💡 Q4: What is the difference between Intermediate and Terminal Operations?
-
-**Answer**:
-- **Intermediate Operations** (e.g., `filter()`, `map()`, `sorted()`, `distinct()`):
-  - **Return type**: Always returns a new `Stream<T>`.
-  - **Execution**: **Lazy**. They do not execute immediately; they merely register an operation on the pipeline.
-- **Terminal Operations** (e.g., `collect()`, `forEach()`, `count()`, `reduce()`, `findFirst()`):
-  - **Return type**: A concrete result (e.g., `List`, `long`, `Optional`) or `void`.
-  - **Execution**: **Eager**. Triggers the actual processing of data through the entire pipeline. After execution, the stream is closed.
+#### 🏋️ Exercise 3: Finding the Second Highest Number with Streams
+**Objective**: Write a stream expression that extracts the second highest unique number from an integer list.
 
 ```java
-// NOTHING happens here! No loop runs because there is no terminal operation:
-Stream<String> s = names.stream().filter(n -> {
-    System.out.println("Checking: " + n);
-    return n.startsWith("A");
-});
+package com.javagenai.day06;
 
-// NOW the loop runs because .count() is a terminal operation:
-long total = s.count();
-```
+import java.util.Comparator;
+import java.util.List;
 
----
+public class SecondHighestFinder {
 
-#### 💡 Q5: What is the difference between `map()` and `flatMap()`? (The #1 Most Asked Stream Question!)
-
-**Answer**:
-- **`map()`**: Performs a **1-to-1** transformation. It takes each element $T$ and transforms it into a single output $R$. Output is `Stream<R>`.
-- **`flatMap()`**: Performs a **1-to-Many** transformation and **flattens** the nested structure. It maps each element $T$ into a `Stream<R>`, and then flattens all those individual streams into a single composite `Stream<R>`.
-
-```java
-// SCENARIO: A list of sentences, where each sentence contains words
-List<String> sentences = List.of("hello world", "java eight streams");
-
-// 1. Using map(): Results in Stream<String[]> (A stream of arrays - nested!)
-List<String[]> nested = sentences.stream()
-    .map(s -> s.split(" "))
-    .toList(); // List containing 2 String[] arrays!
-
-// 2. Using flatMap(): Results in Stream<String> (Flattened into individual words!)
-List<String> flattened = sentences.stream()
-    .flatMap(s -> Arrays.stream(s.split(" ")))
-    .toList(); // ["hello", "world", "java", "eight", "streams"]!
-```
-
----
-
-#### 💡 Q6: Can a Stream be reused once operated upon? What happens if you try?
-
-**Answer**:
-**NO.** A stream can be operated upon only **once**. Once a terminal operation is called, the stream is considered consumed and closed.
-
-If you attempt to call another operation on a closed stream, the JVM throws:
-`java.lang.IllegalStateException: stream has already been operated upon or closed`.
-
-```java
-Stream<String> stream = List.of("a", "b", "c").stream();
-stream.forEach(System.out::println); // Terminal operation executed!
-
-// CRASH! Throws IllegalStateException:
-stream.forEach(System.out::println);
-```
-*To re-process, you must obtain a fresh stream by calling `list.stream()` again.*
-
----
-
-#### 💡 Q7: What is the difference between `findFirst()` and `findAny()`?
-
-**Answer**:
-- **`findFirst()`**: Deterministic. Always returns the **first element** in the stream according to encounter order.
-- **`findAny()`**: Non-deterministic in parallel pipelines. Returns **any element** found that satisfies the condition, allowing parallel worker threads to return as fast as possible without coordinating which one came first.
-
-> [!NOTE]
-> In a **sequential stream**, `findFirst()` and `findAny()` will typically return the exact same element. The difference appears in **`parallelStream()`**, where `findAny()` is significantly faster because it returns whichever thread completes first!
-
----
-
-#### 💡 Q8: What is the difference between `Optional.orElse()` and `Optional.orElseGet()`? (The Classic Eager Trap!)
-
-**Answer**:
-This is a favorite interview trap question:
-- **`orElse(defaultVal)`**: Evaluates the argument **EAGERLY**. Even if the `Optional` contains a value, the method inside `orElse(...)` is **ALWAYS executed**!
-- **`orElseGet(Supplier)`**: Evaluates the argument **LAZILY**. The `Supplier` lambda is executed **ONLY IF** the `Optional` is empty!
-
-```java
-// DANGEROUS TRAP:
-String cachedName = Optional.of("Alice")
-    .orElse(callExpensiveDatabaseQuery()); 
-// ⚠️ callExpensiveDatabaseQuery() RUNS EVEN THOUGH "Alice" IS PRESENT!
-
-// SAFE & FAST:
-String cachedName = Optional.of("Alice")
-    .orElseGet(() -> callExpensiveDatabaseQuery()); 
-// ✅ Database query NEVER runs because "Alice" is already present!
-```
-
----
-
-#### 💡 Q9: Why did Java 8 introduce Default and Static Methods in Interfaces?
-
-**Answer**:
-The primary reason was **Backward Compatibility**.
-
-Before Java 8, if you added a new method to an interface (e.g., adding `.stream()` to `java.util.Collection`), **every single class in the entire world implementing `Collection` would fail to compile** until someone wrote an implementation for that new method!
-
-By adding **`default` methods** (methods with a concrete code body inside the interface), Java 8 was able to add `.stream()`, `.parallelStream()`, and `.forEach()` to `java.util.Collection` without breaking thousands of legacy libraries like Hibernate, Spring, or Google Guava!
-
----
-
-#### 💡 Q10: What is the "Diamond Problem" with Default Methods, and how does Java 8 resolve it?
-
-**Answer**:
-If a class implements two interfaces that both declare a `default` method with the **identical signature**:
-
-```java
-interface InterfaceA {
-    default void log() { System.out.println("A"); }
-}
-interface InterfaceB {
-    default void log() { System.out.println("B"); }
-}
-
-// COMPILER ERROR! "Duplicate default methods named log..."
-class Service implements InterfaceA, InterfaceB {
-    // Java forces the developer to explicitly override and resolve the conflict:
-    @Override
-    public void log() {
-        InterfaceA.super.log(); // Explicitly choose A (or write custom code)
+    public static int findSecondHighest(List<Integer> numbers) {
+        return numbers.stream()
+            .distinct()
+            .sorted(Comparator.reverseOrder())
+            .skip(1)
+            .findFirst()
+            .orElseThrow(() -> new IllegalArgumentException("List does not contain at least 2 unique numbers"));
     }
 }
-```
-**Rule**: If there is a conflict, the class **must** override the method and explicitly choose which interface's method to invoke using `InterfaceName.super.method()`.
-
----
-
-#### 💡 Q11: What does "Effectively Final" mean in the context of Lambdas?
-
-**Answer**:
-A local variable defined outside a lambda and accessed *inside* the lambda must be either declared `final` or be **effectively final**.
-
-"Effectively final" means the variable's value is **never modified after initialization**, even if the `final` keyword is omitted.
-
-```java
-int count = 10; // Not marked final, but never reassigned -> Effectively Final!
-Runnable r = () -> System.out.println(count); // Compiles fine!
-
-int badCount = 10;
-badCount = 20; // Reassigned!
-// COMPILER ERROR: "Local variable badCount defined in an enclosing scope must be final or effectively final"
-Runnable r2 = () -> System.out.println(badCount);
-```
-**Why?** Lambdas capture a copy of local variables on the Stack. If local variables could be mutated concurrently, it would create unpredictable race conditions and stack synchronization bugs.
-
----
-
-#### 💡 Q12: How does `Collectors.groupingBy()` work? How do you count items per group?
-
-**Answer**:
-`Collectors.groupingBy()` is the SQL `GROUP BY` equivalent for Java Streams.
-
-```java
-List<String> words = List.of("apple", "banana", "apple", "cherry", "banana", "apple");
-
-// 1. Grouping into Map<String, List<String>>:
-Map<String, List<String>> grouped = words.stream()
-    .collect(Collectors.groupingBy(Function.identity()));
-
-// 2. Grouping with Downstream Collector: Map<String, Long> (Word Frequency Count!)
-Map<String, Long> wordCounts = words.stream()
-    .collect(Collectors.groupingBy(
-        Function.identity(), 
-        Collectors.counting() // Downstream collector!
-    ));
-// Result: {apple=3, banana=2, cherry=1}
-```
-
----
-
-#### 💡 Q13: What are Short-Circuiting Operations in Streams?
-
-**Answer**:
-A **short-circuiting operation** is an operation that does not need to examine all elements of a stream to produce a result:
-- **Short-circuiting Terminal Operations**:
-  - `anyMatch(Predicate)`: Returns `true` as soon as the first matching element is found.
-  - `allMatch(Predicate)`: Returns `false` as soon as the first non-matching element is found.
-  - `noneMatch(Predicate)`: Returns `false` as soon as the first matching element is found.
-  - `findFirst()` / `findAny()`: Stops traversal as soon as an element is located.
-- **Short-circuiting Intermediate Operations**:
-  - `limit(n)`: Truncates the stream after $n$ elements, ignoring all remaining elements.
-
-> [!TIP]
-> Short-circuiting allows streams to safely process **infinite streams** (`Stream.iterate(1, n -> n + 1).limit(10)`).
-
----
-
-#### 💡 Q14: Why was the new Java 8 Date and Time API (`java.time`) introduced?
-
-**Answer**:
-Legacy `java.util.Date` and `java.util.Calendar` had catastrophic architectural design flaws:
-1. **Mutability**: `Date` objects were mutable. If a service returned a `Date`, another thread could mutate it (`date.setTime(...)`), creating multi-threaded corruption.
-2. **Not Thread-Safe**: `SimpleDateFormat` was notorious for throwing concurrency exceptions when shared across threads.
-3. **Bizarre Indexing**: Months were 0-indexed (`0 = January`, `11 = December`), while days were 1-indexed, causing endless off-by-one bugs!
-4. **Poor Separation of Concerns**: A `Date` represented both a date, a time, and a timezone simultaneously.
-
-**Java 8 Solution (`java.time` based on Joda-Time)**:
-- **Immutable & Thread-Safe**: All classes (`LocalDate`, `LocalTime`, `LocalDateTime`, `Instant`) are `final` and unmodifiable.
-- **Clean Separation**: `LocalDate` (2026-09-10), `LocalTime` (14:30), `Instant` (machine epoch timestamp UTC).
-- **Sensible Indexing**: Months are 1-12 (`Month.JANUARY = 1`).
-
----
-
-#### 💡 Q15: Live Coding Challenge: How do you find the 2nd Highest Number in a List?
-
-**Answer**:
-This is a standard coding screen test in senior interviews:
-
-```java
-List<Integer> numbers = List.of(5, 9, 11, 2, 9, 21, 21, 14);
-
-int secondHighest = numbers.stream()
-    .distinct()                          // 1. Remove duplicate 21s!
-    .sorted(Comparator.reverseOrder())   // 2. Sort descending: [21, 14, 11, 9, 5, 2]
-    .skip(1)                             // 3. Skip the highest (21)
-    .findFirst()                         // 4. Grab the next element (14)
-    .orElseThrow(() -> new IllegalArgumentException("List does not have at least 2 unique numbers"));
-
-System.out.println("Second highest: " + secondHighest); // Prints: 14
 ```
 
 ---
 
 <p align="center">
-  <b>Awesome job finishing Day 06! 🎉</b><br>
-  You've unlocked the true elegance of modern Java with Lambdas and the Stream API. Transforming lists of AI prompts, documents, and tokens is now clean, declarative, and effortless.<br>
-  Tomorrow on <b>Day 07</b>, we explore <b>Concurrency & Virtual Threads (Project Loom)</b>: The Java 21 superpower that lets your application handle thousands of AI conversations at the exact same time without breaking a sweat! Keep up the momentum!
+  <b>Day 06 Complete! 🎉</b><br>
+  Proceed to <b>Day 07</b>: <b>Concurrency & Virtual Threads (Project Loom)</b>.<br>
+  <a href="../Day_07_Concurrency_Virtual_Threads/Day_07_Concurrency_Virtual_Threads.md"><b>Continue to Day 07 →</b></a>
 </p>
