@@ -12,218 +12,217 @@
 
 ---
 
-## 📌 What Will You Learn Today?
-
-Hey there, friend! Welcome to Day 10. Yesterday, we built our own 60-line Dependency Injection container and demystified how reflection works. Today, we step into the official **Spring Framework IoC Container** (`ApplicationContext`) and master how enterprise applications manage the complete lifecycle of AI components!
-
-You will learn why Spring has different annotations (`@Component`, `@Service`, `@Repository`), how Spring automatically scans your packages, how **Bean Scopes** prevent race conditions in AI chatbots, and how lifecycle hooks (`@PostConstruct` and `@PreDestroy`) allow you to pre-load embedding models into memory and cleanly disconnect database connections.
-
-By the end of today, you will clearly understand:
-- ✅ **The `ApplicationContext`**: Spring's central bean registry and engine.
-- ✅ **Stereotype Annotations**: The simple difference between `@Component`, `@Service`, and `@Repository`.
-- ✅ **Component Scanning (`@ComponentScan`)**: How Spring searches your packages and discovers beans automatically.
-- ✅ **Bean Scopes**: `singleton` (shared by everyone) vs. `prototype` (fresh copy every time).
-- ✅ **The 7-Step Bean Lifecycle Pipeline**: From constructor invocation to `@PreDestroy` cleanup.
-- ✅ **Lifecycle Hooks in Action**: Using `@PostConstruct` to warm up local AI models or verify vector databases on boot.
-- ✅ **Circular Dependencies**: What causes them and how modern Spring Boot prevents them.
-
----
-
-> 💡 **New Word Alert! Plain English Definitions for Today's Concepts**
->
-> - **`ApplicationContext`**: The master brain and central directory of your Spring application. It holds all active beans in memory, wires their dependencies, and controls their lifecycles.
-> - **Stereotype Annotations**: Badges you pin on your classes so Spring recognizes them during startup:
->   - `@Component`: The generic badge (*"Hey Spring, manage this class as a bean!"*).
->   - `@Service`: The business badge (*"I hold business logic, AI prompts, and calculations!"*).
->   - `@Repository`: The database badge (*"I talk to PostgreSQL, pgvector, or Redis, and translate database errors into Spring exceptions!"*).
-> - **Bean Scope**: Who gets to share this object?
->   - *Singleton (Default)*: Exactly ONE shared instance for the entire application (e.g. your OpenAI client).
->   - *Prototype*: A fresh, brand-new object created every single time it's requested (e.g. a user's isolated chat session memory).
-> - **`@PostConstruct`**: An initialization hook. Spring calls this method automatically *after* dependencies are injected, perfect for warming up a local AI model or verifying database connections.
-> - **`@PreDestroy`**: A cleanup hook. Spring calls this right before shutdown, perfect for closing sockets and flushing logs.
-
----
-
-## 🗺️ Table of Contents
-
-- [1. Real-World Analogy: The 5-Star Luxury Hotel](#1-real-world-analogy-the-5-star-luxury-hotel)
-- [2. The Spring IoC Container: `BeanFactory` vs `ApplicationContext`](#2-the-spring-ioc-container-beanfactory-vs-applicationcontext)
-- [3. Stereotype Annotations: Giving Beans an Identity](#3-stereotype-annotations-giving-beans-an-identity)
-  - [3.1 `@Component`: The Generic Blueprint](#31-component-the-generic-blueprint)
-  - [3.2 `@Service`: The AI Business Orchestrator](#32-service-the-ai-business-orchestrator)
-  - [3.3 `@Repository`: The Vector Database Gateway](#33-repository-the-vector-database-gateway)
-- [4. Bean Scopes: Who Shares What?](#4-bean-scopes-who-shares-what)
-  - [4.1 Singleton Scope (The Default)](#41-singleton-scope-the-default)
-  - [4.2 Prototype Scope: Multi-Turn Conversation Memory](#42-prototype-scope-multi-turn-conversation-memory)
-  - [4.3 Web Scopes (`@RequestScope`, `@SessionScope`)](#43-web-scopes-requestscope-sessionscope)
-- [5. The 7-Step Bean Lifecycle Pipeline](#5-the-7-step-bean-lifecycle-pipeline)
-  - [5.1 Visualizing the Lifecycle Stages](#51-visualizing-the-lifecycle-stages)
-  - [5.2 `@PostConstruct`: Pre-Warming AI Models](#52-postconstruct-pre-warming-ai-models)
-  - [5.3 `@PreDestroy`: Graceful Resource Cleanup](#53-predestroy-graceful-resource-cleanup)
-- [6. Circular Dependencies: The Infinite Chicken-and-Egg Loop](#6-circular-dependencies-the-infinite-chicken-and-egg-loop)
-- [7. Key Takeaways & Summary](#7-key-takeaways--summary)
-- [8. Practice Exercises & Full Solutions](#8-practice-exercises--full-solutions)
-- [9. Self-Check Quiz](#9-self-check-quiz)
-
----
-
-# 1. Real-World Analogy: The 5-Star Luxury Hotel
-
 ![Spring Framework Bean Lifecycle and IoC Container](assets/day10_bean_lifecycle.jpg)
 
-Imagine checking into the Burj Al Arab or the Ritz-Carlton.
+## 🗺️ Table of Contents
+- [1. Topic Overview](#1-topic-overview)
+- [2. Basic Foundations (True Zero)](#2-basic-foundations-true-zero)
+  - [2.1 What is an ApplicationContext, a Stereotype, and Bean Scope?](#21-what-is-an-applicationcontext-a-stereotype-and-bean-scope)
+  - [2.2 The 5-Star Luxury Hotel Analogy](#22-the-5-star-luxury-hotel-analogy)
+  - [2.3 Minimal Working Example: Stereotypes & Lifecycle Hooks](#23-minimal-working-example-stereotypes--lifecycle-hooks)
+  - [2.4 Line-by-Line Code Breakdown](#24-line-by-line-code-breakdown)
+- [3. Core Concept Walkthrough (Basic → Intermediate)](#3-core-concept-walkthrough-basic--intermediate)
+  - [3.1 Container Architecture: `BeanFactory` vs. `ApplicationContext`](#31-container-architecture-beanfactory-vs-applicationcontext)
+  - [3.2 Stereotype Annotations: `@Component`, `@Service`, `@Repository`](#32-stereotype-annotations-component-service-repository)
+  - [3.3 Bean Scopes: Singleton vs. Prototype vs. Web Scopes](#33-bean-scopes-singleton-vs-prototype-vs-web-scopes)
+  - [3.4 The 7-Step Bean Lifecycle Pipeline](#34-the-7-step-bean-lifecycle-pipeline)
+  - [3.5 Pre-Warming AI Models with `@PostConstruct`](#35-pre-warming-ai-models-with-postconstruct)
+  - [3.6 Graceful Resource Teardown with `@PreDestroy`](#36-graceful-resource-teardown-with-predestroy)
+  - [3.7 Circular Dependencies: Detection & Resolution](#37-circular-dependencies-detection--resolution)
+- [4. Prerequisite & Supporting Concepts](#4-prerequisite--supporting-concepts)
+  - [Prerequisite / Supporting Concept: Classpath Scanning (@ComponentScan) Mechanics](#prerequisite--supporting-concept-classpath-scanning-componentscan-mechanics)
+  - [Prerequisite / Supporting Concept: Statelessness vs. Stateful Architecture](#prerequisite--supporting-concept-statelessness-vs-stateful-architecture)
+  - [Prerequisite / Supporting Concept: BeanPostProcessor & Proxy Wrapping Basics](#prerequisite--supporting-concept-beanpostprocessor--proxy-wrapping-basics)
+- [5. Advanced Depth (Intermediate → Advanced)](#5-advanced-depth-intermediate--advanced)
+  - [5.1 Senior Deep Dive: The Prototype-in-Singleton Injection Problem](#51-senior-deep-dive-the-prototype-in-singleton-injection-problem)
+  - [5.2 Lifecycle Callback Sequencing & Aware Interfaces](#52-lifecycle-callback-sequencing--aware-interfaces)
+  - [5.3 Common Mistakes & Misconceptions (With Bad vs. Good Code)](#53-common-mistakes--misconceptions-with-bad-vs-good-code)
+  - [5.4 Architectural Trade-Offs: Eager Initialization vs. Lazy Bootstrapping](#54-architectural-trade-offs-eager-initialization-vs-lazy-bootstrapping)
+- [6. Quick Recap](#6-quick-recap)
+- [7. Self-Check Questions & Practice Exercises](#7-self-check-questions--practice-exercises)
+  - [Self-Check Questions (Basic to Advanced)](#self-check-questions-basic-to-advanced)
+  - [Hands-On Practice Exercises with Full Solutions](#hands-on-practice-exercises-with-full-solutions)
+
+---
+
+# 1. Topic Overview
+
+The **Spring Inversion of Control (IoC) Container** (`ApplicationContext`) is the runtime engine responsible for discovering, instantiating, wiring, and managing the complete lifecycle of Java objects. Through **Stereotype Annotations** (`@Component`, `@Service`, `@Repository`), **Bean Scopes** (`singleton`, `prototype`), and **Lifecycle Hooks** (`@PostConstruct`, `@PreDestroy`), Spring manages application components with deterministic predictability.
+
+### Why This Topic Matters
+In production Generative AI applications, components have vastly different lifecycle and state requirements. Core clients like `OpenAiClient` or `VectorDatabaseConnector` are expensive, thread-safe singletons that should be created once at startup and pre-warmed using `@PostConstruct` to avoid latency spikes on initial user prompts. Conversely, conversation memory buffers (`ChatSessionState`) hold private, multi-turn dialogue histories that must be isolated per user via prototype or session scopes. Understanding the Spring container ensures high performance without cross-user data contamination.
+
+> 💡 **New Word Alert — "ApplicationContext"**: The enterprise Spring IoC container that holds the registry of all active bean instances, coordinates dependency injection, and dispatches lifecycle events.
+
+> 💡 **New Word Alert — "Bean Scope"**: The policy defining how many instances of a bean Spring creates and how long those instances survive in memory (e.g., `singleton` vs. `prototype`).
+
+> 💡 **New Word Alert — "@PostConstruct"**: A lifecycle callback annotation placed on a void method instructing Spring to execute it immediately after all dependency injections have completed.
+
+---
+
+# 2. Basic Foundations (True Zero)
+
+Let's begin with absolute basics, assuming no prior experience with Spring container lifecycles.
+
+### 2.1 What is an ApplicationContext, a Stereotype, and Bean Scope?
+
+- **`ApplicationContext`**: The master registry and central manager of your Spring application. It holds all active objects (beans) in memory.
+- **Stereotype Annotations**: Stickers you place on your classes so Spring recognizes what role they play:
+  - `@Component`: A general-purpose managed bean.
+  - `@Service`: A bean that coordinates business logic and AI prompts.
+  - `@Repository`: A bean that talks to databases and translates database errors.
+- **Bean Scope**: Dictates who gets to share this object:
+  - *Singleton (Default)*: Exactly one shared instance for the entire application.
+  - *Prototype*: A brand-new instance created every time someone asks for it.
+
+---
+
+### 2.2 The 5-Star Luxury Hotel Analogy
 
 ```
                            THE LUXURY HOTEL (Spring Container)
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ 1. The Swimming Pool & Gym (Singleton Scope):                               │
+│ 1. The Swimming Pool & Fitness Center (Singleton Scope):                    │
 │    Built once when the hotel opens. Shared simultaneously by all 500 guests.│
 │                                                                             │
-│ 2. The Keycard & Fresh Towels (Prototype Scope):                            │
-│    Minted fresh on demand whenever a new guest checks in. Never shared.     │
+│ 2. The Private Room Key & Slippers (Prototype Scope):                       │
+│    Issued fresh on demand whenever a new guest checks in. Never shared.     │
 │                                                                             │
 │ 3. The Welcome Fruit Basket (@PostConstruct):                               │
 │    Placed in your room AFTER the furniture is arranged, right before you    │
 │    walk through the door.                                                   │
 │                                                                             │
 │ 4. Housekeeping Room Clean-up (@PreDestroy):                                │
-│    Cleans the room and shuts off the AC after you check out.                │
+│    Cleans the room and shuts off the air conditioning after you check out.  │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-In your Spring AI application:
-- **`ChatClient`** is the swimming pool (Singleton: shared by all users).
-- **`ConversationState`** is the private room key (Prototype / Session: private per user).
-- **`@PostConstruct`** warms up local Ollama models before users start sending prompts!
+In your AI application:
+- **`ChatClient`** is the swimming pool (Singleton: shared by all concurrent users).
+- **`ConversationHistory`** is the private room key (Prototype: private per conversation).
+- **`@PostConstruct`** pre-warms local AI embedding weights before user prompts arrive!
 
 ---
 
-## 🧭 The Plain English Bridge: Stereotypes & Lifecycle Demystified
+### 2.3 Minimal Working Example: Stereotypes & Lifecycle Hooks
 
-If you've only written core Java, Spring's annotations might look like black magic. Here is the exact translation into concepts you already know:
+Let's write a minimal, fully runnable demonstration of Spring-style stereotypes and lifecycle execution:
 
-| Spring Term / Annotation | What You Did in Core Java | What Spring Does For You | Plain English Meaning |
-| :--- | :--- | :--- | :--- |
-| **`@Component`** | `MyClass obj = new MyClass();` | Scans classpath, finds this class, creates an instance, keeps it in memory. | *"Hey Spring, manage this class for me."* |
-| **`@Service`** | Same as `@Component`, but holds business logic. | Identical to `@Component`, but marks business logic (makes code clear to teammates and tools). | *"This bean does calculations, orchestrates AI, and applies business rules."* |
-| **`@Repository`** | DAO class with JDBC/SQL queries. | Identical to `@Component`, but also catches SQL exceptions and wraps them in Spring's clean `DataAccessException`. | *"This bean talks to databases or vector stores."* |
-| **Singleton Scope (Default)** | You wrote a static variable `private static MyClass instance;` | Spring makes **exactly one** instance when the app boots and shares it across all threads. | 1 object reused everywhere. Memory efficient! |
-| **Prototype Scope** | `new MyClass()` called every time | Spring creates a brand-new object each time a class asks for it. | Fresh instance per request. |
-| **`@PostConstruct`** | Code placed right after `new MyClass()` inside your `main` method. | Runs automatically **immediately after** Spring creates the bean and injects all dependencies. | Perfect place to load AI model files or check database connection. |
-| **`@PreDestroy`** | A shutdown hook or `Runtime.getRuntime().addShutdownHook(...)`. | Runs automatically right before the application stops or the bean is garbage collected. | Close database sockets, flush cached chat history to disk. |
+```java
+package com.javagenai.day10;
+
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import org.springframework.stereotype.Service;
+
+@Service
+public class SimpleAIService {
+
+    public SimpleAIService() {
+        System.out.println("1. Constructor: Object allocated in RAM.");
+    }
+
+    @PostConstruct
+    public void init() {
+        System.out.println("2. @PostConstruct: Dependencies wired. Pre-warming AI model...");
+    }
+
+    public String generateResponse(String prompt) {
+        return "Simulated answer to: " + prompt;
+    }
+
+    @PreDestroy
+    public void cleanup() {
+        System.out.println("3. @PreDestroy: Application stopping. Releasing connections.");
+    }
+}
+```
 
 ---
 
-# 2. The Spring IoC Container: `BeanFactory` vs `ApplicationContext`
+### 2.4 Line-by-Line Code Breakdown
 
-In Spring, the container exists as two primary interfaces:
+1. `@Service`: Registers this class in the `ApplicationContext` as a business layer component.
+2. `public SimpleAIService()`: The constructor is invoked first by the container to allocate the object on the Heap.
+3. `@PostConstruct public void init()`: Runs automatically after constructor execution and field injection, making it the ideal location for model warmup logic.
+4. `generateResponse(...)`: The operational business method.
+5. `@PreDestroy public void cleanup()`: Runs automatically when the container closes, cleanly disconnecting resources.
+
+---
+
+# 3. Core Concept Walkthrough (Basic → Intermediate)
+
+Now let's examine container internals and multi-scoped AI architectures.
+
+### 3.1 Container Architecture: `BeanFactory` vs. `ApplicationContext`
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                        BeanFactory (Legacy Core)                        │
 │  - Basic dependency injection                                           │
-│  - Lazy bean loading (creates beans only when requested)                │
+│  - Lazy bean initialization (instantiates beans only on getBean())      │
 └────────────────────────────────────┬────────────────────────────────────┘
                                      │
                                      ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                     ApplicationContext (Enterprise)                     │
 │  - Extends BeanFactory                                                  │
-│  - Eager pre-instantiation of all Singletons at startup                 │
-│  - Internationalization (i18n)                                          │
-│  - Application event publishing                                         │
-│  - Complete Spring Boot integration                                     │
+│  - Eager pre-instantiation of Singletons at startup (catches bugs early)│
+│  - Environment property binding, i18n, and event publication            │
+│  - Full Spring Boot integration baseline                                │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-> [!NOTE]
-> In 100% of modern enterprise applications and Spring Boot projects, you will use **`ApplicationContext`**.
+In 100% of modern enterprise applications, you interact with `ApplicationContext`.
 
 ---
 
-# 3. Stereotype Annotations: Giving Beans an Identity
-
-In Day 09, we used `@MyComponent`. In official Spring, `@Component` has specialized architectural children called **Stereotypes**:
+### 3.2 Stereotype Annotations: `@Component`, `@Service`, `@Repository`
 
 ```
-                              ┌────────────────┐
-                              │  @Component    │  (Generic Spring-managed Bean)
-                              └───────┬────────┘
-                                      │
-              ┌───────────────────────┼───────────────────────┐
-              ▼                       ▼                       ▼
-     ┌────────────────┐      ┌────────────────┐      ┌────────────────┐
-     │    @Service    │      │  @Repository   │      │  @Controller   │
-     │(Business Logic)│      │(Data Access/DB)│      │  (Web Layer)   │
-     └────────────────┘      └────────────────┘      └────────────────┘
+                               ┌────────────────┐
+                               │  @Component    │  (Generic Spring-managed Bean)
+                               └───────┬────────┘
+                                       │
+               ┌───────────────────────┼───────────────────────┐
+               ▼                       ▼                       ▼
+      ┌────────────────┐      ┌────────────────┐      ┌────────────────┐
+      │    @Service    │      │  @Repository   │      │ @RestController│
+      │(Business Logic)│      │(Data Access/DB)│      │  (Web Layer)   │
+      └────────────────┘      └────────────────┘      └────────────────┘
 ```
 
-### 3.1 `@Component`: The Generic Blueprint
-Use `@Component` when a class is a utility, helper, or external client wrapper that does not fit neatly into the business or persistence layers (e.g., `TokenCostEstimator`, `PromptSanitizer`).
+- **`@Component`**: Generic utility or helper beans (e.g., `TokenCostEstimator`).
+- **`@Service`**: Business workflow coordinators. In Spring AI, services construct prompts, call LLMs, and handle business fallback policies.
+- **`@Repository`**: Data access gateways. In addition to component registration, Spring wraps database queries and automatically translates native database exceptions (`SQLException`) into Spring's unchecked `DataAccessException` hierarchy.
 
 ---
 
-### 3.2 `@Service`: The AI Business Orchestrator
-Use `@Service` for your core AI workflows. This is where you coordinate RAG retrieval, construct prompts, enforce business rules, and call the LLM:
+### 3.3 Bean Scopes: Singleton vs. Prototype vs. Web Scopes
+
+#### 1. Singleton Scope (The Default):
+- Exactly **one instance** exists in the `ApplicationContext`.
+- Shared across all threads.
+- **Requirement**: Singletons must be **strictly stateless or thread-safe**. Never store user prompts in instance fields!
 
 ```java
-package com.javagenai.day10;
+@Service // Singleton by default
+public class StatelessAiGateway {
+    private final ChatModel chatModel;
 
-import org.springframework.stereotype.Service;
-
-@Service
-public class DocumentSummarizerService {
-    private final VectorRepository vectorRepository;
-    private final LLMGateway llmGateway;
-
-    // Constructor Injection
-    public DocumentSummarizerService(VectorRepository vectorRepository, LLMGateway llmGateway) {
-        this.vectorRepository = vectorRepository;
-        this.llmGateway = llmGateway;
+    public StatelessAiGateway(ChatModel chatModel) {
+        this.chatModel = chatModel;
     }
 
-    public String summarizeTopic(String topic) {
-        String relevantPassages = vectorRepository.findContext(topic);
-        return llmGateway.generateSummary(relevantPassages);
+    public String ask(String prompt) {
+        return chatModel.call(prompt); // Stateless: prompt passed as parameter!
     }
 }
 ```
 
----
-
-### 3.3 `@Repository`: The Vector Database Gateway
-Use `@Repository` on classes that interact with databases (PostgreSQL, Redis, pgvector).
-- **Special Power**: Spring automatically translates low-level database SQL exceptions (`SQLException`) into Spring's unified, unchecked `DataAccessException` hierarchy!
-
----
-
-# 4. Bean Scopes: Who Shares What?
-
-The scope of a bean defines **how many instances of the bean Spring creates** and **how long they live**.
-
-### 4.1 Singleton Scope (The Default)
-
-If you do not specify a scope, **every Spring Bean is a Singleton**:
-- Exactly **ONE instance** exists in the entire `ApplicationContext`.
-- Every class that injects this bean receives a reference to the **same identical heap object**.
-
-```java
-@Service // Default scope: Singleton!
-public class OpenAiClient {
-    // MUST BE STATELESS!
-    // If you store user-specific state in fields here, 10,000 users will overwrite each other!
-}
-```
-
-> [!WARNING]
-> **Golden Rule of Spring Singletons**: Singletons MUST BE STATELESS or THREAD-SAFE. Never store user session tokens or prompt histories in singleton instance fields!
-
----
-
-### 4.2 Prototype Scope: Multi-Turn Conversation Memory
-
-What if a bean needs to hold state specific to a single conversation? Use **`@Scope("prototype")`**:
-- Spring creates a **brand new instance** every single time this bean is requested or injected.
+#### 2. Prototype Scope:
+- Spring creates a **brand-new instance** every time the bean is requested or injected.
+- Ideal for mutable, conversation-specific session state:
 
 ```java
 package com.javagenai.day10;
@@ -236,63 +235,51 @@ import java.util.List;
 @Component
 @Scope("prototype")
 public class ChatConversationSession {
-    private final List<String> messageHistory = new ArrayList<>();
+    private final List<String> history = new ArrayList<>();
 
     public void addMessage(String msg) {
-        messageHistory.add(msg);
+        history.add(msg);
     }
 
     public List<String> getHistory() {
-        return List.copyOf(messageHistory);
+        return List.copyOf(history);
     }
 }
 ```
 
----
-
-### 4.3 Web Scopes (`@RequestScope`, `@SessionScope`)
-
-In web applications, Spring provides HTTP-aware scopes:
-- **`@RequestScope`**: A new bean is created for each HTTP request and destroyed when the HTTP response is sent. Perfect for request correlation IDs and API token usage meters.
-- **`@SessionScope`**: Lives for the duration of an HTTP user session.
+#### 3. Web Scopes:
+- **`@RequestScope`**: One instance created per HTTP request; destroyed when request completes.
+- **`@SessionScope`**: One instance created per HTTP user session.
 
 ---
 
-# 5. The 7-Step Bean Lifecycle Pipeline
-
-Spring does not simply call `new MyBean()`. It executes a sophisticated, deterministic lifecycle:
-
-### 5.1 Visualizing the Lifecycle Stages
+### 3.4 The 7-Step Bean Lifecycle Pipeline
 
 ```
- 1. Instantiation          ──►  new MyService() called
+ 1. Instantiation          ──►  Constructor called: new MyService()
          │
- 2. Populate Properties    ──►  Dependencies injected into fields / constructor
+ 2. Populate Properties    ──►  Dependencies injected via constructor / fields
          │
  3. Aware Interfaces       ──►  BeanNameAware, ApplicationContextAware notified
          │
  4. BeanPostProcessor      ──►  postProcessBeforeInitialization()
          │
- 5. Initialization         ──►  @PostConstruct method executed! (Warmup logic)
+ 5. Initialization         ──►  @PostConstruct method executed!
          │
  6. BeanPostProcessor      ──►  postProcessAfterInitialization() (AOP Proxy wrapped)
          │
  ══════════════════════════════════════════════════════════════════════════
-    READY FOR SERVICE      ──►  Bean serves live application requests!
+    READY FOR SERVICE      ──►  Bean actively handles production traffic!
  ══════════════════════════════════════════════════════════════════════════
          │
- 7. Destruction            ──►  @PreDestroy executed on app shutdown!
+ 7. Destruction            ──►  @PreDestroy executed on graceful application shutdown!
 ```
 
 ---
 
-### 5.2 `@PostConstruct`: Pre-Warming AI Models
+### 3.5 Pre-Warming AI Models with `@PostConstruct`
 
-Suppose your application connects to a local Ollama instance or loads an ONNX embedding model into RAM. You do not want the very first user to experience a 10-second cold-start delay!
-
-You annotate an initialization method with **`@PostConstruct`**:
-- Runs **after** all dependencies are injected.
-- Guarantees everything is wired before initialization code runs.
+When running local models (via Ollama or ONNX in-memory vectors), the first user request might experience a 5-to-10 second cold-start latency spike. Use `@PostConstruct` to warm up weights during boot:
 
 ```java
 package com.javagenai.day10;
@@ -305,19 +292,19 @@ public class LocalEmbeddingEngine {
 
     @PostConstruct
     public void warmUpEngine() {
-        System.out.println("[LocalEmbeddingEngine] Starting up...");
-        System.out.println("[LocalEmbeddingEngine] Pre-loading 384-dimensional vector weights into RAM...");
-        // Warmup inference
-        System.out.println("[LocalEmbeddingEngine] ✅ Engine warmed up! Latency ready for sub-5ms queries.");
+        System.out.println("[LocalEmbeddingEngine] Bootstrapping...");
+        System.out.println("[LocalEmbeddingEngine] Pre-loading vector embedding model into memory...");
+        // Warm-up inference
+        System.out.println("[LocalEmbeddingEngine] ✅ Model warmed up! Ready for sub-5ms queries.");
     }
 }
 ```
 
 ---
 
-### 5.3 `@PreDestroy`: Graceful Resource Cleanup
+### 3.6 Graceful Resource Teardown with `@PreDestroy`
 
-When your application shuts down (e.g., during a Docker rolling restart or `SIGTERM`), you must close database connections, release GPU memory, and flush pending log queues:
+When an application receives a `SIGTERM` signal (e.g., Kubernetes rolling pod update), `@PreDestroy` executes before the JVM halts:
 
 ```java
 package com.javagenai.day10;
@@ -330,64 +317,151 @@ public class VectorDatabaseConnector {
 
     @PreDestroy
     public void disconnect() {
-        System.out.println("[VectorDatabaseConnector] Application shutting down.");
-        System.out.println("[VectorDatabaseConnector] Flushing in-memory vector buffers to disk...");
-        System.out.println("[VectorDatabaseConnector] ✅ Closed PostgreSQL connection pool cleanly.");
+        System.out.println("[VectorDatabaseConnector] Application shutdown detected.");
+        System.out.println("[VectorDatabaseConnector] Flushing memory buffers to pgvector...");
+        System.out.println("[VectorDatabaseConnector] ✅ Database connections closed cleanly.");
     }
 }
 ```
 
 ---
 
-# 6. Circular Dependencies: The Infinite Chicken-and-Egg Loop
+### 3.7 Circular Dependencies: Detection & Resolution
 
-What happens if Service A needs Service B, but Service B needs Service A?
-
-```
-      ┌────────────┐                ┌────────────┐
-      │  Service A │ ─────────────► │  Service B │
-      └────────────┘                └────────────┘
-            ▲                             │
-            └─────────────────────────────┘
-```
-
-If both use **Constructor Injection**:
-- Spring tries to create `ServiceA`, but needs `ServiceB`.
-- Spring tries to create `ServiceB`, but needs `ServiceA`.
-- **Result**: `BeanCurrentlyInCreationException`! The app refuses to boot.
-
-### The Professional Fix:
-1. **Redesign the Architecture**: Circular dependencies almost always indicate that a third service is hiding inside! Extract the shared functionality into a `SharedService C` that both A and B depend on.
-2. **Never use `@Lazy` hacks** as a permanent solution. Clean design is the hallmark of a senior engineer.
+If `ServiceA` requires `ServiceB` in its constructor, and `ServiceB` requires `ServiceA`:
+- Spring cannot determine which bean to instantiate first.
+- The boot process halts with `BeanCurrentlyInCreationException`.
+- **The Senior Fix**: Extract shared operations into a distinct `ServiceC` so that dependencies flow in one direction without circular cycles.
 
 ---
 
-# 7. Key Takeaways & Summary
+# 4. Prerequisite & Supporting Concepts
 
-```
-                  ┌─────────────────────────────────┐
-                  │       DAY 10 CHEAT SHEET        │
-                  └────────────────┬────────────────┘
-                                   │
-         ┌─────────────────────────┼─────────────────────────┐
-         ▼                         ▼                         ▼
-  [ Stereotypes ]          [ Scopes ]                [ Lifecycle Hooks ]
-  • @Component: Generic    • singleton (default):    • @PostConstruct: runs
-  • @Service: Business AI    1 shared instance         after injection to
-  • @Repository: Database  • prototype: new instance   pre-warm models
-    exception translation    on every request        • @PreDestroy: runs on
-  • @RestController: HTTP  • Singletons must be        shutdown to flush
-    endpoints                strictly stateless        buffers cleanly
+### Prerequisite / Supporting Concept: Classpath Scanning (@ComponentScan) Mechanics
+
+When a Spring Boot application starts, `@SpringBootApplication` enables **`@ComponentScan`**.
+Spring scans all `.class` files in the package and its sub-packages, reading class-level bytecode metadata using ASM. When it detects `@Component` or its stereotypes, it creates `BeanDefinition` metadata objects in memory.
+
+---
+
+### Prerequisite / Supporting Concept: Statelessness vs. Stateful Architecture
+
+- **Stateless Bean**: Contains no mutable instance fields. All request state is passed via method parameters. Can safely be executed by 10,000 concurrent threads simultaneously (Singleton).
+- **Stateful Bean**: Contains instance fields that change during execution. Must be scoped per request, per user, or guarded by synchronization (Prototype / RequestScope).
+
+---
+
+### Prerequisite / Supporting Concept: BeanPostProcessor & Proxy Wrapping Basics
+
+A `BeanPostProcessor` is a Spring internal extension point. In step 6 of the lifecycle, Spring intercepts initialized beans. If a bean has `@Transactional` or security annotations, Spring wraps the bean inside a dynamic CGLIB/JDK **Proxy object** to handle cross-cutting behavior.
+
+---
+
+# 5. Advanced Depth (Intermediate → Advanced)
+
+### 5.1 Senior Deep Dive: The Prototype-in-Singleton Injection Problem
+
+A classic senior interview question:
+> *"What happens when you inject a `@Scope("prototype")` bean directly into a `@Scope("singleton")` bean via constructor injection?"*
+
+- **The Trap**: The singleton bean is only instantiated **once** at startup. Its constructor runs only once. Therefore, the prototype bean is injected **once**, behaving like a singleton!
+- **The Solution**: Use **`ObjectProvider<T>`** or `@Lookup` to request a fresh prototype instance on demand:
+
+```java
+@Service
+public class ChatService {
+    private final ObjectProvider<ChatConversationSession> sessionProvider;
+
+    public ChatService(ObjectProvider<ChatConversationSession> sessionProvider) {
+        this.sessionProvider = sessionProvider;
+    }
+
+    public void handleNewUser() {
+        ChatConversationSession freshSession = sessionProvider.getObject(); // Mints brand new instance!
+    }
+}
 ```
 
 ---
 
-# 8. Practice Exercises & Full Solutions
+### 5.2 Lifecycle Callback Sequencing & Aware Interfaces
 
-### 🏋️ Exercise 1: Building a Stateful Chat Session Factory
+1. `BeanNameAware.setBeanName()`
+2. `BeanFactoryAware.setBeanFactory()`
+3. `ApplicationContextAware.setApplicationContext()`
+4. `BeanPostProcessor.postProcessBeforeInitialization()`
+5. `@PostConstruct` / `InitializingBean.afterPropertiesSet()`
+6. `BeanPostProcessor.postProcessAfterInitialization()` (AOP Proxies created here)
+
+---
+
+### 5.3 Common Mistakes & Misconceptions (With Bad vs. Good Code)
+
+#### Mistake 1: Storing User State in a Singleton Bean
+**Bad Code:**
+```java
+@Service // ❌ Singleton holding user-specific mutable state!
+public class BadChatBot {
+    private String currentUserPrompt; // Data leaks between concurrent users!
+}
+```
+**Correct Code:**
+```java
+@Service
+public class GoodChatBot {
+    // ✅ Stateless: pass prompt as method argument
+    public String handle(String userPrompt) { ... }
+}
+```
+
+#### Mistake 2: Heavy Blocking Logic in `@PostConstruct` Stalling Application Boot
+Placing a 60-second blocking download in `@PostConstruct` delays application startup and causes Kubernetes readiness probes to fail. Offload heavy downloads to a background thread or trigger them asynchronously.
+
+---
+
+### 5.4 Architectural Trade-Offs: Eager Initialization vs. Lazy Bootstrapping
+
+- **Eager Initialization (Default)**: All singletons are created at startup. Catches missing dependencies and bad configs immediately, but increases startup time.
+- **Lazy Initialization (`@Lazy`)**: Beans are instantiated only when first called. Decreases startup time, but defers configuration and memory errors to runtime.
+
+---
+
+# 6. Quick Recap
+
+| Annotation / Concept | Scope / Phase | Purpose |
+| :--- | :--- | :--- |
+| **`@Component`** | Class Level | Generic Spring-managed bean. |
+| **`@Service`** | Class Level | Business layer stereotype for AI orchestration. |
+| **`@Repository`** | Class Level | Persistence stereotype with automatic SQL exception translation. |
+| **`singleton`** | Default Scope | Exactly 1 shared instance across entire application. |
+| **`prototype`** | Per Request Scope | Brand-new instance created on every injection or call. |
+| **`@PostConstruct`**| Lifecycle Stage 5 | Initialization hook to warm up models or test connections. |
+| **`@PreDestroy`** | Lifecycle Stage 7 | Teardown hook to flush buffers and close connections. |
+
+---
+
+# 7. Self-Check Questions & Practice Exercises
+
+### Self-Check Questions (Basic to Advanced)
+
+1. **What is the difference between `@Component` and `@Service`?**
+   - *Answer*: Technically, `@Service` is a specialized meta-annotation containing `@Component`. Semantically, `@Service` clarifies that the class coordinates business logic, making architectural intent obvious and enabling service-specific tooling.
+2. **What is the default scope of a Spring Bean and what constraint does it impose?**
+   - *Answer*: `singleton`. It requires that the bean must be strictly stateless or thread-safe, as it will be accessed concurrently across multiple threads.
+3. **When does `@PostConstruct` execute in the bean lifecycle?**
+   - *Answer*: Immediately after the bean has been instantiated and all dependencies have been injected, but before the bean is made available to the rest of the application.
+4. **How do you safely inject a prototype bean into a singleton service so that new instances are generated on each request?**
+   - *Answer*: By injecting an `ObjectProvider<T>` and invoking `provider.getObject()`, or by using method injection via `@Lookup`.
+5. **What is the purpose of `@PreDestroy` in production AI systems?**
+   - *Answer*: It enables graceful resource teardown during application shutdown, ensuring vector buffers are flushed to disk and database connections are closed cleanly.
+
+---
+
+### Hands-On Practice Exercises with Full Solutions
+
+#### 🏋️ Exercise 1: Building a Stateful Chat Session Factory
 **Objective**: Build a `@Service` named `ChatSessionManager` that creates and tracks prototype-scoped `ChatConversationSession` instances keyed by a `UUID sessionId`.
 
-#### Solution:
 ```java
 package com.javagenai.day10;
 
@@ -397,7 +471,6 @@ import java.util.*;
 
 @Service
 public class ChatSessionManager {
-    // ObjectProvider allows requesting new prototype beans on demand!
     private final ObjectProvider<ChatConversationSession> sessionProvider;
     private final Map<UUID, ChatConversationSession> activeSessions = new HashMap<>();
 
@@ -420,10 +493,9 @@ public class ChatSessionManager {
 
 ---
 
-### 🏋️ Exercise 2: Self-Testing Vector Store with `@PostConstruct`
-**Objective**: Write a `@Component` named `SelfTestingVectorStore` that automatically runs a test vector insertion during startup inside `@PostConstruct`, logging a warning if the health check fails.
+#### 🏋️ Exercise 2: Self-Testing Vector Store with `@PostConstruct`
+**Objective**: Build a `@Component` named `SelfTestingVectorStore` that automatically runs a connectivity ping during startup inside `@PostConstruct`.
 
-#### Solution:
 ```java
 package com.javagenai.day10;
 
@@ -445,31 +517,15 @@ public class SelfTestingVectorStore {
     }
 
     private boolean executePing() {
-        // Simulated network ping
-        return true;
+        return true; // Simulated ping
     }
 }
 ```
 
 ---
 
-## 9. Self-Check Quiz
-
-1. **What is the difference between `@Component` and `@Service`?**
-   - *Answer*: Technically, `@Service` is a specialized `@Component` with the same behavior. Semantically, `@Service` signifies that the class holds business logic, making the architectural intent clear to developers and enabling service-layer tooling (like transaction management).
-2. **What is the default scope of a Spring Bean?**
-   - *Answer*: `singleton` (one instance per `ApplicationContext`).
-3. **Why must singleton beans be stateless in a web application?**
-   - *Answer*: Because in a multi-threaded web application, multiple user requests access the same singleton instance concurrently. Mutable instance fields would cause race conditions and data leaks across users.
-4. **When does a method annotated with `@PostConstruct` execute?**
-   - *Answer*: Immediately after the bean has been instantiated and all its dependencies have been injected, but before the bean is made available to the rest of the application.
-5. **How can you obtain a new instance of a `prototype` bean from inside a `singleton` service?**
-   - *Answer*: By injecting an `ObjectProvider<MyPrototypeBean>` and calling `provider.getObject()`, or by using a factory method.
-
----
-
 <p align="center">
-  <b>Awesome job finishing Day 10! 🎉</b><br>
-  You now have a crystal-clear mental model of Spring's Bean lifecycle, component scanning, and scopes.<br>
-  Tomorrow on <b>Day 11</b>, we master <b>Dependency Injection In-Depth</b>: Constructor vs Field Injection, <code>@Qualifier</code>, <code>@Primary</code>, and externalizing AI configurations with <code>@ConfigurationProperties</code>! Keep going strong!
+  <b>Day 10 Complete! 🎉</b><br>
+  Proceed to <b>Day 11</b>: <b>Dependency Injection In-Depth (@Qualifier, @Primary, and @ConfigurationProperties)</b>.<br>
+  <a href="../Day_11_Dependency_Injection_In_Depth/Day_11_Dependency_Injection_In_Depth.md"><b>Continue to Day 11 →</b></a>
 </p>

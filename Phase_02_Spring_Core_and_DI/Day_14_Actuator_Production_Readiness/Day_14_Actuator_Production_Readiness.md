@@ -12,101 +12,91 @@
 
 ---
 
-## 📌 What Will You Learn Today?
+## 1. Topic Overview
 
-Hey there, my friend! Huge congratulations on reaching **Day 14** — the graduation capstone of **Phase 2: Spring Core & Dependency Injection**! 🎉
-
-In hobby coding, your program is considered "done" when it runs on your laptop. But in real-world enterprise jobs, writing code is only step one: **You must prove your application is alive, healthy, and ready to serve thousands of users 24/7.**
-
-Think about it:
-- If your vector database crashes in the middle of the night, how does your cloud server know to stop sending user requests there?
-- If an AI API suddenly gets 10x slower, how does your team see the alert before your customers get angry?
-
-**Spring Boot Actuator** gives you an entire production monitoring dashboard right out of the box with zero extra code!
-
-By the end of today, you will clearly understand:
-- ✅ **What is Spring Boot Actuator?**: The built-in health inspection and metrics system.
-- ✅ **Health Checks (`/actuator/health`)**: Liveness (is the app alive?) vs. Readiness (is the app ready to take AI questions?).
-- ✅ **Custom `HealthIndicator` for AI**: Writing our own health checks for vector databases and AI models.
-- ✅ **Metrics with Micrometer (`/actuator/metrics`)**: Tracking token counts, user requests, and response times.
-- ✅ **Prometheus & Grafana Integration**: Exporting real-time numbers to beautiful visual dashboards.
-- ✅ **Actuator Security**: Keeping health checks visible while locking down sensitive internal passwords and keys.
-- ✅ **Phase 2 Graduation Review**: Mastering IoC, Beans, Scopes, Auto-Configuration, AOP, and Production Health.
+Spring Boot Actuator is an enterprise operational framework that exposes production-grade telemetry, diagnostic endpoints, and health sensors directly from a running Spring Boot microservice. In enterprise Generative AI systems, Actuator provides real-time visibility into AI provider connectivity, vector database index latency, token consumption rates, and JVM container health, ensuring automated orchestrators like Kubernetes can detect anomalies, route traffic reliably, and scale infrastructure without downtime.
 
 ---
 
-> 💡 **New Word Alert! Plain English Definitions for Today's Concepts**
->
-> - **Spring Boot Actuator**: The built-in dashboard of gauges, sensors, and dials inside your Spring Boot app. It exposes ready-to-use HTTP endpoints (like `/actuator/health`) so you can monitor your running app in production.
-> - **Health Indicator (`HealthIndicator`)**: A small diagnostic routine you write in Java to test if a specific subsystem is working. For example, an `AiModelHealthIndicator` pings your AI model every 30 seconds to make sure it's responding with `UP` status.
-> - **Liveness Probe**: A check that asks: *"Is the JVM process running, or is it frozen/deadlocked?"* If it fails, Kubernetes terminates the container and reboots a fresh one.
-> - **Readiness Probe**: A check that asks: *"Is the vector database connected and warmed up?"* If it's still booting, the cloud load balancer holds traffic so users never receive an error page.
-> - **Micrometer**: The universal metrics translator. Just as SLF4J is a standard facade for logging, Micrometer lets you record counters, timers, and token usage and export them to monitoring tools like Prometheus and Grafana.
+## 2. Basic Foundations (True Zero)
 
----
+### Plain English Definitions
+- **Spring Boot Actuator**: The built-in operational telemetry dashboard inside your Spring Boot application that exposes ready-to-use HTTP and JMX endpoints (e.g., `/actuator/health`, `/actuator/metrics`) to observe system vitals.
+- **Health Indicator (`HealthIndicator`)**: A diagnostic probe in Java that tests a specific subsystem (such as a database, cache, or external LLM API) and reports whether it is `UP`, `DOWN`, or `DEGRADED`.
+- **Liveness Probe**: A cloud container diagnostic check asking: *"Is the JVM process alive, or is it frozen/deadlocked?"* If it fails, the orchestrator (like Kubernetes) kills the container and boots a fresh replacement.
+- **Readiness Probe**: A diagnostic check asking: *"Has the application finished initializing its vector indexes and warming up connections, and is it ready to handle user prompts?"* If it reports `DOWN`, the load balancer pauses routing user queries until recovery.
+- **Micrometer**: A dimensional, vendor-neutral application metrics facade for Java (analogous to SLF4J for logging) that collects operational counters, timers, and gauges and exports them to monitoring platforms like Prometheus, Datadog, or Grafana.
 
-## 🗺️ Table of Contents
-
-- [1. Real-World Analogy: The Fighter Jet Cockpit Display](#1-real-world-analogy-the-fighter-jet-cockpit-display)
-- [2. Setting Up Spring Boot Actuator](#2-setting-up-spring-boot-actuator)
-- [3. Health Checks: Liveness vs. Readiness](#3-health-checks-liveness-vs-readiness)
-  - [3.1 Liveness: Is the JVM Alive or Deadlocked?](#31-liveness-is-the-jvm-alive-or-deadlocked)
-  - [3.2 Readiness: Can We Accept AI Queries Right Now?](#32-readiness-can-we-accept-ai-queries-right-now)
-- [4. Building Custom AI Health Indicators](#4-building-custom-ai-health-indicators)
-  - [4.1 `VectorDatabaseHealthIndicator`](#41-vectordatabasehealthindicator)
-  - [4.2 `OllamaHealthIndicator`](#42-ollamahealthindicator)
-- [5. Application Metrics with Micrometer](#5-application-metrics-with-micrometer)
-  - [5.1 Counter: Tracking Total Tokens Consumed](#51-counter-tracking-total-tokens-consumed)
-  - [5.2 Timer: Recording P95/P99 LLM Inference Latency](#52-timer-recording-p95p99-llm-inference-latency)
-- [6. Securing Actuator in Production](#6-securing-actuator-in-production)
-- [7. Phase 2 Graduation Capstone Summary](#7-phase-2-graduation-capstone-summary)
-- [8. Key Takeaways & Summary](#8-key-takeaways--summary)
-- [9. Practice Exercises & Full Solutions](#9-practice-exercises--full-solutions)
-- [10. Self-Check Quiz](#10-self-check-quiz)
-
----
-
-# 1. Real-World Analogy: The Fighter Jet Cockpit Display
-
+### Relatable Physical Analogy: The Fighter Jet Cockpit Display
 ```
                 A MICROSERVICE WITHOUT ACTUATOR (Flying Blind)
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ You fly a supersonic jet through heavy clouds. You have no altimeter,       │
-│ no fuel gauge, no radar, and no engine temperature lights. You only find    │
-│ out you are out of fuel when the engines suddenly stop!                     │
+│ You fly a supersonic jet through heavy fog. You have no altimeter, no fuel  │
+│ gauge, no radar, and no oil pressure light. You only discover you are out   │
+│ of fuel when both engines suddenly flame out mid-flight!                    │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       vs.
                 A MICROSERVICE WITH ACTUATOR (The Heads-Up Display)
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ The pilot has a comprehensive dashboard:                                    │
-│ • Green Light: Fuel pumps and oxygen nominal (Health Check: UP).            │
-│ • Digital Gauges: Real-time speed and fuel burn rate (Micrometer Metrics).  │
-│ • Telemetry Radio: Streaming sensor data to ground control (Prometheus).    │
+│ The pilot is equipped with a digital Heads-Up Display:                      │
+│ • Green Status Light: Oxygen and engines nominal (Health Check: UP).        │
+│ • Digital Gauges: Real-time speed and burn rate (Micrometer Metrics).       │
+│ • Telemetry Transponder: Streaming diagnostic data to base (Prometheus).   │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Spring Boot Actuator is the **Heads-Up Display (HUD)** of your enterprise AI application.
+Spring Boot Actuator is the **Heads-Up Display (HUD)** of your cloud-native enterprise AI microservice.
+
+### Minimal Beginner-Friendly Working Code Example
+
+Let us examine how to register a minimal custom health indicator in pure Spring Boot:
+
+```java
+package com.javagenai.day14;
+
+import org.springframework.boot.actuate.health.Health;
+import org.springframework.boot.actuate.health.HealthIndicator;
+import org.springframework.stereotype.Component;
+
+@Component
+public class MinimalAiHealthIndicator implements HealthIndicator {
+
+    @Override
+    public Health health() {
+        boolean llmProviderReachable = checkConnection();
+
+        if (llmProviderReachable) {
+            return Health.up()
+                .withDetail("provider", "OpenAI")
+                .withDetail("latency_ms", 42)
+                .build();
+        } else {
+            return Health.down()
+                .withDetail("error", "LLM Gateway connection timed out")
+                .build();
+        }
+    }
+
+    private boolean checkConnection() {
+        // Simulates a quick network health ping
+        return true;
+    }
+}
+```
+
+#### Line-by-Line Walkthrough
+1. `@Component`: Registers this class as a Spring bean inside the IoC container.
+2. `implements HealthIndicator`: Marks this bean as a health contributor that Actuator automatically invokes during `/actuator/health` requests.
+3. `Health.up().withDetail(...)`: Constructs an `UP` status object accompanied by diagnostic metadata (e.g., latency in ms).
+4. `Health.down().withDetail(...)`: Constructs a `DOWN` status object with error context if connectivity fails.
+5. Spring Actuator aggregates this check into the global application status JSON payload automatically.
 
 ---
 
-## 🧭 The Plain English Bridge: Spring Boot Actuator Demystified
+## 3. Core Concept Walkthrough (Basic → Intermediate)
 
-If you've only written code on your laptop, deploying to production or Kubernetes can feel scary. Actuator gives you instant visibility with zero custom code:
-
-| Production Concept | What Actuator Provides | Plain English Meaning |
-| :--- | :--- | :--- |
-| **`/actuator/health`** | A JSON report showing if DB, disk, and AI connections are `UP` or `DOWN`. | The doctor's stethoscope: tells you if the app is breathing. |
-| **Liveness Probe** | `/actuator/health/liveness` | *"Is the app stuck in an infinite loop?"* If YES, Kubernetes reboots the container. |
-| **Readiness Probe** | `/actuator/health/readiness` | *"Has the app finished warming up AI models?"* If NO, Kubernetes pauses user traffic until ready. |
-| **`/actuator/metrics`** | Micrometer telemetry (CPU, JVM heap memory, request rate, token counts). | The speedometer and fuel gauge on your car dashboard. |
-| **Prometheus Exporter** | `/actuator/prometheus` format | Standard raw numbers format that Prometheus scrapes every 15 seconds to draw Grafana charts. |
-| **Security Warning!** | Keep `/actuator/env` and `/beans` private! | Never expose all endpoints to the public internet! It can leak secret database passwords and API keys. |
-
----
-
-# 2. Setting Up Spring Boot Actuator
-
-To enable production endpoints, add the starter dependency to `pom.xml`:
+### 3.1 Actuator Architecture & Configuration
+To enable Actuator, add the starter dependency to `pom.xml`:
 
 ```xml
 <dependency>
@@ -115,7 +105,7 @@ To enable production endpoints, add the starter dependency to `pom.xml`:
 </dependency>
 ```
 
-By default, for security reasons, Spring Boot only exposes the `/actuator/health` endpoint. In `application.yml`, you configure which endpoints are exposed over HTTP:
+By default, for enterprise security, Spring Boot only exposes `/actuator/health` to HTTP requests. In `application.yml`, you explicitly control which management endpoints are accessible:
 
 ```yaml
 management:
@@ -125,14 +115,11 @@ management:
         include: "health,info,metrics,prometheus"
   endpoint:
     health:
-      show-details: always # Shows granular database and AI subsystem health
+      show-details: always # Exposes granular health of vector DB and AI subsystems
 ```
 
----
-
-# 3. Health Checks: Liveness vs. Readiness
-
-In containerized cloud environments (like Kubernetes or AWS ECS), the orchestrator continuously polls your application using two distinct probes:
+### 3.2 Cloud Probes: Liveness vs. Readiness
+In containerized cloud environments (Kubernetes, AWS ECS, Google Cloud Run), the infrastructure monitors microservices via two specialized probe endpoints:
 
 ```
                             KUBERNETES CONTAINER POD
@@ -140,22 +127,20 @@ In containerized cloud environments (like Kubernetes or AWS ECS), the orchestrat
                  ┌─────────────────────┴─────────────────────┐
                  ▼                                           ▼
       [ /actuator/health/liveness ]               [ /actuator/health/readiness ]
-      "Are you alive or frozen?"                  "Are you ready for traffic?"
+      "Are you alive or deadlocked?"              "Are you ready for traffic?"
                  │                                           │
       • If FAIL: Restart container pod!           • If FAIL: Stop routing user traffic,
-        (Kill deadlocked JVM)                       allow local model warmup to finish!
+        (Kill deadlocked JVM process)               allow index warmup to complete!
 ```
 
----
+- **Liveness (`/actuator/health/liveness`)**: Assesses whether the JVM runtime is responsive. If deadlocked or out of memory, Kubernetes terminates and restarts the container pod.
+- **Readiness (`/actuator/health/readiness`)**: Assesses whether the service is prepared to handle live customer traffic (e.g., database connection pool established, vector embedding cache primed). If not ready, traffic is held without killing the container.
 
-# 4. Building Custom AI Health Indicators
-
-Spring Boot automatically includes health checks for your disk space and relational databases. For AI microservices, you should build custom indicators for your **Vector Database** and **LLM Provider**.
-
-### 4.1 Custom `VectorDatabaseHealthIndicator`
+### 3.3 Building Custom AI Health Indicators
+Spring Boot automatically checks relational databases and disk storage. For enterprise AI services, you must provide health indicators for **Vector Databases** and **LLM Gateways**:
 
 ```java
-package com.javagenai.day14;
+package com.javagenai.day14.health;
 
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
@@ -167,34 +152,34 @@ public class VectorDatabaseHealthIndicator implements HealthIndicator {
     @Override
     public Health health() {
         try {
-            long latencyMs = pingVectorDatabase();
-            if (latencyMs < 500) {
+            long pingLatencyMs = executeVectorPing();
+
+            if (pingLatencyMs < 300) {
                 return Health.up()
-                    .withDetail("vector_db", "PostgreSQL pgvector")
-                    .withDetail("index_status", "HNSW_INDEX_ONLINE")
-                    .withDetail("ping_latency_ms", latencyMs)
+                    .withDetail("vector_engine", "PostgreSQL pgvector")
+                    .withDetail("index_structure", "HNSW_COSINE")
+                    .withDetail("ping_latency_ms", pingLatencyMs)
                     .build();
             } else {
-                return Health.down()
-                    .withDetail("error", "Latency degraded: " + latencyMs + " ms")
+                return Health.status("DEGRADED")
+                    .withDetail("warning", "Vector search latency elevated: " + pingLatencyMs + "ms")
                     .build();
             }
         } catch (Exception ex) {
             return Health.down(ex)
-                .withDetail("error", "Cannot connect to pgvector database socket")
+                .withDetail("error", "Unable to establish socket connection to pgvector cluster")
                 .build();
         }
     }
 
-    private long pingVectorDatabase() {
-        // Simulated sub-10ms vector ping
-        return 8L;
+    private long executeVectorPing() {
+        // Simulated sub-15ms vector index round-trip
+        return 12L;
     }
 }
 ```
 
-When you visit `http://localhost:8080/actuator/health`, Spring returns:
-
+When visiting `http://localhost:8080/actuator/health`, Actuator responds:
 ```json
 {
   "status": "UP",
@@ -203,64 +188,53 @@ When you visit `http://localhost:8080/actuator/health`, Spring returns:
     "vectorDatabase": {
       "status": "UP",
       "details": {
-        "vector_db": "PostgreSQL pgvector",
-        "index_status": "HNSW_INDEX_ONLINE",
-        "ping_latency_ms": 8
+        "vector_engine": "PostgreSQL pgvector",
+        "index_structure": "HNSW_COSINE",
+        "ping_latency_ms": 12
       }
     }
   }
 }
 ```
 
----
+### 3.4 Telemetry with Micrometer: Counters & Timers
+Micrometer standardizes metrics collection across the JVM.
 
-# 5. Application Metrics with Micrometer
-
-**Micrometer** is the vendor-neutral metrics facade for Java (the "SLF4J for metrics"). It allows you to define metrics once and publish them to **Prometheus**, **Datadog**, **CloudWatch**, or **Dynatrace**.
-
-### 5.1 Counter: Tracking Total Tokens Consumed
-
-A **Counter** is a monotonically increasing metric used to count events:
-
+#### 1. Counter: Monitoring Total Token Consumption
 ```java
-package com.javagenai.day14;
+package com.javagenai.day14.metrics;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.stereotype.Service;
 
 @Service
-public class TokenMeterService {
+public class TokenMetricsService {
     private final Counter promptTokensCounter;
     private final Counter completionTokensCounter;
 
-    public TokenMeterService(MeterRegistry registry) {
-        this.promptTokensCounter = Counter.builder("ai.llm.tokens.prompt")
-            .description("Total prompt tokens consumed")
+    public TokenMetricsService(MeterRegistry registry) {
+        this.promptTokensCounter = Counter.builder("ai.tokens.prompt")
+            .description("Total prompt tokens sent to LLM")
             .tag("provider", "openai")
             .register(registry);
 
-        this.completionTokensCounter = Counter.builder("ai.llm.tokens.completion")
-            .description("Total completion tokens generated")
+        this.completionTokensCounter = Counter.builder("ai.tokens.completion")
+            .description("Total completion tokens received from LLM")
             .tag("provider", "openai")
             .register(registry);
     }
 
-    public void recordUsage(int promptTokens, int completionTokens) {
+    public void recordTokenUsage(int promptTokens, int completionTokens) {
         promptTokensCounter.increment(promptTokens);
         completionTokensCounter.increment(completionTokens);
     }
 }
 ```
 
----
-
-### 5.2 Timer: Recording P95/P99 LLM Inference Latency
-
-A **Timer** records both the count of operations and their execution duration distribution:
-
+#### 2. Timer: Measuring P95/P99 Inference Latency
 ```java
-package com.javagenai.day14;
+package com.javagenai.day14.metrics;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -269,130 +243,219 @@ import org.springframework.stereotype.Service;
 import java.util.function.Supplier;
 
 @Service
-public class MonitoredAIService {
-    private final Timer llmInferenceTimer;
+public class MonitoredInferenceService {
+    private final Timer inferenceTimer;
 
-    public MonitoredAIService(MeterRegistry registry) {
-        this.llmInferenceTimer = Timer.builder("ai.llm.inference.duration")
-            .description("Latency distribution of LLM calls")
-            .publishPercentiles(0.5, 0.95, 0.99) // P50, P95, P99 metrics!
+    public MonitoredInferenceService(MeterRegistry registry) {
+        this.inferenceTimer = Timer.builder("ai.llm.inference.latency")
+            .description("Inference latency distribution")
+            .publishPercentiles(0.50, 0.95, 0.99) // P50, P95, P99 percentile distributions!
             .register(registry);
     }
 
-    public String callWithMetrics(Supplier<String> llmCall) {
-        // Automatically records execution time into Prometheus metrics!
-        return llmInferenceTimer.record(llmCall);
+    public String executeWithTelemetry(Supplier<String> inferenceCall) {
+        // Automatically records execution duration into Prometheus metrics registry
+        return inferenceTimer.record(inferenceCall);
     }
 }
 ```
 
 ---
 
-# 6. Securing Actuator in Production
+## 4. Prerequisite & Supporting Concepts
 
+### Prerequisite / Supporting Concept: The Plain English Bridge to Actuator
+
+| Production Concept | What Actuator Exposes | Plain English Translation |
+| :--- | :--- | :--- |
+| **`/actuator/health`** | Aggregated health status JSON (`UP`, `DOWN`, `OUT_OF_SERVICE`). | The medical stethoscope: confirms the application is breathing. |
+| **Liveness Probe** | `/actuator/health/liveness` | *"Is the app completely frozen in a deadlock?"* (If yes, restart). |
+| **Readiness Probe** | `/actuator/health/readiness` | *"Has the app warmed up its models and connections?"* (If no, pause traffic). |
+| **`/actuator/metrics`** | Micrometer performance indicators (JVM heap, GC, token counts). | The speedometer, fuel gauge, and RPM tachometer on your car dashboard. |
+| **`/actuator/prometheus`**| Formatted metrics scraped by Prometheus server every 15 seconds. | High-frequency telemetry stream feeding real-time Grafana dashboards. |
+
+### Prerequisite / Supporting Concept: Metric Types
+- **Counter**: Monotonically increasing number (e.g., total tokens consumed, total HTTP requests).
+- **Gauge**: Instantaneous value that can rise or fall (e.g., active database connections, current JVM heap used).
+- **Timer**: Measures both frequency and duration of short-lived events (e.g., API latency percentiles).
+
+---
+
+## 5. Advanced Depth (Intermediate → Advanced)
+
+### 5.1 Hardening Actuator Security for Production
 > [!CAUTION]
-> Never expose `/actuator/heapdump`, `/actuator/env`, or `/actuator/configprops` to the open internet! They contain sensitive JVM memory contents and environment credentials.
+> Never expose `/actuator/env`, `/actuator/heapdump`, or `/actuator/beans` to the public internet! They expose memory dumps, database credentials, and secret API keys.
 
-In production, you secure Actuator by:
-1. Running Actuator on a private internal management port:
-   ```yaml
-   management:
-     server:
-       port: 9090 # Internal management port separate from public port 8080
-   ```
-2. Securing endpoints with **Spring Security** (covered in Phase 5) so only authorized admin roles can inspect operational metrics.
+In enterprise production architectures, implement two layers of defense:
+
+#### 1. Isolate Actuator on an Internal Management Port
+Bind all actuator traffic to a separate private network port that is unreachable from external internet load balancers:
+```yaml
+management:
+  server:
+    port: 9090 # Internal DevOps/monitoring port only (public traffic on 8080)
+    address: 127.0.0.1
+```
+
+#### 2. Restrict Sensitive Actuator Endpoints via Security
+Only expose harmless diagnostic endpoints publicly, and protect the rest behind authentication:
+```yaml
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,prometheus" # Strictly exclude env, heapdump, beans
+```
+
+### 5.2 Why P95/P99 Percentiles Matter for Generative AI
+A common enterprise mistake is monitoring **average latency** for LLM calls:
+```
+Total Requests: 100
+- 90 requests take 300 ms
+- 10 requests timeout at 25,000 ms (25 seconds)
+
+Average Latency: ~2.77 seconds (Looks acceptable on an executive summary!)
+P99 Latency:     25.00 seconds (Catastrophic degradation for 1 in 10 users!)
+```
+Micrometer's `.publishPercentiles(0.95, 0.99)` exposes the exact latency suffered by the slowest 5% and 1% of users, highlighting model queue bottlenecks and network degradation before widespread outages occur.
 
 ---
 
-# 7. Phase 2 Graduation Capstone Summary
+## 6. Quick Recap
 
-You have officially mastered the core architecture that powers all enterprise Spring Boot and Spring AI applications!
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│             CONGRATULATIONS: PHASE 2 COMPLETED! 🎓                     │
-├────────────────────────────────────────────────────────────────────────┤
-│ Day 09: The Problem Spring Solves — Dependency Hell (Mini-IoC from 0)  │
-│ Day 10: Spring IoC Container, Stereotypes & Bean Lifecycle Pipeline    │
-│ Day 11: Dependency Injection In-Depth: @Qualifier, @Primary & Profiles │
-│ Day 12: Spring Boot Auto-Configuration: Starters & Conditionals        │
-│ Day 13: AOP Cross-Cutting Concerns: Logging, Auditing & Latency Proxies│
-│ Day 14: Spring Boot Actuator, Health Indicators & Micrometer Metrics   │
-└────────────────────────────────────────────────────────────────────────┘
-```
-
-You now possess the foundational engineering fluency of a **senior Java backend engineer**. You understand how Spring creates and manages objects, how auto-configuration activates defaults, how AOP intercepts execution, and how Actuator keeps systems healthy in production.
-
-**You are now fully prepared for Phase 3: Spring Web — Building REST APIs (Days 15–20)!**
+| Component | Endpoint / Class | Primary Function | Enterprise AI Role |
+| :--- | :--- | :--- | :--- |
+| **Health Indicator** | `HealthIndicator` | Evaluates subsystem operational readiness | Pings vector databases and LLM endpoints |
+| **Liveness Check** | `/actuator/health/liveness` | Detects JVM deadlock or fatal freeze | Triggers automatic container restart |
+| **Readiness Check**| `/actuator/health/readiness`| Detects if app is ready for queries | Buffers traffic while warming embeddings |
+| **Token Counter** | `io.micrometer.core...Counter` | Accumulates token volume | Audits cost allocation across business units |
+| **Latency Timer** | `io.micrometer.core...Timer` | Tracks P50/P95/P99 duration distributions | Monitors LLM inference response times |
+| **Security Control**| `management.server.port` | Separates admin telemetry port | Prevents credential leaks to open web |
 
 ---
 
-# 8. Key Takeaways & Summary
+## 7. Self-Check Questions & Practice Exercises
 
-```
-                  ┌─────────────────────────────────┐
-                  │       DAY 14 CHEAT SHEET        │
-                  └────────────────┬────────────────┘
-                                   │
-         ┌─────────────────────────┼─────────────────────────┐
-         ▼                         ▼                         ▼
-  [ Health Indicators ]    [ Micrometer Metrics ]    [ Production Safety ]
-  • Liveness: checks if    • Counters: track total   • Change management port
-    app needs restart        tokens consumed           to private internal port
-  • Readiness: checks if   • Timers: measure P95/P99 • Never expose /heapdump
-    app can take queries     latency distributions     or /env to open web
-  • Implement custom       • Exports to Prometheus   • Actuator is the flight
-    HealthIndicator for AI   for Grafana dashboards    recorder of your app
-```
+### Self-Check Questions
+
+1. **What is the architectural distinction between Kubernetes Liveness and Readiness probes?**
+   - *Answer*: A Liveness probe verifies the JVM process is alive and responsive; if it fails, Kubernetes terminates and restarts the container pod. A Readiness probe verifies whether the microservice is prepared to serve incoming user queries; if it fails, traffic is temporarily stopped from reaching the pod without terminating the process.
+2. **How do you register a custom health check for an AI vector store in Spring Boot?**
+   - *Answer*: Define a `@Component` class that implements Spring Boot's `HealthIndicator` interface and return `Health.up()` or `Health.down()` with diagnostic metadata from its `health()` method.
+3. **What role does Micrometer serve in the Java observability ecosystem?**
+   - *Answer*: Micrometer acts as a dimensional, vendor-neutral metrics facade that records application telemetry (counters, timers, gauges) and exports them seamlessly to monitoring backends like Prometheus, Datadog, or Grafana.
+4. **Why is tracking P95/P99 latency more reliable than tracking average latency in LLM applications?**
+   - *Answer*: LLM responses exhibit high latency variance. Averages mask extreme tail-latency spikes where a percentage of queries experience timeouts or multi-second delays, while percentiles expose the exact experience of the slowest requests.
+5. **How should Spring Boot Actuator be secured against credential leakage in production?**
+   - *Answer*: Move Actuator to a private internal management port (`management.server.port`), expose only safe endpoints (`health`, `prometheus`), exclude sensitive endpoints (`env`, `heapdump`), and enforce role-based access control via Spring Security.
 
 ---
 
-# 9. Practice Exercises & Full Solutions
+### Hands-On Practice Exercises
 
-### 🏋️ Exercise 1: Build a Simulated Health Status Evaluator
-**Objective**: Create a class `AIHealthReporter` that evaluates three subsystem indicators (LLM Gateway, pgvector DB, and Token Rate Limiter) and returns an overall status of `HEALTHY`, `DEGRADED`, or `DOWN`.
+#### 🏋️ Exercise 1: Build an AI Cluster Health Evaluation Engine
+**Objective**: Construct an `AiClusterHealthEvaluator` that aggregates the status of three critical subsystems (Vector DB, Primary LLM Gateway, and Cache) and determines if the overall cluster is `HEALTHY`, `DEGRADED`, or `DOWN`.
 
-#### Solution:
 ```java
 package com.javagenai.day14;
 
 import java.util.Map;
 
-public class AIHealthReporter {
+public class AiClusterHealthEvaluator {
 
-    public enum Status { HEALTHY, DEGRADED, DOWN }
+    public enum ClusterStatus { HEALTHY, DEGRADED, DOWN }
 
-    public static Status evaluateCluster(Map<String, Boolean> subsystemChecks) {
-        if (!subsystemChecks.getOrDefault("vector_db", false)) {
-            return Status.DOWN; // Core persistence is down
+    public static ClusterStatus evaluate(Map<String, Boolean> subsystemStatuses) {
+        boolean vectorDbOnline = subsystemStatuses.getOrDefault("vector_db", false);
+        boolean primaryLlmOnline = subsystemStatuses.getOrDefault("primary_llm", false);
+        boolean cacheOnline = subsystemStatuses.getOrDefault("redis_cache", false);
+
+        // If core vector storage is down, the entire RAG pipeline cannot function
+        if (!vectorDbOnline) {
+            return ClusterStatus.DOWN;
         }
-        if (!subsystemChecks.getOrDefault("primary_llm", false)) {
-            return Status.DEGRADED; // Can fallback to secondary local model
+
+        // If primary LLM is down but fallback model can be used, status is degraded
+        if (!primaryLlmOnline || !cacheOnline) {
+            return ClusterStatus.DEGRADED;
         }
-        return Status.HEALTHY;
+
+        return ClusterStatus.HEALTHY;
+    }
+
+    public static void main(String[] args) {
+        Map<String, Boolean> testStatus = Map.of(
+            "vector_db", true,
+            "primary_llm", false,
+            "redis_cache", true
+        );
+
+        ClusterStatus result = evaluate(testStatus);
+        System.out.println("Evaluated Cluster Status: " + result); // Output: DEGRADED
+    }
+}
+```
+
+#### 🏋️ Exercise 2: Build a Thread-Safe In-Memory Metrics Recorder
+**Objective**: Build a simulated pure Java metrics recorder that measures prompt execution latency and computes P95 percentile response times without external libraries.
+
+```java
+package com.javagenai.day14;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+
+public class InMemoryLatencyMetrics {
+
+    private final List<Long> latencyRecordings = new CopyOnWriteArrayList<>();
+
+    public void record(long durationMs) {
+        latencyRecordings.add(durationMs);
+    }
+
+    public double calculatePercentile(double percentile) {
+        if (latencyRecordings.isEmpty()) return 0.0;
+
+        List<Long> sorted = new ArrayList<>(latencyRecordings);
+        Collections.sort(sorted);
+
+        int index = (int) Math.ceil(percentile * sorted.size()) - 1;
+        index = Math.max(0, Math.min(index, sorted.size() - 1));
+        return sorted.get(index);
+    }
+
+    public static void main(String[] args) {
+        InMemoryLatencyMetrics metrics = new InMemoryLatencyMetrics();
+        for (int i = 1; i <= 100; i++) {
+            metrics.record(i * 10L); // 10ms to 1000ms
+        }
+
+        System.out.println("P50 Latency: " + metrics.calculatePercentile(0.50) + " ms"); // 500 ms
+        System.out.println("P95 Latency: " + metrics.calculatePercentile(0.95) + " ms"); // 950 ms
+        System.out.println("P99 Latency: " + metrics.calculatePercentile(0.99) + " ms"); // 990 ms
     }
 }
 ```
 
 ---
 
-## 10. Self-Check Quiz
+## 🎓 Phase 2 Graduation Milestone: You Did It!
 
-1. **What is the difference between Kubernetes Liveness and Readiness probes?**
-   - *Answer*: A Liveness probe checks if the JVM process is alive and responsive (if it fails, Kubernetes kills and restarts the pod). A Readiness probe checks if the application is fully initialized and capable of serving user queries (if it fails, traffic is temporarily redirected away from the pod without killing it).
-2. **How do you add a custom health check for a Vector Database in Spring Boot?**
-   - *Answer*: Create a `@Component` class that implements Spring Boot's `HealthIndicator` interface and return `Health.up()` or `Health.down()` from its `health()` method.
-3. **What is Micrometer?**
-   - *Answer*: A dimensional, vendor-neutral application metrics facade for Java that collects metrics (counters, gauges, timers) and exports them to monitoring platforms like Prometheus, Datadog, or Grafana.
-4. **Why is it critical to track P95 and P99 latency rather than just average latency for LLM calls?**
-   - *Answer*: Average latency hides severe bottlenecks. If 90% of calls take 500ms but 10% of calls take 15 seconds, the average might look acceptable, while 1 in 10 users experiences an unacceptable delay.
-5. **How do you prevent sensitive operational endpoints from leaking to the public internet?**
-   - *Answer*: By configuring `management.server.port` to an internal private port, selectively exposing only safe endpoints via `management.endpoints.web.exposure.include`, and securing the `/actuator/**` path with Spring Security.
+You have completed **Phase 2: Spring Core & Dependency Injection**! You have mastered the foundational enterprise mechanics:
+- **Day 09**: Solving Dependency Hell with IoC Containers
+- **Day 10**: The Spring Bean Lifecycle Pipeline & Stereotypes
+- **Day 11**: Constructor Injection, `@Qualifier`, and Environmental Profiles
+- **Day 12**: Spring Boot Auto-Configuration & Conditional Matching
+- **Day 13**: Aspect-Oriented Programming (AOP) for Clean Cross-Cutting Concerns
+- **Day 14**: Spring Boot Actuator, Health Checks, and Micrometer Telemetry
+
+You are now prepared to build production REST APIs in **Phase 3: Spring Web (Days 15–20)**!
 
 ---
 
-<p align="center">
-  <b>🎉 Congratulations on Graduating Phase 2! 🎉</b><br>
-  You have officially mastered Spring Core, Dependency Injection, Beans, Auto-Configuration, AOP, and Production Actuator monitoring! You now understand the complete foundation of enterprise Spring Boot.<br>
-  Tomorrow, we launch <b>Phase 3: Spring Web — Building REST APIs (Days 15–20)</b> — starting with <b>HTTP Deep Dive & Your First REST Controller</b>: GET, POST, PUT, DELETE, and building a real Prompt Library CRUD API! Celebrate your progress, you're crushing it!
-</p>
+| ⬅️ Previous Day | 📚 Course Hub | ➡️ Next Day |
+|:---|:---:|---:|
+| [← Day 13: AOP — Cross-Cutting Concerns](../Day_13_AOP_Cross_Cutting_Concerns/Day_13_AOP_Cross_Cutting_Concerns.md) | [All 60 Days Overview](../../README.md) | [Day 15: HTTP Deep Dive & First REST Controller →](../../Phase_03_Spring_Web_REST_APIs/Day_15_HTTP_Deep_Dive_First_REST_Controller/Day_15_HTTP_Deep_Dive_First_REST_Controller.md) |

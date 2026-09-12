@@ -12,118 +12,105 @@
 
 ---
 
-## 📌 What Will You Learn Today?
+## 1. Topic Overview
 
-Hey there, friend! Welcome to Day 13. In production AI microservices, your core business logic is only about 20% of the code. The other 80% is what engineers call **enterprise plumbing**:
-1. **Auditing**: Recording every incoming prompt and AI response for safety and compliance.
-2. **Metrics**: Measuring how long the AI took to respond (latency) and how many tokens were used.
-3. **Resilience**: Retrying network calls if the AI model temporarily times out.
-4. **Rate Limiting**: Preventing users from spamming your AI service.
-
-If you write this plumbing inside every single method in your app, your clean code quickly turns into an unreadable, copy-pasted mess.
-
-**Aspect-Oriented Programming (AOP)** solves this permanently: it lets you write this plumbing **once**, and automatically wrap it around hundreds of methods across your application **without changing a single line of your business code!**
-
-By the end of today, you will clearly understand:
-- ✅ **The AOP Mental Model**: Core Business Logic vs. Cross-Cutting Concerns (the plumbing).
-- ✅ **The 5 Core Concepts**: Aspect, Join Point, Pointcut, Advice, and Target Object (explained simply!).
-- ✅ **The Types of Advice**: `@Before`, `@AfterReturning`, `@AfterThrowing`, and `@Around`.
-- ✅ **The Power of `@Around` Advice**: Timing AI latency and calculating token costs automatically.
-- ✅ **Custom Annotations for AOP**: Creating our own `@TrackTokens` and `@AuditPrompt` tags.
-- ✅ **How Spring Proxies Work**: The invisible "executive assistant" wrapper pattern.
-- ✅ **Building an Enterprise AI Audit Aspect**: Capturing prompts, execution duration, and error rates in clean code.
+Aspect-Oriented Programming (AOP) is a software design paradigm that decouples repetitive, system-wide operational requirements—known as cross-cutting concerns—from primary business domain logic. In enterprise Generative AI engineering, AOP enables developers to implement audit logging for prompt safety, token consumption tracking, latency monitoring, and network retry policies in a single centralized interceptor without polluting core AI inference workflows.
 
 ---
 
-> 💡 **New Word Alert! Plain English Definitions for Today's Concepts**
->
-> - **Cross-Cutting Concern**: Repetitive "plumbing" code that cuts across many unrelated classes—like logging, timing method execution, checking security, or handling retries.
-> - **Aspect-Oriented Programming (AOP)**: A programming style where you pull that repetitive plumbing out of your business methods and put it into a single clean class called an **Aspect**.
-> - **Aspect (`@Aspect`)**: The dedicated Java class holding your reusable plumbing logic.
-> - **Join Point**: A candidate moment in your program's execution where plumbing could be inserted (e.g. when a method is called).
-> - **Pointcut**: The search filter or expression telling Spring *which* methods should get intercepted (e.g. *"Intercept every method annotated with `@TrackTokens`"*).
-> - **Advice**: The actual code that runs. You can run advice `@Before` the method, `@After` it finishes, or `@Around` it (surrounding it to measure how many milliseconds it took).
-> - **Dynamic Proxy**: The invisible wrapper object Spring generates behind the scenes. When a caller invokes your service, it actually speaks to the proxy first, which executes the aspect, then forwards the call to your real code.
+## 2. Basic Foundations (True Zero)
 
----
+### Plain English Definitions
+- **Cross-Cutting Concern**: System-level functionality (such as logging, security checks, latency timing, transaction boundaries, or error retries) that spans across dozens of unrelated classes and methods.
+- **Aspect-Oriented Programming (AOP)**: A programming approach that extracts cross-cutting concerns from your business methods and organizes them into dedicated, reusable classes called **Aspects**.
+- **Aspect (`@Aspect`)**: The dedicated Java class holding your cross-cutting interceptor logic.
+- **Join Point**: A candidate execution point in your program where advice could potentially run (in Spring AOP, join points are always method executions).
+- **Pointcut (`@Pointcut`)**: A pattern expression specifying *which* specific methods or annotated targets should be intercepted.
+- **Advice**: The code action that executes at a join point—classified by timing: `@Before`, `@After`, `@AfterReturning`, `@AfterThrowing`, or `@Around`.
+- **Dynamic Proxy**: An invisible wrapper object generated at runtime by Spring that intercepts method calls from outside callers, executes aspect advice, and forwards calls to the actual target bean.
 
-## 🗺️ Table of Contents
-
-- [1. Real-World Analogy: Airport Security Checkpoints](#1-real-world-analogy-airport-security-checkpoints)
-- [2. The Spaghetti Code Problem in Production AI](#2-the-spaghetti-code-problem-in-production-ai)
-- [3. The Anatomy of Aspect-Oriented Programming](#3-the-anatomy-of-aspect-oriented-programming)
-  - [3.1 Aspect, Pointcut, and Advice](#31-aspect-pointcut-and-advice)
-  - [3.2 Pointcut Expressions Explained](#32-pointcut-expressions-explained)
-- [4. The `@Around` Advice: The Ultimate Swiss Army Knife](#4-the-around-advice-the-ultimate-swiss-army-knife)
-  - [4.1 How `ProceedingJoinPoint` Works](#41-how-proceedingjoinpoint-works)
-  - [4.2 Measuring LLM Latency in Real-Time](#42-measuring-llm-latency-in-real-time)
-- [5. Creating Custom Annotation-Driven Aspects](#5-creating-custom-annotation-driven-aspects)
-  - [5.1 Defining `@LogAITokens`](#51-defining-logaitokens)
-  - [5.2 The Aspect Implementation](#52-the-aspect-implementation)
-- [6. How Spring AOP Works Under the Hood: Dynamic Proxies](#6-how-spring-aop-works-under-the-hood-dynamic-proxies)
-  - [6.1 The Proxy Wrapper Concept](#61-the-proxy-wrapper-concept)
-  - [6.2 The Self-Invocation Gotcha (Interview Favorite!)](#62-the-self-invocation-gotcha-interview-favorite)
-- [7. Key Takeaways & Summary](#7-key-takeaways--summary)
-- [8. Practice Exercises & Full Solutions](#8-practice-exercises--full-solutions)
-- [9. Self-Check Quiz](#9-self-check-quiz)
-
----
-
-# 1. Real-World Analogy: Airport Security Checkpoints
-
-Imagine an international airport with 50 flight gates.
-
+### Relatable Physical Analogy: Airport Security & Customs Checkpoints
 ```
                       AIRPORT WITHOUT AOP (Spaghetti Security)
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ Every individual airline boarding gate must hire its own X-Ray technicians, │
-│ install metal detectors, run passport databases, and maintain bag scales.   │
-│ The flight attendants spend 90% of their time screening luggage!            │
+│ Every individual airline boarding gate must purchase metal detectors,      │
+│ install X-Ray machines, hire baggage screeners, and verify passports.      │
+│ Pilots and flight attendants spend 90% of their shift doing security checks!│
 └─────────────────────────────────────────────────────────────────────────────┘
                                       vs.
                          AIRPORT WITH AOP (Aspect Interception)
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ 1. All passengers pass through a central Security Checkpoint (Aspect).      │
-│ 2. Luggage is scanned, passports are stamped, and weights are logged.       │
-│ 3. Once cleared, passengers walk to their gate.                             │
-│ 4. The boarding gate and pilots focus 100% on FLYING THE PLANE!             │
+│ 2. Luggage is scanned, passports are stamped, and tickets are audited.      │
+│ 3. Once cleared, passengers proceed directly to their designated gate.      │
+│ 4. The pilots and boarding gate staff focus 100% on FLYING THE PLANE!       │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-In your application:
-- **Flying the Plane** is your **Business Service** (`generateSupportAnswer()`).
-- **Security & Baggage Checks** are your **Aspects** (`@AuditPrompt`, `@LogLatency`).
+In your application architecture:
+- **Flying the Plane** is your **Business Service** (e.g., `generateAiChatResponse()`).
+- **Security Checkpoints & Scales** are your **Aspects** (e.g., `@TrackLatency`, `@AuditPrompt`).
 
----
+### Minimal Beginner-Friendly Working Code Example
 
-## 🧭 The Plain English Bridge: Spring AOP Demystified
-
-AOP has notoriously confusing academic vocabulary (Aspects, JoinPoints, Pointcuts, Advices). Here is the plain-English translation into concepts you already know:
-
-| AOP Academic Term | What You Did in Core Java | What Spring AOP Does | Plain English Meaning |
-| :--- | :--- | :--- | :--- |
-| **Cross-Cutting Concern** | Copy-pasting `System.currentTimeMillis()` and `logger.info()` into 50 different methods. | Centralizes repetitive tasks into one reusable class. | Tasks that "cut across" many classes (logging, security, metrics, transactions). |
-| **Aspect (`@Aspect`)** | A helper or interceptor class. | A Spring bean containing code that runs automatically around other methods. | The "Security Guard" standing at the door. |
-| **Join Point** | Any method execution in your program. | A specific moment in code execution where Spring could intervene. | Any door in the building. |
-| **Pointcut (`@Pointcut`)** | An `if` condition: *"If method name ends with 'Service' or has `@Audit`"*. | A pattern rule specifying *which* methods the aspect should intercept. | The list of doors the security guard actually watches. |
-| **Advice (`@Around`, `@Before`)** | Calling `before()` then `method()` then `after()`. | Code that executes before, after, or around the target method. | The action the guard takes (e.g., check ID badge before opening door). |
-| **Spring Proxy** | The Gang-of-Four Proxy Design Pattern. | Spring creates an invisible wrapper around your bean. When someone calls your bean, they actually call the wrapper first! | An executive assistant screening calls before forwarding them to the boss. |
-| **The Self-Invocation Trap** | Calling `this.helperMethod()` inside the same class. | **Bypasses the proxy!** Spring AOP advice will NOT run on internal method calls. | If the boss talks to themselves in their office, the assistant outside doesn't intercept it. |
-
----
-
-# 2. The Spaghetti Code Problem in Production AI
-
-Look at an AI method polluted with manual cross-cutting concerns:
+Let us examine how a minimal simulated proxy intercepts a call to an AI service without altering the service class:
 
 ```java
-// TERRIBLE: Business logic buried in 40 lines of boilerplate
+package com.javagenai.day13;
+
+import java.util.function.Function;
+
+public class MinimalAopDemonstration {
+
+    public static void main(String[] args) {
+        // Business logic target
+        Function<String, String> aiService = prompt -> "AI Output for: " + prompt;
+
+        // Wrap the target with an intercepting aspect function
+        Function<String, String> proxiedService = wrapWithLatencyTracking("AiChatService", aiService);
+
+        // Caller interacts with the proxy seamlessly
+        String response = proxiedService.apply("Tell me a tech joke");
+        System.out.println("Result received by caller: " + response);
+    }
+
+    public static <T, R> Function<T, R> wrapWithLatencyTracking(String serviceName, Function<T, R> target) {
+        return input -> {
+            System.out.println("[PROXY @Before] Starting invocation of: " + serviceName);
+            long start = System.currentTimeMillis();
+
+            R result = target.apply(input); // Forward call to the actual business logic
+
+            long elapsed = System.currentTimeMillis() - start;
+            System.out.println("[PROXY @After] Completed " + serviceName + " in " + elapsed + " ms");
+            return result;
+        };
+    }
+}
+```
+
+#### Line-by-Line Walkthrough
+1. `Function<String, String> aiService`: Represents our pure business method taking a prompt string and returning a response.
+2. `wrapWithLatencyTracking(...)`: Emulates Spring's dynamic proxy wrapping mechanism.
+3. `System.out.println("[PROXY @Before]...")`: Advice executing prior to target invocation.
+4. `R result = target.apply(input)`: Executes the actual underlying business logic (corresponds to `joinPoint.proceed()`).
+5. `long elapsed = ...`: Advice executing after successful target execution to calculate elapsed time.
+
+---
+
+## 3. Core Concept Walkthrough (Basic → Intermediate)
+
+### 3.1 The Spaghetti Code Problem in Production AI
+Without AOP, production requirements drown business logic in repetitive operational boilerplate:
+
+```java
+// ❌ TERRIBLE: Business logic buried in 30 lines of boilerplate plumbing
 public String answerInquiry(String prompt) {
     long start = System.currentTimeMillis();
-    logger.info("AUDIT: Incoming prompt: " + prompt);
+    logger.info("AUDIT: Incoming prompt -> {}", prompt);
 
-    if (containsPII(prompt)) {
-        throw new SecurityException("PII detected!");
+    if (containsSensitivePii(prompt)) {
+        throw new SecurityException("PII detected in prompt!");
     }
 
     String response;
@@ -141,16 +128,16 @@ public String answerInquiry(String prompt) {
 
     long elapsed = System.currentTimeMillis() - start;
     metricsRegistry.recordLatency("llm.call", elapsed);
-    logger.info("AUDIT: Completed in " + elapsed + " ms. Response: " + response);
+    logger.info("AUDIT: Completed in {} ms with response: {}", elapsed, response);
 
     return response;
 }
 ```
 
-With Spring AOP, your business method shrinks back to what it should be:
+With Spring AOP, the business service remains clean, declarative, and focused solely on business domain needs:
 
 ```java
-// CLEAN: Pure business logic
+// ✅ CLEAN: Pure, readable business logic
 @AuditPrompt
 @RetryOnFailure(maxAttempts = 3)
 @TrackLatency
@@ -158,57 +145,36 @@ public String answerInquiry(String prompt) {
     return chatModel.call(prompt);
 }
 ```
-All auditing, retries, and metrics are handled transparently by reusable aspects!
 
----
-
-# 3. The Anatomy of Aspect-Oriented Programming
-
-| Term | Meaning | Real-World Analogy |
-| :--- | :--- | :--- |
-| **Aspect** | A modular class containing cross-cutting logic. | The airport security checkpoint building. |
-| **Join Point** | Any point in code where an aspect *could* be plugged in. In Spring, this is **method execution**. | Any doorway in the airport. |
-| **Pointcut** | A predicate or expression that selects *which* specific methods to intercept. | A rule: "Only screen passengers boarding International Flights." |
-| **Advice** | The actual code that runs at the intercepted method. | The physical X-ray scan and metal wand inspection. |
-| **Target Object** | The original business bean being intercepted. | The passenger. |
-| **Proxy** | The wrapper object Spring creates to execute the advice before/after the target. | The TSA escort accompanying the passenger. |
-
----
-
-### 3.1 Pointcut Expressions Explained
-
-Pointcuts use the AspectJ expression language:
+### 3.2 The Five Core AOP Terminology Pillars
 
 ```
- execution ( public String com.javagenai.service.AIService.generate(..) )
-     │         │      │               │              │          │
-     │         │      │               │              │          └─ Any arguments
-     │         │      │               │              └──────────── Method name
-     │         │      │               └─────────────────────────── Class name
-     │         │      └─────────────────────────────────────────── Return type
-     │         └────────────────────────────────────────────────── Access modifier
-     └──────────────────────────────────────────────────────────── Designator (method execution)
+┌───────────────────────────────────────────────────────────────────────────┐
+│                              AOP ECOSYSTEM                                │
+├───────────────────┬───────────────────────────────────────────────────────┤
+│ Aspect            │ The class encapsulating cross-cutting plumbing code.   │
+│ Join Point        │ The point during execution (method call) to intercept. │
+│ Pointcut          │ The expression filter matching candidate join points.  │
+│ Advice            │ The action taken (Before, After, Around).              │
+│ Target Object     │ The original business bean wrapped inside the proxy.   │
+└───────────────────┴───────────────────────────────────────────────────────┘
 ```
 
-Common wildcards:
-- `*`: Matches any return type or method name.
-- `..`: Matches any number of sub-packages or method parameters.
-- `@annotation(com.javagenai.TrackTokens)`: Matches any method annotated with `@TrackTokens`.
+### 3.3 Advice Types Compared
 
----
+| Advice Type | Annotation | Execution Point | Can Stop Target? | Can Modify Output? |
+| :--- | :--- | :--- | :--- | :--- |
+| **Before** | `@Before` | Before target method runs | Only by throwing exception | No |
+| **After Returning** | `@AfterReturning` | After normal completion | No | No |
+| **After Throwing** | `@AfterThrowing` | After exception is thrown | No | Can catch or wrap |
+| **After (Finally)** | `@After` | Runs regardless of outcome | No | No |
+| **Around** | `@Around` | Surrounds method invocation | **Yes** (by omitting proceed) | **Yes** (can replace return) |
 
-# 4. The `@Around` Advice: The Ultimate Swiss Army Knife
-
-While `@Before` and `@After` can only inspect inputs and outputs, **`@Around` advice gives you total control**:
-1. You can inspect and modify arguments *before* the target method runs.
-2. You control *when* (or *if*) the target method runs via `joinPoint.proceed()`.
-3. You can measure execution time precisely.
-4. You can catch and translate exceptions, or return a cached fallback value!
-
-### 4.1 Real-Time Latency & Audit Aspect
+### 3.4 Mastering `@Around` Advice with `ProceedingJoinPoint`
+The `@Around` advice is the most versatile interceptor in Spring AOP because it completely controls the execution pipeline:
 
 ```java
-package com.javagenai.day13;
+package com.javagenai.day13.aspect;
 
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -218,10 +184,10 @@ import org.springframework.stereotype.Component;
 
 @Aspect
 @Component
-public class AILatencyAuditAspect {
+public class AiLatencyAuditAspect {
 
-    // Target all methods in any service class inside com.javagenai..
-    @Pointcut("execution(* com.javagenai..*Service.*(..))")
+    // Target all public methods in any service class inside com.javagenai..
+    @Pointcut("execution(public * com.javagenai..*Service.*(..))")
     public void aiServiceMethods() {}
 
     @Around("aiServiceMethods()")
@@ -229,38 +195,33 @@ public class AILatencyAuditAspect {
         String methodName = joinPoint.getSignature().toShortString();
         Object[] args = joinPoint.getArgs();
 
-        System.out.printf("[AOP AUDIT START] Calling %s with %d arguments...%n", methodName, args.length);
+        System.out.printf("[AOP AUDIT START] Method: %s | Args: %d%n", methodName, args.length);
         long startTime = System.currentTimeMillis();
 
         try {
-            // PROCEED TO ACTUAL BUSINESS METHOD!
+            // PROCEED TO ACTUAL TARGET BUSINESS METHOD
             Object result = joinPoint.proceed();
 
             long elapsed = System.currentTimeMillis() - startTime;
-            System.out.printf("[AOP AUDIT SUCCESS] %s completed in %d ms.%n", methodName, elapsed);
+            System.out.printf("[AOP AUDIT SUCCESS] %s finished in %d ms%n", methodName, elapsed);
             return result;
 
         } catch (Throwable ex) {
             long elapsed = System.currentTimeMillis() - startTime;
-            System.err.printf("[AOP AUDIT FAILURE] %s crashed after %d ms! Error: %s%n", 
-                              methodName, elapsed, ex.getMessage());
-            throw ex; // Re-throw so business callers know it failed
+            System.err.printf("[AOP AUDIT FAILURE] %s threw %s after %d ms! Reason: %s%n",
+                    methodName, ex.getClass().getSimpleName(), elapsed, ex.getMessage());
+            throw ex; // Always re-throw so business callers know an error occurred
         }
     }
 }
 ```
 
----
+### 3.5 Annotation-Driven Pointcuts
+Instead of writing fragile package expressions like `execution(* com.javagenai.service..*(..))`, enterprise production systems use custom annotations.
 
-# 5. Creating Custom Annotation-Driven Aspects
-
-Pointcut strings like `execution(* com..*.*(..))` can be brittle if you rename packages.
-
-**The enterprise standard is Annotation-Driven Pointcuts:**
-
-### 5.1 Defining the Custom Annotation
+#### 1. Define the Custom Annotation
 ```java
-package com.javagenai.day13;
+package com.javagenai.day13.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -269,15 +230,16 @@ import java.lang.annotation.Target;
 
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface TrackAITokens {
+public @interface TrackAiTokens {
     String modelName() default "gpt-4o";
 }
 ```
 
-### 5.2 The Aspect Interceptor
+#### 2. Define the Intercepting Aspect
 ```java
-package com.javagenai.day13;
+package com.javagenai.day13.aspect;
 
+import com.javagenai.day13.annotation.TrackAiTokens;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -287,16 +249,16 @@ import org.springframework.stereotype.Component;
 @Component
 public class TokenTrackerAspect {
 
-    // Matches any method annotated with @TrackAITokens
     @Around("@annotation(trackAnnotation)")
-    public Object trackTokenUsage(ProceedingJoinPoint joinPoint, TrackAITokens trackAnnotation) throws Throwable {
-        System.out.println("[TOKEN MONITOR] Target Model: " + trackAnnotation.modelName());
+    public Object trackTokens(ProceedingJoinPoint joinPoint, TrackAiTokens trackAnnotation) throws Throwable {
+        System.out.println("[TOKEN MONITOR] Target AI Model: " + trackAnnotation.modelName());
 
         Object result = joinPoint.proceed();
 
         if (result instanceof String responseText) {
+            // Estimation rule: 1 token ~= 4 English characters
             int estimatedTokens = (int) Math.ceil(responseText.length() / 4.0);
-            System.out.printf("[TOKEN MONITOR] Generated ~%d tokens for billing.%n", estimatedTokens);
+            System.out.printf("[TOKEN MONITOR] Generated ~%d tokens for billing audit.%n", estimatedTokens);
         }
 
         return result;
@@ -304,15 +266,16 @@ public class TokenTrackerAspect {
 }
 ```
 
-Now, any developer on your team simply adds `@TrackAITokens(modelName = "llama-3.2")` to any method, and token tracking is enabled automatically!
+Now, any engineer on your team can attach token monitoring to any method simply by adding `@TrackAiTokens(modelName = "claude-3-5-sonnet")`!
 
 ---
 
-# 6. How Spring AOP Works Under the Hood: Dynamic Proxies
+## 4. Prerequisite & Supporting Concepts
 
-How does Spring intercept your method without modifying your `.java` file?
-
-Through **Dynamic Proxies**:
+### Prerequisite / Supporting Concept: Dynamic Proxies (JDK vs. CGLIB)
+Spring AOP implements interception via runtime proxies:
+- **JDK Dynamic Proxies**: Used when the target class implements an interface. Spring creates an in-memory implementation of the interface that delegates to an `InvocationHandler`.
+- **CGLIB Proxies**: Used when the target class does NOT implement an interface (or by default in Spring Boot 2.x/3.x). Spring generates a dynamic subclass of your target class that overrides method calls.
 
 ```
 Caller (e.g. Controller) ──► [ PROXY OBJECT ] ──► Target Bean (Your Service)
@@ -320,109 +283,227 @@ Caller (e.g. Controller) ──► [ PROXY OBJECT ] ──► Target Bean (Your 
                          Executes Aspect Advice
 ```
 
-When Spring detects that a bean matches an `@Aspect` pointcut:
-1. It does **not** give the caller a direct reference to your target bean.
-2. It generates a **Proxy Class** in memory that wraps your bean.
-3. The Proxy executes the `@Before` advice, calls your real method, and then executes the `@After` advice.
+### Prerequisite / Supporting Concept: Pointcut Syntax Breakdown
+```
+ execution( public String com.javagenai.service.AiService.generate(..) )
+     │        │      │               │             │         │
+     │        │      │               │             │         └─ Any parameters (..)
+     │        │      │               │             └─────────── Method name
+     │        │      │               └───────────────────────── Class name
+     │        │      └───────────────────────────────────────── Return type
+     │        └──────────────────────────────────────────────── Access modifier
+     └───────────────────────────────────────────────────────── Designator
+```
 
-### 6.1 The Self-Invocation Gotcha (Senior Interview Classic!)
+---
 
-What happens if Method A calls Method B **inside the same class**?
+## 5. Advanced Depth (Intermediate → Advanced)
+
+### 5.1 The Self-Invocation Gotcha (Senior Interview Classic)
+One of the most frequent bugs encountered in Spring AOP occurs when a method calls another method **within the same class**:
 
 ```java
+package com.javagenai.day13.service;
+
+import com.javagenai.day13.annotation.TrackAiTokens;
+import org.springframework.stereotype.Service;
+
 @Service
-public class ChatService {
+public class ChatBatchService {
 
     public void processBatch() {
-        // Internal method call!
-        this.generateSingleAnswer("Hello"); // 🚨 AOP PROXY IS BYPASSED!
+        // Internal method call using 'this'!
+        this.generateSingle("Hello AI"); // 🚨 AOP PROXY IS BYPASSED!
     }
 
-    @TrackAITokens
-    public String generateSingleAnswer(String prompt) {
-        return "AI Output";
+    @TrackAiTokens
+    public String generateSingle(String prompt) {
+        return "Processed: " + prompt;
     }
 }
 ```
 
-**Why does `@TrackAITokens` FAIL to execute when called from `processBatch()`?**
-- Because `this.generateSingleAnswer()` is an internal call directly on the target object in memory, **bypassing the Spring Proxy wrapper completely!**
-- AOP only intercepts calls that enter from the **outside** through the proxy.
+#### Why Does the Aspect Fail to Run?
+When `processBatch()` calls `this.generateSingle(...)`, the invocation occurs directly on the local `this` reference inside heap memory. It **never passes through the Spring Proxy wrapper**. Because the proxy is bypassed, the aspect advice is never triggered.
+
+#### How to Solve It:
+1. **Refactor into Separate Beans (Recommended)**: Move `generateSingle()` into a dedicated `SingleChatService` bean and inject it.
+2. **Inject Self**: Inject `ChatBatchService` into itself with `@Lazy` and invoke the proxy reference.
+
+### 5.2 Common Mistakes & Misconceptions
+
+#### Mistake 1: Swallowing Exceptions in `@Around` Advice
+```java
+// ❌ BAD: Swallowing exception inside advice hides failures from calling services
+@Around("execution(* com.javagenai..*(..))")
+public Object badAdvice(ProceedingJoinPoint joinPoint) {
+    try {
+        return joinPoint.proceed();
+    } catch (Throwable t) {
+        logger.error("Failed", t);
+        return null; // Caller receives null and suffers NullPointerException downstream!
+    }
+}
+
+// ✅ GOOD: Log metrics and re-throw the original exception
+@Around("execution(* com.javagenai..*(..))")
+public Object goodAdvice(ProceedingJoinPoint joinPoint) throws Throwable {
+    try {
+        return joinPoint.proceed();
+    } catch (Throwable t) {
+        metricsRegistry.increment("ai.errors");
+        throw t; // Preserves call stack and informs caller
+    }
+}
+```
+
+#### Mistake 2: Forgetting `@Aspect` or `@Component`
+An aspect class must be annotated with **both** `@Aspect` (for AspectJ bytecode recognition) and `@Component` (so the Spring container registers it as a managed bean):
+```java
+// ❌ MISSING @Component: Spring will ignore this aspect entirely!
+@Aspect
+public class UnregisteredAspect { ... }
+
+// ✅ CORRECT: Both annotations present
+@Aspect
+@Component
+public class RegisteredAspect { ... }
+```
 
 ---
 
-# 7. Key Takeaways & Summary
+## 6. Quick Recap
 
-```
-                  ┌─────────────────────────────────┐
-                  │       DAY 13 CHEAT SHEET        │
-                  └────────────────┬────────────────┘
-                                   │
-         ┌─────────────────────────┼─────────────────────────┐
-         ▼                         ▼                         ▼
-  [ Core Vocabulary ]      [ Advice Types ]          [ Under The Hood ]
-  • Aspect: Plumbing class • @Before: Pre-checks     • Spring creates runtime
-  • Pointcut: Filter query • @AfterReturning: Clean    Proxy wrappers
-  • Advice: Code to run    • @AfterThrowing: Errors  • @Around controls the
-  • Join Point: Execution  • @Around: Complete wrap    entire method execution
-    hook in method           via joinPoint.proceed() • Self-invocation bypasses
-                                                       proxy interceptors
-```
+| Concept | Annotation / Construct | Role in Architecture |
+| :--- | :--- | :--- |
+| **Aspect** | `@Aspect` + `@Component` | Central module containing cross-cutting operational code |
+| **Pointcut** | `@Pointcut` | Query defining which methods will be intercepted |
+| **Around Advice** | `@Around("...")` | Wraps execution with full start/finish control via `ProceedingJoinPoint` |
+| **Annotation Matcher** | `@annotation(MyAnnotation)` | Targets methods tagged with custom annotations |
+| **Dynamic Proxy** | CGLIB / JDK Proxy | Runtime wrapper that intercepts external calls to target beans |
+| **Self-Invocation** | `this.internalMethod()` | Bypasses proxy wrapper; aspect advice will NOT execute |
 
 ---
 
-# 8. Practice Exercises & Full Solutions
+## 7. Self-Check Questions & Practice Exercises
 
-### 🏋️ Exercise 1: Build a Simulated AOP Proxy Interceptor
-**Objective**: Build a simulated proxy runner that wraps an AI function with pre-invocation logging and post-invocation duration tracking.
+### Self-Check Questions
 
-#### Solution:
+1. **What is a "Cross-Cutting Concern" in enterprise software?**
+   - *Answer*: System-level functionality (such as logging, transaction handling, token metering, or security auditing) that spans across multiple business layers rather than residing naturally within a single domain service.
+2. **What is the critical capability that `@Around` advice provides over `@Before` or `@After`?**
+   - *Answer*: `@Around` advice surrounds the target method invocation via `ProceedingJoinPoint.proceed()`, enabling precise execution duration measurement, argument modification, conditional suppression, or custom return value synthesis.
+3. **Why does calling a method on `this` inside the same bean fail to trigger AOP advice?**
+   - *Answer*: Because Spring AOP relies on runtime proxy wrappers. A call on `this` executes directly on the target object in JVM memory, bypassing the proxy and skipping all advice interceptors.
+4. **Why is annotation-driven pointcut design (`@annotation(...)`) preferred over regex package patterns?**
+   - *Answer*: It decouples aspects from fragile package paths and method naming conventions, allowing engineers to opt into cross-cutting behavior declaratively by adding an annotation.
+5. **How does AOP improve enterprise Generative AI microservice architecture?**
+   - *Answer*: It isolates non-functional concerns (PII filtering, prompt-response auditing, token rate limits, and latency metrics) into dedicated aspects, keeping AI inference services pristine, maintainable, and testable.
+
+---
+
+### Hands-On Practice Exercises
+
+#### 🏋️ Exercise 1: Build an LLM Call Retry Aspect with Exponential Backoff
+**Objective**: Create a custom annotation `@RetryLlmCall` and an aspect that catches network exceptions from an AI model and retries up to 3 times before failing.
+
+```java
+package com.javagenai.day13;
+
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.springframework.stereotype.Component;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+@interface RetryLlmCall {
+    int maxAttempts() default 3;
+    long backoffMs() default 1000;
+}
+
+@Aspect
+@Component
+public class LlmRetryAspect {
+
+    @Around("@annotation(retryConfig)")
+    public Object retryLlmInvocation(ProceedingJoinPoint joinPoint, RetryLlmCall retryConfig) throws Throwable {
+        int attempts = 0;
+        int maxAttempts = retryConfig.maxAttempts();
+        long backoff = retryConfig.backoffMs();
+
+        while (true) {
+            attempts++;
+            try {
+                return joinPoint.proceed();
+            } catch (Throwable ex) {
+                System.err.printf("[AOP RETRY] Attempt %d of %d failed: %s%n", 
+                        attempts, maxAttempts, ex.getMessage());
+
+                if (attempts >= maxAttempts) {
+                    System.err.println("[AOP RETRY] Exhausted all retry attempts. Propagating failure.");
+                    throw ex;
+                }
+
+                Thread.sleep(backoff);
+                backoff *= 2; // Exponential backoff multiplier
+            }
+        }
+    }
+}
+```
+
+#### 🏋️ Exercise 2: Build a Pure Java Simulated Dynamic Proxy Runner
+**Objective**: Build a simulated proxy wrapper in pure Java that wraps a target function with pre-call auditing and post-call latency calculation.
+
 ```java
 package com.javagenai.day13;
 
 import java.util.function.Function;
 
-public class SimulatedAOPProxy {
+public class SimulatedProxyRunner {
 
-    public static <T, R> Function<T, R> wrapWithAspect(String operationName, Function<T, R> target) {
+    public static <T, R> Function<T, R> createProxy(String operationName, Function<T, R> target) {
         return input -> {
-            System.out.printf("[PROXY @Before]: Intercepted call to '%s' with input: %s%n", operationName, input);
+            System.out.printf("[AUDIT PROXY @Before] Intercepted call to '%s' with input: %s%n", 
+                    operationName, input);
             long start = System.currentTimeMillis();
+
             try {
                 R result = target.apply(input);
                 long elapsed = System.currentTimeMillis() - start;
-                System.out.printf("[PROXY @AfterReturning]: '%s' completed successfully in %d ms.%n", operationName, elapsed);
+                System.out.printf("[AUDIT PROXY @AfterReturning] '%s' succeeded in %d ms%n", 
+                        operationName, elapsed);
                 return result;
             } catch (Exception ex) {
                 long elapsed = System.currentTimeMillis() - start;
-                System.err.printf("[PROXY @AfterThrowing]: '%s' threw %s after %d ms!%n", 
-                                  operationName, ex.getClass().getSimpleName(), elapsed);
+                System.err.printf("[AUDIT PROXY @AfterThrowing] '%s' failed after %d ms with error: %s%n", 
+                        operationName, elapsed, ex.getMessage());
                 throw ex;
             }
         };
+    }
+
+    public static void main(String[] args) {
+        Function<String, String> aiCall = prompt -> {
+            try { Thread.sleep(250); } catch (InterruptedException ignored) {}
+            return "Simulated summary for: " + prompt;
+        };
+
+        Function<String, String> proxied = createProxy("SummarizeDocument", aiCall);
+        String output = proxied.apply("Chapter 1: Neural Networks");
+        System.out.println("Output: " + output);
     }
 }
 ```
 
 ---
 
-## 9. Self-Check Quiz
-
-1. **What is a "Cross-Cutting Concern"?**
-   - *Answer*: System-wide functionality (such as logging, security, metrics, or transaction management) that spans across multiple application layers rather than belonging to a single business service.
-2. **What is the difference between `@Before` and `@Around` advice?**
-   - *Answer*: `@Before` advice executes strictly prior to the target method and cannot prevent or modify execution (unless it throws an exception). `@Around` wraps the target method invocation completely via `ProceedingJoinPoint.proceed()`, allowing latency measurement, argument transformation, or conditional execution.
-3. **What is the "Self-Invocation" limitation in Spring AOP?**
-   - *Answer*: When a method calls another method inside the same class via `this.method()`, the call executes directly on the target object rather than going through the Spring proxy, causing AOP advice to be bypassed.
-4. **How does an annotation-based pointcut like `@annotation(TrackAITokens)` improve maintenance?**
-   - *Answer*: It decouples pointcuts from brittle package names or method naming conventions, allowing developers to selectively apply aspects by simply placing the annotation on target methods.
-5. **How does AOP benefit Generative AI architectures?**
-   - *Answer*: It centralizes prompt auditing, PII screening, token rate-limiting, and network retry logic into standalone aspects, keeping core AI business services clean, readable, and focused.
-
----
-
-<p align="center">
-  <b>Awesome job finishing Day 13! 🎉</b><br>
-  You now know how to keep your AI code super clean by moving repetitive logging, timing, and security checks into elegant Spring Aspects.<br>
-  Tomorrow on <b>Day 14</b>, we complete Phase 2 with <b>Spring Boot Actuator & Production Readiness</b>: Live Health Checks, Prometheus Metrics, and monitoring real-world AI applications! Let's cross the Phase 2 finish line!
-</p>
+| ⬅️ Previous Day | 📚 Course Hub | ➡️ Next Day |
+|:---|:---:|---:|
+| [← Day 12: Spring Boot Auto-Configuration Magic](../Day_12_Spring_Boot_Auto_Configuration/Day_12_Spring_Boot_Auto_Configuration.md) | [All 60 Days Overview](../../README.md) | [Day 14: Spring Boot Actuator & Production Readiness →](../Day_14_Actuator_Production_Readiness/Day_14_Actuator_Production_Readiness.md) |
