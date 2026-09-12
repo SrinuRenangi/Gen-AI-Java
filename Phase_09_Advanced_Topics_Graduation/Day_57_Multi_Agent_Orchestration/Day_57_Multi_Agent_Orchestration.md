@@ -1,34 +1,31 @@
 # Day 57: Multi-Agent Orchestration — The Supervisor Pattern & Hierarchical AI in Java 21
 
-## Coordinating Autonomous Teams of Specialized AI Agents on Virtual Threads
-
 | Previous Day | Course Hub | Next Day |
 |:---|:---:|---:|
 | [Day 56: Running Local Models with Ollama](../Day_56_Running_Local_Models_Ollama/Day_56_Running_Local_Models_Ollama.md) | [All 60 Days Overview](../../README.md) | [Day 58: Evaluation & Automated Testing of AI Systems](../Day_58_Evaluation_Testing_AI_Systems/Day_58_Evaluation_Testing_AI_Systems.md) |
 
 ---
 
-Welcome to Day 57! In Day 49, you built your first autonomous ReAct agent. But what happens when you give an AI a complex, high-stakes enterprise mission?
-> *"Audit our entire 5,000-line Java payment service, find security vulnerabilities, generate JUnit 5 tests with 90% coverage, and prepare a pull request summary."*
+## 1. Topic Overview
 
-If you try to stuff all of that into one giant prompt for a single LLM, the model suffers from severe cognitive overload—it hallucinates, forgets requirements, and skips critical edge cases.
-
-Today, you enter the forefront of AI architecture: **Multi-Agent Orchestration**! Instead of forcing one lone model to be a superhero, you will learn how to build an elite, coordinated team of AI specialists—researchers, coders, security auditors, and a supervisor director—collaborating asynchronously on Java 21 Virtual Threads. Let's look at today's core multi-agent vocabulary:
+**Multi-Agent Orchestration** is the software architecture of coordinating multiple specialized autonomous AI agents—each possessing distinct system prompts, tools, and domain responsibilities—to collaborate on complex enterprise missions. In Java 21 systems, multi-agent workflows leverage the **Supervisor Pattern**, a thread-safe **Shared Blackboard**, and **Virtual Threads** to decompose sprawling objectives into atomic subtasks, run adversarial peer reviews, and achieve consensus without single-model cognitive overload.
 
 ---
 
-> 💡 **New Word Alert! Plain English Definitions for Today's Concepts**
->
-> - **Multi-Agent Orchestration**: Coordinating multiple specialized AI agents so they can divide work, critique each other's outputs, and tackle complex problems that no single model could solve reliably.
-> - **Supervisor Pattern**: A hierarchical team structure. The "Supervisor" acts like a Senior Project Manager—it takes the user's high-level goal, breaks it into subtasks, delegates them to specialized workers (like a Coder or Security Auditor), and compiles the final result.
-> - **Peer Swarm Pattern**: A decentralized setup where agents pass messages directly to each other without a central manager (creative, but prone to infinite conversational ping-pong loops!).
-> - **Shared Blackboard**: A thread-safe shared workspace (like a whiteboard in a team conference room) where every agent writes its outputs and reads previous findings.
-> - **Consensus Voting**: An automated quality gate where multiple specialized reviewer agents (e.g. Security, Performance, and Architecture) each vote `APPROVE` or `REJECT` before any action is finalized.
-> - **Virtual Threads Superpower**: Because multi-agent workflows spend 95% of their time waiting for LLM network responses, Java 21's Virtual Threads let you run dozens or hundreds of subagents concurrently with virtually zero RAM overhead!
+## 2. Basic Foundations (True Zero)
+
+### Core Multi-Agent Vocabulary
+
+- **Multi-Agent Orchestration**: Coordinating multiple specialized AI agents so they can divide work, critique each other's outputs, and tackle complex problems that no single model could solve reliably.
+- **Supervisor Pattern**: A hierarchical team structure. The "Supervisor" acts like a Senior Project Manager—it takes the user's high-level goal, breaks it into subtasks, delegates them to specialized workers (like a Coder or Security Auditor), and compiles the final result.
+- **Peer Swarm Pattern**: A decentralized setup where agents pass messages directly to each other without a central manager (creative, but prone to infinite conversational ping-pong loops!).
+- **Shared Blackboard**: A thread-safe shared workspace (like a whiteboard in a team conference room) where every agent writes its outputs and reads previous findings.
+- **Consensus Voting**: An automated quality gate where multiple specialized reviewer agents (e.g., Security, Performance, and Architecture) each vote `APPROVE` or `REJECT` before any action is finalized.
+- **Virtual Threads Superpower**: Because multi-agent workflows spend 95% of their time waiting for LLM network responses, Java 21's Virtual Threads let you run dozens or hundreds of subagents concurrently with virtually zero RAM overhead.
 
 ---
 
-## 1. Real-World Analogy: The Hollywood Film Production Crew
+### Relatable Physical Analogy: The Hollywood Film Production Crew
 
 Imagine an Oscar-winning Hollywood blockbuster movie being produced:
 - If the studio hired a single person and asked them to:
@@ -62,13 +59,84 @@ Imagine an Oscar-winning Hollywood blockbuster movie being produced:
                           └─────────────┘
 ```
 
-In Generative AI, attempting to solve complex, multi-stage enterprise tasks with a **single mega-prompt to a single LLM** consistently fails. The model suffers from **attention degradation, prompt drift, and hallucination creep**. 
-
-**Multi-Agent Orchestration** separates concerns: individual, hyper-focused agent personas collaborate through a centralized supervisor or peer network, delivering enterprise-grade accuracy, code quality, and security consensus.
+In Generative AI, attempting to solve complex, multi-stage enterprise tasks with a **single mega-prompt to a single LLM** consistently fails due to **attention degradation, prompt drift, and hallucination creep**. Multi-agent orchestration separates concerns into hyper-focused personas.
 
 ---
 
-## 2. Multi-Agent Topologies: Supervisor Pattern vs Peer Swarm
+### Minimal Beginner-Friendly Example: A Pure Java Supervisor & Specialists
+
+Here is a minimal, self-contained Java program demonstrating a Supervisor coordinating two specialized worker agents via a shared blackboard:
+
+```java
+package com.genai.enterprise.multiagent.minimal;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class MinimalSupervisorDemo {
+
+    // 1. Shared Blackboard Workspace
+    public static class Blackboard {
+        private final Map<String, String> artifacts = new ConcurrentHashMap<>();
+        public void write(String key, String value) { artifacts.put(key, value); }
+        public String read(String key) { return artifacts.get(key); }
+    }
+
+    // 2. Specialized Worker Agents
+    public static class ResearchAgent {
+        public void execute(Blackboard bb) {
+            System.out.println("-> [Researcher] Investigating optimal thread-safe data structures...");
+            bb.write("research_notes", "Selected ConcurrentHashMap for non-blocking lock-free reads.");
+        }
+    }
+
+    public static class DeveloperAgent {
+        public void execute(Blackboard bb) {
+            String notes = bb.read("research_notes");
+            System.out.println("-> [Developer] Writing code based on research: " + notes);
+            bb.write("code_artifact", "public class Cache { private final Map<K,V> map = new ConcurrentHashMap<>(); }");
+        }
+    }
+
+    public static class ReviewerAgent {
+        public boolean audit(Blackboard bb) {
+            String code = bb.read("code_artifact");
+            System.out.println("-> [Reviewer] Auditing code artifact...");
+            return code != null && code.contains("ConcurrentHashMap");
+        }
+    }
+
+    // 3. Supervisor Director
+    public static void main(String[] args) {
+        Blackboard blackboard = new Blackboard();
+        ResearchAgent researcher = new ResearchAgent();
+        DeveloperAgent developer = new DeveloperAgent();
+        ReviewerAgent reviewer = new ReviewerAgent();
+
+        System.out.println("=== SUPERVISOR INITIATING MISSION ===");
+        researcher.execute(blackboard);
+        developer.execute(blackboard);
+        boolean isApproved = reviewer.audit(blackboard);
+
+        System.out.println("=== MISSION RESULT ===");
+        System.out.println("Final Code: " + blackboard.read("code_artifact"));
+        System.out.println("Consensus Status: " + (isApproved ? "APPROVED" : "REJECTED"));
+    }
+}
+```
+
+#### Line-by-Line Walkthrough:
+1. `Blackboard`: Provides a thread-safe `ConcurrentHashMap` where agents deposit and inspect intermediate deliverables.
+2. `ResearchAgent.execute(...)`: Generates domain analysis and writes findings under `"research_notes"`.
+3. `DeveloperAgent.execute(...)`: Consumes the researcher's output and synthesizes the source code artifact.
+4. `ReviewerAgent.audit(...)`: Deterministically inspects the code deliverable against architectural standards.
+5. `main(...)`: The Supervisor coordinates execution sequentially, ensuring that each specialist acts on validated context.
+
+---
+
+## 3. Core Concept Walkthrough (Basic → Intermediate)
+
+### 3.1 Multi-Agent Topologies: Supervisor Pattern vs. Peer Swarm
 
 ```
    A. SUPERVISOR PATTERN (Hierarchical)           B. PEER SWARM (Decentralized)
@@ -89,7 +157,7 @@ In Generative AI, attempting to solve complex, multi-stage enterprise tasks with
 ### Architectural Comparison
 
 | Dimension | Supervisor Pattern (Recommended) | Peer Swarm Pattern |
-| :--- | :--- | :--- |
+|:---|:---|:---|
 | **Control Flow** | Deterministic, directed by supervisor | Dynamic, decided by LLM handoffs |
 | **Auditability** | High: Supervisor logs all steps | Medium: Difficult to trace root cause |
 | **Infinite Loop Risk**| Zero (Hard iteration limit enforced) | High (Agents ping-ponging endlessly) |
@@ -97,26 +165,19 @@ In Generative AI, attempting to solve complex, multi-stage enterprise tasks with
 
 ---
 
-## 🧭 The Mid-Level Java Developer Bridge: Multi-Agent Systems Demystified
-
-If "Autonomous Multi-Agent Swarms" sounds like sci-fi hype, here is how a senior Java architect views it: **it's just a concurrent thread pool with specialized prompts.**
+### 3.2 The Mid-Level Java Developer Bridge: Multi-Agent Systems Demystified
 
 | Enterprise Concept | What It Actually Is in Java | Plain English Translation |
-| :--- | :--- | :--- |
-| **Agent** | A `ChatClient` configured with a specific system prompt and tools. | An employee with a job description (e.g. *"You only audit code for security flaws"*). |
-| **Supervisor Agent** | The Project Manager. Receives user prompt, splits it into 3 sub-tasks, and calls the specialists. | The team lead assigning Jira tickets to developers. |
+|:---|:---|:---|
+| **Agent** | A `ChatClient` configured with a specific system prompt and tools. | An employee with a clear job description (e.g., *"You only audit code for security flaws"*). |
+| **Supervisor Agent** | The Project Manager. Receives user prompt, splits it into 3 sub-tasks, and calls specialists. | The team lead assigning Jira tickets to developers. |
 | **Shared Blackboard** | A thread-safe Java `ConcurrentHashMap` or database record. | The whiteboard in the conference room where all agents write their findings. |
-| **The Java 21 Superpower**| `StructuredTaskScope` + **Virtual Threads**. | Python AI frameworks struggle with concurrency because of the GIL. In Java 21, you can run 50 AI agents concurrently on virtual threads with near-zero RAM! |
-| **Circuit Breakers** | An `AtomicInteger turnCounter` with a hard limit of 10. | Guarantees agents never get stuck talking to each other in an infinite money-burning loop! |
+| **Virtual Threads Superpower**| `Thread.ofVirtual()` + **Non-blocking I/O**. | Python AI frameworks struggle with the GIL. In Java 21, you can run 100 AI agents concurrently with near-zero RAM! |
+| **Circuit Breakers** | An `AtomicInteger turnCounter` with a hard limit of 10. | Guarantees agents never get stuck talking to each other in an infinite money-burning loop. |
 
 ---
 
-## 3. Under-the-Hood Architecture: Virtual Threads & The Shared Blackboard Pattern
-
-In traditional Python multi-agent frameworks (e.g. CrewAI, AutoGen), agents execute either sequentially in a single-threaded event loop or require heavy multiprocessing. 
-
-In Java 21, **Virtual Threads (`Thread.ofVirtual()`) and `StructuredTaskScope`** provide the ultimate runtime engine for multi-agent systems:
-- An enterprise supervisor can spawn **hundreds of specialized subagents concurrently**, each executing non-blocking network calls to vector stores, tools, or model endpoints, with near-zero OS memory overhead.
+### 3.3 The Enterprise Multi-Agent Sequence on Virtual Threads
 
 ```mermaid
 sequenceDiagram
@@ -154,70 +215,214 @@ sequenceDiagram
 
 ---
 
-## 4. Guarding Against Multi-Agent Failure Modes
+### 3.4 Companion Code Walkthrough
 
-While multi-agent systems deliver superhuman capabilities, unconstrained agent networks can introduce severe operational hazards:
+Let's examine the core classes in `Phase_09_Advanced_Topics_Graduation/Day_57_Multi_Agent_Orchestration/code/`:
 
-### 1. The Ping-Pong Loop (Infinite Re-delegation)
-Agent A says *"I've drafted the code, Agent B please review."* Agent B responds *"Please tweak line 10 and return."* Agent A tweaks line 10 and says *"Reviewed, Agent B please re-check."* 
-- **Defensive Fix**: Enforce a strict `maxIterations` guard in the Supervisor (e.g., maximum 3 revision loops). If consensus is not reached by round 3, escalate to a human engineer.
+#### Step 1: Agent Roles & Messaging (`AgentRole.java` & `AgentMessage.java`)
 
-### 2. Context Smuggling & Hallucination Cascade
-If Agent A hallucinates an incorrect API method, Agent B reads it from the blackboard, assumes it is fact, and builds an entire architecture around the fiction.
-- **Defensive Fix**: Ground each specialized agent with independent tool verification and strict Pydantic/Java Record structured inputs.
+```java
+package com.genai.enterprise.multiagent;
 
-### 3. Agent Privilege Escalation
-A research agent with read-only access asks a deployment agent to execute a command on its behalf.
-- **Defensive Fix**: Tool authorization must be verified against the **originating user's security token**, never the agent's identity.
+public enum AgentRole {
+    SUPERVISOR("Project Supervisor & Director"),
+    RESEARCHER("Architectural & Algorithmic Researcher"),
+    CODER("Java 21 Production Software Engineer"),
+    SECURITY_AUDITOR("AppSec & Concurrency Auditor");
 
----
-
-## 5. Hands-On Companion Code Walkthrough
-
-Our companion repository inside `code/` implements a production-grade, zero-external-dependency hierarchical multi-agent platform in Java 21:
-
-### 1. `AgentRole.java`
-An enum defining specialized agent personas with distinct responsibilities:
-- `SUPERVISOR`: Orchestrates and delegates.
-- `RESEARCHER`: Algorithmic investigation and trade-off analysis.
-- `CODER`: Java 21 production source code generation.
-- `SECURITY_AUDITOR`: Threat modeling, concurrency safety, and code review.
-
-### 2. `AgentMessage.java`
-An immutable record capturing inter-agent communication (`sender`, `recipient`, `content`, `timestamp`).
-
-### 3. `SharedAgentWorkspace.java`
-Thread-safe **Blackboard pattern** implementation maintaining the mission objective, artifact registry (`research_findings`, `source_code`, `security_audit`), message dispatch log, and formal approval state.
-
-### 4. `SpecializedAgent.java`
-Factory and interface defining autonomous worker behaviors. Each specialist reads necessary context from the shared workspace, simulates work, populates output artifacts, and reports completion to the supervisor.
-
-### 5. `SupervisorOrchestrator.java`
-The central manager leveraging Java 21's `Executors.newVirtualThreadPerTaskExecutor()`:
-- Sequentially coordinates the dependency pipeline across Virtual Threads.
-- Evaluates the final security audit artifact to verify whether consensus was reached.
-- Marks the project approved or flags revisions.
-
-### 6. `MultiAgentDemo.java`
-Main test driver verifying the complete collaborative workflow:
-- Supervisor task dispatch
-- Step-by-step inter-agent communication
-- Artifact inspection (Research findings, Source code, Audit report)
-- Consensus sign-off
-
----
-
-## 6. Verifying the Implementation
-
-Run the test suite directly from your terminal:
-
-```powershell
-javac -d out Phase_09_Advanced_Topics_Graduation/Day_57_Multi_Agent_Orchestration/code/*.java
-java -cp out com.genai.enterprise.multiagent.MultiAgentDemo
-Remove-Item -Recurse -Force out
+    private final String description;
+    AgentRole(String description) { this.description = description; }
+    public String getDescription() { return description; }
+}
 ```
 
-### Verified Execution Output:
+```java
+package com.genai.enterprise.multiagent;
+
+public record AgentMessage(
+    AgentRole sender,
+    AgentRole recipient,
+    String content,
+    long timestamp
+) {}
+```
+
+#### Step 2: Thread-Safe Shared Workspace (`SharedAgentWorkspace.java`)
+
+```java
+package com.genai.enterprise.multiagent;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+
+public class SharedAgentWorkspace {
+
+    private final String missionObjective;
+    private final Map<String, String> artifacts = new ConcurrentHashMap<>();
+    private final List<AgentMessage> messageLog = new CopyOnWriteArrayList<>();
+    private volatile boolean isApproved = false;
+
+    public SharedAgentWorkspace(String missionObjective) {
+        this.missionObjective = missionObjective;
+    }
+
+    public void putArtifact(String key, String content) { artifacts.put(key, content); }
+    public String getArtifact(String key) { return artifacts.get(key); }
+    public Map<String, String> getAllArtifacts() { return Collections.unmodifiableMap(artifacts); }
+
+    public void recordMessage(AgentRole sender, AgentRole recipient, String content) {
+        messageLog.add(new AgentMessage(sender, recipient, content, System.currentTimeMillis()));
+    }
+
+    public List<AgentMessage> getMessageLog() { return Collections.unmodifiableList(messageLog); }
+    public void markApproved(boolean status) { this.isApproved = status; }
+    public boolean isApproved() { return isApproved; }
+    public String getMissionObjective() { return missionObjective; }
+}
+```
+
+#### Step 3: Supervisor Orchestrator (`SupervisorOrchestrator.java`)
+
+```java
+package com.genai.enterprise.multiagent;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
+public class SupervisorOrchestrator {
+
+    public SharedAgentWorkspace executeMission(String missionGoal) {
+        SharedAgentWorkspace ws = new SharedAgentWorkspace(missionGoal);
+        ws.recordMessage(AgentRole.SUPERVISOR, AgentRole.SUPERVISOR, "Initiating Mission: '" + missionGoal + "'");
+
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+
+            // Step 1: Research Phase
+            SpecializedAgent researcher = SpecializedAgent.createResearcher();
+            ws.recordMessage(AgentRole.SUPERVISOR, AgentRole.RESEARCHER, "Task: Research optimal concurrency algorithms for goal.");
+            Future<?> f1 = executor.submit(() -> researcher.execute(ws));
+            f1.get();
+
+            // Step 2: Coding Phase
+            SpecializedAgent coder = SpecializedAgent.createCoder();
+            ws.recordMessage(AgentRole.SUPERVISOR, AgentRole.CODER, "Task: Implement production Java 21 class based on research.");
+            Future<?> f2 = executor.submit(() -> coder.execute(ws));
+            f2.get();
+
+            // Step 3: Security Audit Phase
+            SpecializedAgent auditor = SpecializedAgent.createSecurityAuditor();
+            ws.recordMessage(AgentRole.SUPERVISOR, AgentRole.SECURITY_AUDITOR, "Task: Audit generated code for concurrency safety and vulnerabilities.");
+            Future<?> f3 = executor.submit(() -> auditor.execute(ws));
+            f3.get();
+
+            // Step 4: Consensus Evaluation
+            String auditResult = ws.getArtifact("security_audit");
+            if (auditResult != null && auditResult.contains("AUDIT PASSED")) {
+                ws.markApproved(true);
+                ws.recordMessage(AgentRole.SUPERVISOR, AgentRole.SUPERVISOR, "CONSENSUS REACHED: All subtasks satisfied. Artifact signed off.");
+            } else {
+                ws.markApproved(false);
+                ws.recordMessage(AgentRole.SUPERVISOR, AgentRole.SUPERVISOR, "CONSENSUS REJECTED: Security audit detected unresolved flaws.");
+            }
+        } catch (Exception ex) {
+            throw new RuntimeException("Mission execution failed: " + ex.getMessage(), ex);
+        }
+
+        return ws;
+    }
+}
+```
+
+---
+
+## 4. Prerequisite & Supporting Concepts
+
+### Prerequisite / Supporting Concept: Java 21 Virtual Threads & Structured Concurrency
+Multi-agent systems spend virtually all their time waiting on external LLM inference responses (I/O blocking). With traditional OS platform threads, allocating 100 threads consumes ~100MB of RAM and incurs heavy kernel context-switching overhead. Java 21 Virtual Threads (`Executors.newVirtualThreadPerTaskExecutor()`) execute on a small pool of carrier threads, suspending automatically during network I/O with near-zero overhead.
+
+### Prerequisite / Supporting Concept: The Blackboard Architectural Pattern
+Originating in early AI systems, the **Blackboard Pattern** consists of three components:
+1. **Blackboard**: Central repository storing problem state and evolving deliverables.
+2. **Knowledge Sources (Agents)**: Autonomous specialists that monitor the blackboard and contribute new information when relevant conditions are met.
+3. **Control Shell (Supervisor)**: Orchestrates agent execution order and decides when the problem is solved.
+
+### Prerequisite / Supporting Concept: LangChain4j AiServices Hierarchies
+In Spring Boot, multiple agents can be configured as separate `@Bean` definitions of LangChain4j `AiServices`:
+```java
+@Bean
+public ResearcherService researcher(ChatModel model) {
+    return AiServices.builder(ResearcherService.class)
+            .chatLanguageModel(model)
+            .systemMessageProvider(id -> "You are a Senior Systems Architect...")
+            .build();
+}
+```
+
+---
+
+## 5. Advanced Depth (Intermediate → Advanced)
+
+### 5.1 Guarding Against Multi-Agent Failure Modes
+
+#### Failure 1: The Ping-Pong Infinite Loop
+Agent A drafts code and asks Agent B for review. Agent B requests a minor comment change. Agent A updates the comment and re-requests review. Without iteration limits, this conversational loop burns thousands of dollars in cloud API tokens.
+- **Remedy**: Enforce a strict `maxIterations` counter (e.g., maximum 3 revision loops). If consensus is not reached by round 3, escalate to a human engineer.
+
+#### Failure 2: Hallucination Cascade (Context Poisoning)
+If Agent A invents a non-existent Java API method, Agent B reads it from the blackboard, assumes it is ground truth, and writes an entire architecture around the fiction.
+- **Remedy**: Ground each specialist with independent tool verification (e.g., executing real `javac` or unit tests via MCP tools) before publishing deliverables to the blackboard.
+
+#### Failure 3: Agent Privilege Escalation
+A research agent with public read-only access asks a deployment agent to execute an infrastructure update on its behalf.
+- **Remedy**: Tool authorization must always validate the **originating human user's JWT token**, never the requesting agent's identity.
+
+---
+
+### 5.2 Common Mistakes & Misconceptions: Bad vs. Good
+
+#### Mistake 1: Unstructured Natural Language Blackboard Entries
+Allowing agents to write arbitrary, free-form text to the blackboard makes it difficult for downstream agents to parse inputs reliably.
+
+```java
+// ❌ BAD: Storing unformatted conversational text
+workspace.putArtifact("result", "Hey team! I looked into it and think maybe CAS is cool.");
+
+// ✅ GOOD: Use structured JSON or typed Record payloads
+workspace.putArtifact("research_findings", """
+    {
+      "recommendedAlgorithm": "CAS_TOKEN_BUCKET",
+      "concurrencyPrimitive": "AtomicLong",
+      "riskScore": 0.05
+    }
+    """);
+```
+
+#### Mistake 2: Missing Hard Timeout Limits on Virtual Threads
+If an LLM API hangs indefinitely during an agent task, the virtual thread will block forever without timing out.
+
+```java
+// ❌ BAD: Indefinite blocking wait
+Future<?> task = executor.submit(() -> agent.execute(ws));
+task.get(); // Could block forever!
+
+// ✅ GOOD: Enforce a strict timeout deadline
+Future<?> task = executor.submit(() -> agent.execute(ws));
+task.get(30, TimeUnit.SECONDS);
+```
+
+---
+
+### 5.3 Complete Verification Suite & Demo Execution
+
+Execute the verification suite in `Phase_09_Advanced_Topics_Graduation/Day_57_Multi_Agent_Orchestration/code/`:
+
+```bash
+javac -d out Phase_09_Advanced_Topics_Graduation/Day_57_Multi_Agent_Orchestration/code/*.java
+java -cp out com.genai.enterprise.multiagent.MultiAgentDemo
+```
+
 ```
 ==========================================================================
   DAY 57: MULTI-AGENT HIERARCHICAL ORCHESTRATION IN JAVA 21 (VIRTUAL THREADS)
@@ -270,54 +475,78 @@ Mission Approval Status : APPROVED (100% Consensus)
 
 ---
 
-## 7. LangChain4j & Spring AI Multi-Agent Patterns
+## 6. Quick Recap
 
-In enterprise Spring Boot applications, multi-agent hierarchies can be declared cleanly using distinct `AiServices` or `ChatClient` instances configured with different system instructions and tool subsets:
-
-```java
-@Configuration
-public class MultiAgentConfig {
-
-    @Bean
-    public ResearcherService researcher(ChatModel model) {
-        return AiServices.builder(ResearcherService.class)
-                .chatLanguageModel(model)
-                .systemMessageProvider(chatId -> "You are a Senior Systems Architect...")
-                .build();
-    }
-
-    @Bean
-    public CoderService coder(ChatModel model) {
-        return AiServices.builder(CoderService.class)
-                .chatLanguageModel(model)
-                .systemMessageProvider(chatId -> "You are an Elite Java 21 Engineer...")
-                .build();
-    }
-
-    @Bean
-    public AuditorService auditor(ChatModel model) {
-        return AiServices.builder(AuditorService.class)
-                .chatLanguageModel(model)
-                .systemMessageProvider(chatId -> "You are an Enterprise AppSec Auditor...")
-                .build();
-    }
-}
-```
-
-The `SupervisorService` then orchestrates these three beans in an atomic `@Transactional` or virtual-thread pipeline.
+| Component | Responsibility | Concurrency / Data Mechanism |
+|:---|:---|:---|
+| **Supervisor Agent** | Decomposes mission, delegates tasks, monitors progress, enforces consensus | Virtual Thread Controller |
+| **Researcher Agent** | Gathers algorithmic constraints and architectural trade-offs | Non-blocking LLM reasoning |
+| **Coder Agent** | Synthesizes production Java 21 source code from research notes | Generates code artifacts |
+| **Auditor Agent** | Adversarial review (concurrency, AppSec, memory leaks) | Grants or withholds approval |
+| **Shared Blackboard** | Thread-safe artifact registry and inter-agent message ledger | `ConcurrentHashMap` + `CopyOnWriteArrayList` |
+| **Virtual Threads** | High-throughput concurrent execution of I/O-bound agent tasks | Java 21 `Thread.ofVirtual()` |
 
 ---
 
-## 8. Hands-On Exercises
+## 7. Self-Check Questions & Practice Exercises
 
-### Exercise 1: Parallel Specialist Execution with Java 21 `StructuredTaskScope`
-**Problem**: Update `SupervisorOrchestrator` to execute two independent subagents (e.g. `PerformanceBenchmarkAgent` and `SecurityAuditorAgent`) concurrently using Java 21's preview `StructuredTaskScope.ShutdownOnFailure()`, joining both before consensus evaluation.
+### Conceptual Self-Check Questions
+
+#### Question 1: Why does a multi-agent architecture outperform a single mega-prompt for complex enterprise tasks?
+- A) Multi-agent systems use fewer total tokens.
+- B) Decomposing complex tasks into specialized personas prevents context distraction, keeps attention focused on specific sub-domains, and introduces adversarial review checks.
+- C) Multi-agent systems eliminate the need for an LLM.
+- D) Single LLMs cannot process English prompts longer than 100 words.
+
+*Answer*: **B**. Separation of concerns allows each specialized model persona to excel without cognitive overload, while peer review catches bugs before deliverables are finalized.
+
+---
+
+#### Question 2: In the Supervisor Pattern, what is the role of the Supervisor Agent?
+- A) It writes all the code itself.
+- B) It evaluates user requirements, decomposes them into atomic subtasks, delegates them to specialized workers, tracks state on a shared blackboard, and enforces consensus criteria.
+- C) It manages the Linux kernel directly.
+- D) It replaces the database.
+
+*Answer*: **B**. The Supervisor acts as the central coordinator and quality gatekeeper.
+
+---
+
+#### Question 3: How does the Shared Blackboard pattern facilitate agent collaboration?
+- A) It deletes older messages automatically.
+- B) It acts as a thread-safe, centralized workspace where agents read prior findings and publish deliverables (code, research, audit reports) asynchronously.
+- C) It renders chalkboard graphics in the browser.
+- D) It prevents agents from using Java 21.
+
+*Answer*: **B**. The Blackboard serves as the shared state repository for the agent team.
+
+---
+
+#### Question 4: Why are Java 21 Virtual Threads uniquely well-suited for multi-agent systems?
+- A) Virtual Threads make LLMs run 10x faster.
+- B) They allow spawning dozens or hundreds of concurrent agent tasks with near-zero memory footprint, cleanly suspending while awaiting I/O-bound LLM API responses without monopolizing OS kernel threads.
+- C) Virtual Threads remove the need for synchronization.
+- D) They execute without a JVM.
+
+*Answer*: **B**. Multi-agent workflows are heavily I/O-bound; Virtual Threads handle massive agent concurrency effortlessly.
+
+---
+
+### Hands-on Practice Exercises
+
+#### Exercise 1: Parallel Specialist Execution with StructuredTaskScope
+**Task**: Implement a supervisor method that executes two independent subagents (e.g., `PerformanceAuditor` and `SecurityAuditor`) in parallel using Java 21's `StructuredTaskScope.ShutdownOnFailure()`, joining both before evaluating consensus.
 
 **Solution**:
 ```java
+package com.genai.enterprise.exercises;
+
+import com.genai.enterprise.multiagent.SharedAgentWorkspace;
+import com.genai.enterprise.multiagent.SpecializedAgent;
 import java.util.concurrent.StructuredTaskScope;
 
 public class StructuredAgentSupervisor {
+
     public static void runParallelAudits(SpecializedAgent a1, SpecializedAgent a2, SharedAgentWorkspace ws) throws Exception {
         try (var scope = new StructuredTaskScope.ShutdownOnFailure()) {
             var sub1 = scope.fork(() -> { a1.execute(ws); return null; });
@@ -331,12 +560,20 @@ public class StructuredAgentSupervisor {
 }
 ```
 
-### Exercise 2: Loop Guard & Human-in-the-Loop Escalation
-**Problem**: Implement a multi-agent feedback loop between `Coder` and `Auditor` that retries generation up to 3 times if the audit fails, and escalates to `HumanOperator` if iteration count reaches 3.
+---
+
+#### Exercise 2: Loop Guard & Human-in-the-Loop Escalation
+**Task**: Build an iterative review loop between a `Coder` agent and an `Auditor` agent that retries generation up to 3 times if the audit fails, and escalates to a human engineer if the iteration limit is reached.
 
 **Solution**:
 ```java
+package com.genai.enterprise.exercises;
+
+import com.genai.enterprise.multiagent.SharedAgentWorkspace;
+import com.genai.enterprise.multiagent.SpecializedAgent;
+
 public class ResilientAgentLoop {
+
     public static boolean executeWithRetry(SpecializedAgent coder, SpecializedAgent auditor, SharedAgentWorkspace ws) {
         int maxAttempts = 3;
         for (int i = 1; i <= maxAttempts; i++) {
@@ -346,6 +583,7 @@ public class ResilientAgentLoop {
 
             String audit = ws.getArtifact("security_audit");
             if (audit != null && audit.contains("AUDIT PASSED")) {
+                System.out.println("[SUCCESS] Code approved on iteration " + i);
                 return true;
             }
         }
@@ -355,14 +593,20 @@ public class ResilientAgentLoop {
 }
 ```
 
-### Exercise 3: Consensus Voting Engine
-**Problem**: Write a `ConsensusVotingService` where three distinct reviewer agents (Security, Performance, and Architecture) each vote `APPROVE` or `REJECT`. Consensus requires a majority (at least 2 `APPROVE` votes) for release.
+---
+
+#### Exercise 3: Consensus Voting Engine
+**Task**: Write a `ConsensusVotingService` where three distinct reviewer agents (Security, Performance, and Architecture) each vote `APPROVE` or `REJECT`. Consensus requires a majority (at least 2 `APPROVE` votes) for release.
 
 **Solution**:
 ```java
+package com.genai.enterprise.exercises;
+
+import com.genai.enterprise.multiagent.AgentRole;
 import java.util.List;
 
 public class ConsensusVotingEngine {
+
     public record AgentVote(AgentRole role, boolean approved, String comment) {}
 
     public static boolean evaluateConsensus(List<AgentVote> votes) {
@@ -377,59 +621,35 @@ public class ConsensusVotingEngine {
 
 ---
 
-## 9. Self-Check Quiz
+#### Exercise 4: Dynamic Agent Handoff Router
+**Task**: Create a router method that inspects an inbound subtask payload and dynamically routes it to either `AgentRole.CODER`, `AgentRole.SECURITY_AUDITOR`, or `AgentRole.RESEARCHER` based on task categorization keywords.
 
-### Question 1: Why does a multi-agent architecture outperform a single mega-prompt for complex software engineering tasks?
-- A) Multi-agent systems use fewer total tokens.
-- B) Decomposing complex tasks into specialized personas prevents context distraction, keeps attention focused on specific sub-domains, and introduces adversarial review checks.
-- C) Multi-agent systems do not require an LLM.
-- D) Single LLMs cannot process English text longer than 100 words.
-*Answer: B. Division of labor and separation of concerns allows each specialized model persona to excel without cognitive overload.*
+**Solution**:
+```java
+package com.genai.enterprise.exercises;
 
-### Question 2: In the Supervisor Pattern, what is the role of the Supervisor Agent?
-- A) It writes all the code itself.
-- B) It evaluates user requirements, decomposes them into atomic subtasks, delegates them to specialized workers, tracks state on a shared blackboard, and enforces consensus criteria.
-- C) It manages the Docker daemon directly.
-- D) It replaces the database.
-*Answer: B. The Supervisor acts as the central coordinator and quality gatekeeper.*
+import com.genai.enterprise.multiagent.AgentRole;
 
-### Question 3: How does the Shared Blackboard pattern facilitate agent collaboration?
-- A) It deletes older messages automatically.
-- B) It acts as a thread-safe, centralized workspace where agents read prior findings and publish deliverables (code, research, audit reports) asynchronously.
-- C) It renders chalkboard graphics in the browser.
-- D) It prevents agents from using Java 21.
-*Answer: B. The Blackboard serves as the shared state repository for the agent team.*
+public class AgentHandoffRouter {
 
-### Question 4: Why are Java 21 Virtual Threads uniquely well-suited for multi-agent systems?
-- A) Virtual Threads make LLMs run 10x faster.
-- B) They allow spawning thousands of concurrent agent tasks with near-zero memory footprint, cleanly suspending while awaiting I/O-bound LLM API responses without monopolizing OS kernel threads.
-- C) Virtual Threads remove the need for synchronization.
-- D) They run without a JVM.
-*Answer: B. Multi-agent workflows are heavily I/O-bound; Virtual Threads handle massive agent concurrency effortlessly.*
+    public static AgentRole routeTask(String taskDescription) {
+        if (taskDescription == null) return AgentRole.SUPERVISOR;
+        String lower = taskDescription.toLowerCase();
 
-### Question 5: What is the primary operational danger of decentralized Peer Swarms without a supervisor?
-- A) Agents will refuse to speak to each other.
-- B) Infinite ping-pong loops where agents perpetually re-delegate or critique each other without ever terminating or reaching a conclusion.
-- C) Decreased GPU temperature.
-- D) Java compiler syntax errors.
-*Answer: B. Without a supervisor or iteration limit, autonomous agents can become trapped in infinite conversational cycles.*
-
----
-
-## 10. Day 57 Mentor Wrap-Up: You're Directing an AI Ensemble!
-
-You have unlocked one of the most exciting paradigms in modern artificial intelligence: multi-agent collaboration!
-
-Let's review what you built today:
-1. **The Hollywood Film Crew Analogy**: By splitting work between the Director (Supervisor), Screenwriter (Researcher), Cinematographer (Coder), and Stunt Coordinator (Safety Reviewer), complex missions get executed with extreme precision.
-2. **The Java Concurrency Superpower**: You saw how Java 21's Virtual Threads and `StructuredTaskScope` make running 10 or 50 concurrent agents lightweight, non-blocking, and thread-safe.
-3. **Blackboards & Consensus Voting**: Your shared workspace gives agents a common ground to exchange data, while multi-reviewer consensus gates keep flawed code from reaching production.
-
-Tomorrow in **Day 58: Evaluation & Automated Testing of AI Systems**, we tackle a vital question: how do you write unit tests for an AI whose answers change slightly every time? You'll learn LLM-as-a-judge, Ragas metrics (faithfulness and answer relevancy), and automated regression testing. See you tomorrow!
+        if (lower.contains("vulnerability") || lower.contains("audit") || lower.contains("security")) {
+            return AgentRole.SECURITY_AUDITOR;
+        } else if (lower.contains("implement") || lower.contains("code") || lower.contains("class")) {
+            return AgentRole.CODER;
+        } else if (lower.contains("research") || lower.contains("investigate") || lower.contains("algorithm")) {
+            return AgentRole.RESEARCHER;
+        }
+        return AgentRole.SUPERVISOR;
+    }
+}
+```
 
 ---
 
 | Previous Day | Course Hub | Next Day |
 |:---|:---:|---:|
 | [Day 56: Running Local Models with Ollama](../Day_56_Running_Local_Models_Ollama/Day_56_Running_Local_Models_Ollama.md) | [All 60 Days Overview](../../README.md) | [Day 58: Evaluation & Automated Testing of AI Systems](../Day_58_Evaluation_Testing_AI_Systems/Day_58_Evaluation_Testing_AI_Systems.md) |
-
