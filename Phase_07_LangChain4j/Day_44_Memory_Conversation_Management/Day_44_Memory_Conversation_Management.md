@@ -1,170 +1,110 @@
 # Day 44: Memory and Conversation Management
 
-## Mastering Conversational Continuity, Sliding Windows, and Multi-Tenant State in Java
-
-| Previous Day | Course Hub | Next Day |
-|:---|:---:|---:|
-| [Day 43: LangChain4j Introduction & AiServices](../Day_43_LangChain4j_Introduction_AiServices/Day_43_LangChain4j_Introduction_AiServices.md) | [All 60 Days Overview](../../README.md) | [Day 45: Structured Extraction & Guardrails](../Day_45_Structured_Extraction_Guardrails/Day_45_Structured_Extraction_Guardrails.md) |
+[← Previous: Day 43 - LangChain4j Introduction](../Day_43_LangChain4j_Introduction_AiServices/Day_43_LangChain4j_Introduction_AiServices.md) | [Next: Day 45 - Structured Extraction & Guardrails →](../Day_45_Structured_Extraction_Guardrails/Day_45_Structured_Extraction_Guardrails.md)
 
 ---
 
-## Friendly Welcome: Curing the Goldfish Memory Problem
-
-Hey there, friend! Welcome to Day 44.
-
-Have you ever chatted with an AI assistant that felt like it had the memory of a goldfish?
-- You say: *"Hi, my name is Alex and I'm a Java developer living in Seattle."*
-- The AI happily responds: *"Great to meet you, Alex! How can I help you today?"*
-- Then, in your very next message, you ask: *"What should I wear outside today?"*
-- And the AI replies: *"I don't know where you are! What city do you live in?"* 🤦‍♂️
-
-Why does this happen? Because by nature, Large Language Models have **zero memory**. Every HTTP request sent to OpenAI or Anthropic is completely independent and starts with a clean slate.
-
-Today, we are going to give our LangChain4j agents smart, human-like conversational memory! You will learn how to set up sliding memory windows so chats don't blow up your token budget, make sure your core system instructions are never forgotten, and use `@MemoryId` so different users' conversations never get mixed up!
+## 1. Topic Overview
+Conversational memory management allows stateless Large Language Models to maintain dialogue continuity, conversational state, and personal context across multiple user turns without exceeding model context limits. In enterprise Java systems, LangChain4j provides composable sliding-window memory policies, strict system-prompt preservation, multi-tenant isolation via `@MemoryId`, and persistent database backing stores.
 
 ---
 
-> 💡 **New Word Alert! Key Concepts for Today**
->
-> - **`ChatMemory`**: LangChain4j's core interface that manages conversation history for an AI agent.
-> - **Message Window (`MessageWindowChatMemory`)**: A sliding memory window that keeps the last $N$ messages (e.g. last 10 messages) and drops older ones so the prompt never overflows.
-> - **Token Window (`TokenWindowChatMemory`)**: A smarter memory window that measures the *exact token weight* of messages. If a user pastes a huge 3,000-token block of code, a token window trims earlier messages accurately to keep the total under your budget.
-> - **System Prompt Invariant**: An essential rule in LangChain4j: even when memory windows fill up and older messages are evicted, the initial `@SystemMessage` is **never** dropped. Your agent never forgets its persona or security constraints!
-> - **`@MemoryId`**: An annotation on an `AiServices` method parameter that tells LangChain4j: *"Load and update the private chat memory belonging strictly to this user ID or session ID."*
-> - **`ChatMemoryStore`**: The database adapter interface that lets you save conversation messages permanently in PostgreSQL or Redis instead of losing them when your Java application restarts.
+## 2. Basic Foundations (True Zero)
 
----
+### The Statelessness Problem: Why LLMs Have "Goldfish Memory"
+By nature, Large Language Models have **zero internal memory**. Every HTTP request sent to OpenAI, Anthropic, or Ollama is completely independent:
+- Turn 1: User says: *"Hi, I'm Alex and I live in Seattle."* $\rightarrow$ Model says: *"Hello Alex!"*
+- Turn 2: User says: *"What should I wear outside today?"* $\rightarrow$ Model says: *"I don't know where you are! What city do you live in?"*
 
-## What Will You Learn Today?
+To simulate memory, our Java application must capture past messages and prepend them into every subsequent request. But if you naively send the entire conversation history:
+1. You quickly exceed the model's **Context Window limit** (causing crash errors).
+2. Your **API costs skyrocket exponentially** as old messages are re-processed repeatedly.
+3. Response latency degrades from 300ms to several seconds.
 
-- **The Statelessness Dilemma**: Why Large Language Models have zero organic memory between HTTP calls, and the architectural trade-offs of simulating state.
-- **The Core Memory Abstraction**: Mastering LangChain4j's `ChatMemory` interface, message addition, retrieval, and lifecycle management.
-- **Eviction Strategies**: Implementing `MessageWindowChatMemory` (turn-count sliding windows) and `TokenWindowChatMemory` (strict tokenizer-calibrated token budgeting).
-- **The System Prompt Invariant**: Guaranteeing that foundational system instructions and security constraints are *never* evicted during memory pruning.
-- **Multi-Tenant & Per-User Memory**: Routing distinct user sessions dynamically using `@MemoryId` and `ChatMemoryProvider` to eliminate cross-user data leakage.
-- **Persistent Storage SPI (`ChatMemoryStore`)**: Moving beyond ephemeral in-memory storage to production-ready persistence using PostgreSQL and Redis.
+### Relatable Physical Analogy: The Executive Briefing Folder
+Imagine briefing a busy corporate CEO:
+- **Naive Approach**: Every morning, you wheel in a 2,000-page file cabinet containing every email, invoice, and note from the last five years. The CEO takes 4 hours just to find yesterday's action items.
+- **Smart Sliding Window Approach**: You maintain a clean 5-page **Executive Briefing Folder**:
+  - The permanent company mission statement is always pinned to page 1 (**System Message**).
+  - The remaining 4 pages hold only the most recent 6 discussion points (**Sliding Window**).
+  - Older notes are archived in the office library (**Persistent Database Store**) and reviewed only when needed.
 
----
-
-## 1. Real-World Analogy: The Goldfish Problem vs. The Executive Briefing Folder
-
-Imagine an enterprise hiring a senior executive advisor with severe retrograde amnesia:
-- The moment you leave her office, she forgets who you are, what you discussed, and every decision made five minutes ago.
-- When you walk in and ask, *"Did you approve that budget change we discussed?"*, she stares blankly: *"What budget change? Who are you?"*
-
-To solve this, junior engineers often adopt the **"Dump the Entire Filing Cabinet"** approach:
-Every time you walk into her office, you hand her an enormous 2,000-page binder containing every conversation from the past three years.
-
-```
-       NAIVE UNBOUNDED CONTEXT DUMP                    INTELLIGENT SLIDING WINDOW MEMORY
-   ┌─────────────────────────────────────┐         ┌──────────────────────────────────────────────┐
-   │ Turn 1: "Hi, I'm Alice."            │         │ 1. Core Mandate: (NEVER EVICTED)             │
-   │ Turn 2: "Where is the printer?"     │         │    [SYSTEM] "You are Acme HR Assistant"      │
-   │ Turn 3: "Thanks."                   │         ├──────────────────────────────────────────────┤
-   │ ... [500 TURNS LATER] ...           │         │ 2. Recent Active Context (Sliding Window):   │
-   │ Turn 501: "What's my PTO balance?"  │         │    [USER] "I am planning a trip in August."  │
-   │                                     │         │    [AI]   "You currently have 14 PTO days."  │
-   │ 💥 150,000 Tokens! Context Overflow!│         │    [USER] "Can you book 5 of them?"          │
-   │ 💸 $4.50 per individual question!   │         ├──────────────────────────────────────────────┤
-   │ ⏳ 6-second round-trip latency!     │         │ 3. Archived to Database (ChatMemoryStore):   │
-   │                                     │         │    Turns 1-498 persisted to PostgreSQL JSONB │
-   └─────────────────────────────────────┘         └──────────────────────────────────────────────┘
-```
-
-The consequences of unbounded history are disastrous:
-1. **Context Window Exhaustion**: You crash into model limits ($128\text{k}$ tokens).
-2. **Exponential Financial Costs**: You pay token fees for every past message repeatedly on every turn.
-3. **Severe Latency Spikes**: Processing 100,000 historical tokens on every interaction slows response times from 300ms to 8 seconds.
-
-**Intelligent Memory Management** acts like an executive briefing folder:
-- It pins the permanent mission statement at the top (**System Message**).
-- It retains the last $N$ relevant turns or $K$ tokens (**Sliding Window**).
-- It persists historical turns to disk/database (**ChatMemoryStore**) for auditing, and evicts stale chatter.
-
----
-
-## 2. LangChain4j Memory Architecture
-
-LangChain4j isolates conversational memory behind clean, composable abstractions:
-
-```mermaid
-classDiagram
-    class ChatMemory {
-        <<interface>>
-        +id() Object
-        +add(ChatMessage message)
-        +messages() List~ChatMessage~
-        +clear()
-    }
-
-    class MessageWindowChatMemory {
-        -maxMessages int
-        -store ChatMemoryStore
-        +add(ChatMessage message)
-        +messages() List~ChatMessage~
-    }
-
-    class TokenWindowChatMemory {
-        -maxTokens int
-        -tokenizer Tokenizer
-        -store ChatMemoryStore
-        +add(ChatMessage message)
-        +messages() List~ChatMessage~
-    }
-
-    class ChatMemoryStore {
-        <<interface>>
-        +getMessages(Object memoryId) List~ChatMessage~
-        +updateMessages(Object memoryId, List~ChatMessage~ messages)
-        +deleteMessages(Object memoryId)
-    }
-
-    ChatMemory <|.. MessageWindowChatMemory
-    ChatMemory <|.. TokenWindowChatMemory
-    MessageWindowChatMemory --> ChatMemoryStore : delegates persistence
-    TokenWindowChatMemory --> ChatMemoryStore : delegates persistence
-```
-
-### 2.1 The Core `ChatMemory` Contract
+### Minimal Beginner-Friendly Working Code
+Here is how to equip an `AiServices` agent with a sliding conversation window in LangChain4j:
 
 ```java
-package dev.langchain4j.memory;
+package com.genai.langchain4j.memory;
 
-import dev.langchain4j.data.message.ChatMessage;
-import java.util.List;
+import dev.langchain4j.memory.chat.MessageWindowChatMemory;
+import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.openai.OpenAiChatModel;
+import dev.langchain4j.service.AiServices;
+import dev.langchain4j.service.SystemMessage;
 
-public interface ChatMemory {
-    Object id();
-    void add(ChatMessage message);
-    List<ChatMessage> messages();
-    void clear();
+public class SimpleMemoryRunner {
+
+    public interface ConversationalAssistant {
+        @SystemMessage("You are a helpful customer concierge. Keep your answers brief.")
+        String chat(String userMessage);
+    }
+
+    public static void main(String[] args) {
+        ChatLanguageModel model = OpenAiChatModel.builder()
+            .apiKey(System.getenv("OPENAI_API_KEY"))
+            .modelName("gpt-4o")
+            .build();
+
+        // Configure an AiServices agent with a 10-message sliding window
+        ConversationalAssistant assistant = AiServices.builder(ConversationalAssistant.class)
+            .chatLanguageModel(model)
+            .chatMemory(MessageWindowChatMemory.withMaxMessages(10))
+            .build();
+
+        // Turn 1: Introduce name
+        System.out.println(assistant.chat("Hello! My name is Alex and I am based in Seattle."));
+
+        // Turn 2: Ask question relying on prior turn
+        // The assistant remembers Alex and Seattle because of ChatMemory!
+        System.out.println(assistant.chat("What city did I say I live in?"));
+    }
 }
 ```
 
-Every conversational turn—whether user input or model output—is added to `ChatMemory`. When generating the next turn, the framework reads `messages()` to reconstruct the dialogue context.
+### Line-by-Line Walkthrough
+1. **`public interface ConversationalAssistant`**: Declares our declarative AI service interface.
+2. **`MessageWindowChatMemory.withMaxMessages(10)`**: Instantiates a memory window that retains the most recent 10 messages (5 user questions + 5 AI responses) while automatically discarding older dialogue turns.
+3. **`builder.chatMemory(...)`**: Binds the memory window to the generated dynamic proxy.
+4. **`assistant.chat("What city did I say I live in?")`**: LangChain4j automatically reads past turns from memory, merges them into the prompt, dispatches to the model, and saves the new response back into the window.
 
 ---
 
-## 3. Eviction Strategies: Message vs. Token Windows
+## 3. Core Concept Walkthrough (Basic → Intermediate)
 
-### 3.1 `MessageWindowChatMemory` (Count-Based Pruning)
-
-The simplest and most popular eviction policy. It retains the last $N$ messages in the conversation:
-
-```java
-import dev.langchain4j.memory.chat.MessageWindowChatMemory;
-
-ChatMemory memory = MessageWindowChatMemory.builder()
-    .id("session-101")
-    .maxMessages(10) // Retains last 10 messages
-    .build();
+```
++-------------------------------------------------------------------------------+
+|                       LANGCHAIN4J MEMORY ARCHITECTURE                         |
++-------------------------------------------------------------------------------+
+|                                                                               |
+|                            [ ChatMemory API ]                                 |
+|                                     |                                         |
+|                  +------------------+------------------+                      |
+|                  |                                     |                      |
+|                  v                                     v                      |
+|      [ MessageWindowChatMemory ]           [ TokenWindowChatMemory ]          |
+|      Retains last N messages;              Retains last K tokens using        |
+|      evicts by count (e.g. 10 turns)       tokenizer (e.g. 4,000 tokens)      |
+|                  |                                     |                      |
+|                  +------------------+------------------+                      |
+|                                     |                                         |
+|                                     v                                         |
+|                           [ ChatMemoryStore SPI ]                             |
+|                        (PostgreSQL, Redis, In-Memory)                         |
++-------------------------------------------------------------------------------+
 ```
 
-### 3.2 `TokenWindowChatMemory` (Budget-Based Pruning)
-
-In enterprise applications with variable message lengths (e.g., users pasting 2,000-line stack traces or JSON payloads), counting turns is insufficient: a single turn could consume 20,000 tokens!
-
-`TokenWindowChatMemory` uses a `Tokenizer` (such as OpenAI's BPE cl100k_base) to measure the exact token footprint of every turn:
+### 1. `MessageWindowChatMemory` vs. `TokenWindowChatMemory`
+- **`MessageWindowChatMemory`**: Prunes based on message count (e.g., `maxMessages(10)`). Simple and predictable for chat apps with short conversational turns.
+- **`TokenWindowChatMemory`**: Prunes based on total token budget (e.g., `maxTokens(4000, tokenizer)`). Essential for technical support or code assistants where a single user turn might contain 10,000 tokens of pasted stack traces.
 
 ```java
 import dev.langchain4j.memory.chat.TokenWindowChatMemory;
@@ -176,58 +116,36 @@ ChatMemory memory = TokenWindowChatMemory.builder()
     .build();
 ```
 
-### 3.3 The Golden Invariant: Never Evict the System Message!
-
-A catastrophic bug in naive sliding window implementations is evicting the very first message when the window overflows. **If the first message is your `@SystemMessage`, evicting it strips away all persona constraints, guardrails, and compliance instructions!**
+### 2. The Golden Invariant: Never Evict the System Message!
+A severe bug in naive sliding window implementations is dropping the oldest message when memory overflows. If the oldest message is your `@SystemMessage`, **evicting it strips away all persona instructions, guardrails, and security policies!**
 
 ```
-       NAIVE PRUNING BUG                                  CORRECT LANGCHAIN4J BEHAVIOR
-   ┌─────────────────────────────────────┐         ┌──────────────────────────────────────────────┐
-   │ Window size: 3 messages             │         │ Window size: 3 messages                      │
-   │ Turn 0: [SYSTEM] "You are a doctor" │         │ Turn 0: [SYSTEM] "You are a doctor" (PINNED) │
-   │ Turn 1: [USER] "I have a cough"     │         ├──────────────────────────────────────────────┤
-   │ Turn 2: [AI] "Drink fluids"         │         │ Turn 1: [USER] "I have a cough" (EVICTED)    │
-   │ Turn 3: [USER] "Now what?"          │         │ Turn 2: [AI] "Drink fluids"                  │
-   ├─────────────────────────────────────┤         │ Turn 3: [USER] "Now what?"                   │
-   │ 💥 Turn 0 EVICTED!                  │         ├──────────────────────────────────────────────┤
-   │ Agent forgets it is a doctor!       │         │ ✅ SYSTEM message remains preserved forever! │
-   └─────────────────────────────────────┘         └──────────────────────────────────────────────┘
++-------------------------------------------------------------------------------+
+|                       SYSTEM PROMPT RETENTION INVARIANT                       |
++-------------------------------------------------------------------------------+
+|                                                                               |
+|  Initial State (Window size: 3):                                              |
+|  [0] SYSTEM: "You are a healthcare advisor. Never give medication doses."    |
+|  [1] USER:   "I have a headache."                                             |
+|  [2] AI:     "Drink water and rest."                                          |
+|                                                                               |
+|  User adds Turn 3: "Can I take 800mg Ibuprofen?"                              |
+|                                                                               |
+|  NAIVE PRUNING (WRONG):             LANGCHAIN4J PRUNING (CORRECT):            |
+|  ❌ Evicts [0] SYSTEM               ✅ PINS [0] SYSTEM (NEVER DROPPED)        |
+|  [1] USER: "I have a headache."     [0] SYSTEM: "You are a healthcare..."     |
+|  [2] AI:   "Drink water..."         [2] AI:     "Drink water..."              |
+|  [3] USER: "Can I take 800mg..."    [3] USER:   "Can I take 800mg..."         |
+|  Model forgets medical guardrail!   Medical guardrail stays 100% active!      |
++-------------------------------------------------------------------------------+
 ```
 
-LangChain4j guarantees that if a `SystemMessage` is present at index 0, it is **never pruned**; only older non-system dialogue turns slide out of the window.
+LangChain4j guarantees that if a `SystemMessage` is present at index 0, it is **never pruned**; only older dialogue turns are discarded.
 
----
+### 3. Multi-Tenant Per-User Isolation with `@MemoryId`
+In web microservices, hundreds of users chat concurrently. Sharing a single `ChatMemory` instance causes critical security leaks where User B sees User A's private banking or health data.
 
-## 4. Multi-Tenant Per-User Memory Isolation
-
-In production web applications, thousands of concurrent users interact with your Spring Boot service. If you share a single `ChatMemory` instance, User B will read User A's private banking balance or medical notes!
-
-LangChain4j solves this through **`@MemoryId`** and **`ChatMemoryProvider`**.
-
-### Step 1: Define the Multi-Tenant `AiServices` Interface
-
-Annotate the user or session identifier with `@MemoryId`:
-
-```java
-package com.genai.langchain4j.memory;
-
-import dev.langchain4j.service.MemoryId;
-import dev.langchain4j.service.SystemMessage;
-import dev.langchain4j.service.UserMessage;
-
-@SystemMessage("You are an enterprise HR benefits counselor. Maintain complete user confidentiality.")
-public interface HrAssistantService {
-
-    String chat(
-        @MemoryId String employeeId, 
-        @UserMessage String userQuestion
-    );
-}
-```
-
-### Step 2: Configure `ChatMemoryProvider`
-
-Instead of providing a single memory instance, provide a factory function that resolves or constructs a memory instance for each unique `@MemoryId`:
+LangChain4j solves this using `@MemoryId` and `ChatMemoryProvider`:
 
 ```java
 package com.genai.langchain4j.memory;
@@ -235,17 +153,24 @@ package com.genai.langchain4j.memory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.service.AiServices;
+import dev.langchain4j.service.MemoryId;
+import dev.langchain4j.service.SystemMessage;
+import dev.langchain4j.service.UserMessage;
 
-public class HrApplication {
+public class MultiTenantConcierge {
 
-    public static HrAssistantService createService(ChatLanguageModel model, ChatMemoryStore persistentStore) {
-        return AiServices.builder(HrAssistantService.class)
+    public interface ConciergeService {
+        @SystemMessage("You are an enterprise concierge. Respect user privacy.")
+        String chat(@MemoryId String userId, @UserMessage String message);
+    }
+
+    public static ConciergeService create(ChatLanguageModel model) {
+        return AiServices.builder(ConciergeService.class)
             .chatLanguageModel(model)
-            // Dynamically provisions or restores an isolated memory window per employeeId!
+            // Dynamically provisions an isolated memory window per distinct userId!
             .chatMemoryProvider(memoryId -> MessageWindowChatMemory.builder()
                 .id(memoryId)
                 .maxMessages(10)
-                .chatMemoryStore(persistentStore)
                 .build()
             )
             .build();
@@ -253,41 +178,40 @@ public class HrApplication {
 }
 ```
 
-Now, when Alice calls `assistant.chat("EMP-001", "My salary is $120k")`, her history is stored strictly under key `EMP-001`. When Bob calls `assistant.chat("EMP-002", "What is my salary?")`, the agent has zero knowledge of Alice's conversation!
+Now, when Alice chats with `chat("user-101", ...)`, her memory is stored strictly under key `user-101`. When Bob calls `chat("user-202", ...)`, he accesses an isolated memory sandbox with zero visibility into Alice's session.
 
 ---
 
-## 5. Enterprise Persistence: `ChatMemoryStore` SPI
+## 4. Prerequisite & Supporting Concepts
 
-By default, LangChain4j keeps message windows in memory. If your Spring Boot pod restarts or a horizontal auto-scaler spins up a new replica, the user's conversation vanishes.
+### Prerequisite / Supporting Concept: The `ChatMemoryStore` SPI
+By default, LangChain4j stores chat histories in JVM memory. If your Spring Boot pod restarts or a Kubernetes autoscaler spins up a new pod, user conversations are lost.
 
-In production, you plug in a persistent `ChatMemoryStore`.
+The `ChatMemoryStore` SPI provides pluggable database persistence:
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as Client Browser
-    participant App as Spring Boot Service
-    participant Mem as MessageWindowChatMemory
-    participant Store as ChatMemoryStore (Redis / PostgreSQL)
+```java
+package dev.langchain4j.store.memory.chat;
 
-    User->>App: chat(userId="user-99", "What did I order yesterday?")
-    App->>Mem: messages()
-    Mem->>Store: getMessages("user-99")
-    Store-->>Mem: Returns serialized JSON turns from PostgreSQL
-    Note over Mem: Mem compiles conversation turns + prompt
-    App->>Mem: add(new UserMessage("What did I order yesterday?"))
-    Mem->>Store: updateMessages("user-99", updatedList)
-    Store-->>Mem: ACK persisted to database
+import dev.langchain4j.data.message.ChatMessage;
+import java.util.List;
+
+public interface ChatMemoryStore {
+    List<ChatMessage> getMessages(Object memoryId);
+    void updateMessages(Object memoryId, List<ChatMessage> messages);
+    void deleteMessages(Object memoryId);
+}
 ```
 
-### 5.1 Implementing a Production `ChatMemoryStore` with Spring Data / PostgreSQL
+---
+
+## 5. Advanced Depth (Intermediate → Advanced)
+
+### Production PostgreSQL `ChatMemoryStore` Implementation
+Here is how to persist conversational turns directly into PostgreSQL using `jsonb` and LangChain4j's built-in message serializers:
 
 ```java
 package com.genai.langchain4j.memory;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.ChatMessageDeserializer;
 import dev.langchain4j.data.message.ChatMessageSerializer;
@@ -315,7 +239,7 @@ public class PostgresChatMemoryStore implements ChatMemoryStore {
             return List.of();
         }
 
-        // LangChain4j provides built-in serializers for ChatMessage JSON!
+        // LangChain4j provides built-in JSON deserializers for ChatMessage!
         return ChatMessageDeserializer.messagesFromJson(rows.get(0));
     }
 
@@ -339,109 +263,14 @@ public class PostgresChatMemoryStore implements ChatMemoryStore {
 }
 ```
 
----
+### Automated Session Expiration (TTL Memory Store)
+In production customer-facing applications, conversations should expire after an inactivity threshold (e.g., 30 minutes of idle time):
 
-## 6. Complete Runnable Companion Code Architecture
-
-In this lesson's companion code (`Phase_07_LangChain4j/Day_44_Memory_Conversation_Management/code/`), we provide a complete, pure Java 21 implementation verifying all memory mechanics:
-
-```
-Day_44_Memory_Conversation_Management/code/
-├── ChatMessage.java               # Immutable record with estimated token calculation
-├── ChatMemory.java                # Core contract for conversational memory operations
-├── ChatMemoryStore.java           # Persistence SPI contract matching LangChain4j
-├── PersistentChatMemoryStore.java # Thread-safe storage simulation tracking multi-tenant sessions
-├── MessageWindowChatMemory.java   # Sliding window pruner with inviolable SystemMessage protection
-├── TokenWindowChatMemory.java     # Strict budget-based pruner with token capacity enforcement
-├── ChatMemoryProvider.java        # Functional factory interface for multi-tenant memory creation
-├── PerUserChatManager.java        # Session manager orchestrating isolated user conversations
-└── ConversationMemoryDemo.java    # Executable verification verifying single-user & multi-tenant isolation
-```
-
-### Verification & Demonstration Output
-
-Execute `ConversationMemoryDemo.java`:
-
-```bash
-javac -d out Phase_07_LangChain4j/Day_44_Memory_Conversation_Management/code/*.java
-java -cp out com.genai.langchain4j.memory.ConversationMemoryDemo
-```
-
-```
-==================================================================
-  DAY 44: LANGCHAIN4J CHAT MEMORY & CONVERSATION MANAGEMENT DEMO  
-==================================================================
-
---- 1. MessageWindowChatMemory (Max 5 Messages) ---
-Current Message Count: 5
-[Before Overflow]
-   - SYSTEM : System Rule: You are a strict compliance agent.
-   - USER   : Turn 1: My name is Alice.
-   - AI     : Turn 1: Hello Alice, registered.
-   - USER   : Turn 2: What is policy 101?
-   - AI     : Turn 2: Policy 101 covers MFA.
-
-Adding Turn 3 (Triggers eviction of oldest conversational turns)...
-[After Overflow (Notice System Prompt is Intact!)]
-   - SYSTEM : System Rule: You are a strict compliance agent.
-   - USER   : Turn 2: What is policy 101?
-   - AI     : Turn 2: Policy 101 covers MFA.
-   - USER   : Turn 3: Update my email to alice@acme.com.
-   - AI     : Turn 3: Email updated.
-
---- 2. TokenWindowChatMemory (Max 50 Tokens) ---
-Tokens: 24 / 50
-[Token Window Initial]
-   - SYSTEM : System: Concise Assistant.
-   - USER   : A brief message about Kubernetes.
-   - AI     : Kubernetes automates container deployment.
-
-Adding a large message that forces token-based eviction...
-Tokens after eviction: 16 / 50
-[Token Window Post-Eviction]
-   - SYSTEM : System: Concise Assistant.
-   - AI     : The control plane manages cluster state.
-
---- 3. Multi-Tenant Per-User Memory Isolation ---
-Alice's Memory Turn Count: 4
-[Alice Session (ID: user_alice_404)]
-   - USER   : Hello, I am Alice from Accounting.
-   - AI     : Acknowledged: 'Hello, I am Alice from Accounting.'. Total history length for user_alice_404: 1 messages.
-   - USER   : Where is the ledger file?
-   - AI     : Acknowledged: 'Where is the ledger file?'. Total history length for user_alice_404: 3 messages.
-
-Bob's Memory Turn Count: 2
-[Bob Session (ID: user_bob_505)]
-   - USER   : Hi, I am Bob from DevOps.
-   - AI     : Acknowledged: 'Hi, I am Bob from DevOps.'. Total history length for user_bob_505: 1 messages.
-
-Total Active Sessions in Persistent Store: 4
-
-==================================================================
-  CONVERSATION MEMORY VERIFICATION COMPLETED SUCCESSFULLY         
-==================================================================
-```
-
----
-
-## 7. Why Conversation Management Matters for Senior Engineers
-
-1. **Deterministic Cost Control**: Uncontrolled conversational growth will deplete your LLM budget within weeks. Enforcing a strict 10-message or 4,000-token window caps your cost per turn to a fixed, predictable ceiling.
-2. **Strict Multi-Tenant Security**: In enterprise compliance environments (GDPR, HIPAA, SOC-2), mixing conversational memory between users is a critical security vulnerability. Using `@MemoryId` with persistent database isolation guarantees absolute tenant separation.
-3. **Low Latency SLAs**: By keeping the active message payload compact, your Time-to-First-Token (TTFT) remains consistently sub-second regardless of whether the user has been chatting for five minutes or five hours.
-
----
-
-## 8. Practical Exercises
-
-### Exercise 1: Implement an Automated Session Reset Timer
-**Task**: Build a `TtlChatMemoryStore` wrapper around a `ChatMemoryStore` that tracks the timestamp of the last message in each session. If more than 30 minutes have elapsed since the last update, automatically delete the session messages and start fresh.
-**Solution**:
 ```java
-package com.genai.langchain4j.exercises;
+package com.genai.langchain4j.memory;
 
-import com.genai.langchain4j.memory.ChatMessage;
-import com.genai.langchain4j.memory.ChatMemoryStore;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.store.memory.chat.ChatMemoryStore;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -451,7 +280,7 @@ public class TtlChatMemoryStore implements ChatMemoryStore {
 
     private final ChatMemoryStore delegate;
     private final Duration sessionTtl;
-    private final Map<Object, Instant> lastAccessTimes = new HashMap<>();
+    private final Map<Object, Instant> lastAccessMap = new HashMap<>();
 
     public TtlChatMemoryStore(ChatMemoryStore delegate, Duration sessionTtl) {
         this.delegate = delegate;
@@ -460,38 +289,113 @@ public class TtlChatMemoryStore implements ChatMemoryStore {
 
     @Override
     public synchronized List<ChatMessage> getMessages(Object memoryId) {
-        Instant lastAccess = lastAccessTimes.get(memoryId);
+        Instant lastAccess = lastAccessMap.get(memoryId);
         if (lastAccess != null && Duration.between(lastAccess, Instant.now()).compareTo(sessionTtl) > 0) {
-            // Expired! Clear session
             deleteMessages(memoryId);
             return List.of();
         }
-        lastAccessTimes.put(memoryId, Instant.now());
+        lastAccessMap.put(memoryId, Instant.now());
         return delegate.getMessages(memoryId);
     }
 
     @Override
     public synchronized void updateMessages(Object memoryId, List<ChatMessage> messages) {
-        lastAccessTimes.put(memoryId, Instant.now());
+        lastAccessMap.put(memoryId, Instant.now());
         delegate.updateMessages(memoryId, messages);
     }
 
     @Override
     public synchronized void deleteMessages(Object memoryId) {
-        lastAccessTimes.remove(memoryId);
+        lastAccessMap.remove(memoryId);
         delegate.deleteMessages(memoryId);
     }
 }
 ```
 
-### Exercise 2: Conversation Export to Markdown Auditor
-**Task**: Write a utility method `String exportTranscriptToMarkdown(ChatMemory memory)` that formats all messages in a `ChatMemory` into an executive markdown audit log with roles and message counts.
-**Solution**:
+### Common Anti-Patterns & Production Traps
+
+| Anti-Pattern | Why It Breaks in Production | Correct Architectural Solution |
+|:---|:---|:---|
+| **Sharing a Single `ChatMemory` Singleton** | Causes conversation cross-talk and data leaks across users in multi-user web services. | Always use `@MemoryId` on interface methods paired with `ChatMemoryProvider`. |
+| **Using `MessageWindowChatMemory` for Code Reviews** | Users pasting 2,000-line stack traces or JSON payloads will exhaust the model's token context window. | Use `TokenWindowChatMemory` calibrated with `OpenAiTokenizer` to enforce a strict token ceiling. |
+| **Storing Memory Exclusively in Heap RAM** | Kubernetes pod restarts or blue-green deployments wipe all user conversation histories. | Implement `ChatMemoryStore` backed by PostgreSQL `jsonb` or Redis. |
+
+---
+
+## 6. Quick Recap
+- LLMs are **stateless by default**; conversational memory is simulated by prepending past turns into subsequent prompt requests.
+- **Unbounded chat history** leads to context window overflow, exploding token costs, and high latency.
+- **`MessageWindowChatMemory`** retains the last $N$ turns; **`TokenWindowChatMemory`** enforces a strict tokenizer-calculated token ceiling.
+- The **System Prompt Invariant** ensures that foundational instructions and security boundaries are never evicted during memory pruning.
+- Use **`@MemoryId`** and **`ChatMemoryProvider`** to isolate conversation state per user or session in multi-tenant systems.
+- Use the **`ChatMemoryStore`** SPI to persist dialogue turns durably in PostgreSQL or Redis.
+
+---
+
+## 7. Self-Check Questions & Practice Exercises
+
+### 5-Question Self-Check Quiz
+
+#### Question 1
+Why is an unbounded conversation history dangerous in production LLM applications?
+- A) Large Language Models automatically crash if they receive more than 10 messages.
+- B) It causes context window overflow errors, drives token costs exponentially higher with every turn, and introduces severe latency spikes.
+- C) Relational databases cannot store more than 100 strings.
+- D) It violates the HTTP/1.1 protocol specification.
+
+#### Question 2
+In `MessageWindowChatMemory`, what happens to the leading `SystemMessage` when the window overflows?
+- A) It is evicted first because it is the oldest message.
+- B) It is retained permanently; the window evicts the oldest non-system dialogue turns to preserve agent instructions and guardrails.
+- C) It throws a `BufferOverflowException`.
+- D) It is overwritten by the latest user message.
+
+#### Question 3
+How does `AiServices` isolate chat history for different concurrent users?
+- A) By spawning a separate JVM process for each user.
+- B) Using the `@MemoryId` annotation on an interface method parameter combined with a `ChatMemoryProvider` that provisions dedicated memory instances per ID.
+- C) By prefixing all user names to the system prompt string.
+- D) LangChain4j can only handle one user at a time.
+
+#### Question 4
+When should you prefer `TokenWindowChatMemory` over `MessageWindowChatMemory`?
+- A) Always, because message counts are deprecated.
+- B) When users submit large, highly variable payloads (e.g., code snippets, CSV files, log dumps) where counting turns does not protect against token budget exhaustion.
+- C) Only when running on mobile Android devices.
+- D) When using local Ollama models instead of OpenAI.
+
+#### Question 5
+What is the purpose of the `ChatMemoryStore` interface in LangChain4j?
+- A) To cache generated embedding vectors in memory.
+- B) To provide a pluggable persistence SPI for saving and restoring conversational turns to external databases (PostgreSQL, Redis, MongoDB) across application restarts.
+- C) To serialize Java bytecode into native assemblies.
+- D) To charge the user's credit card for API usage.
+
+---
+
+### Quiz Answers & Explanations
+1. **B**: Every turn in an unbounded history retransmits all past tokens, leading to context length violations ($128\text{k}$ tokens), massive token bills, and degrading response times.
+2. **B**: LangChain4j guarantees that the leading `SystemMessage` is never discarded, ensuring that core system guardrails and persona constraints remain active regardless of conversation length.
+3. **B**: Tagging a user ID parameter with `@MemoryId` instructs `AiServices` to look up or construct an isolated `ChatMemory` for that specific identifier via `ChatMemoryProvider`.
+4. **B**: A single user turn can contain 15,000 tokens of error logs. A count-based window cannot detect this, whereas `TokenWindowChatMemory` measures exact token weight and enforces your token budget.
+5. **B**: `ChatMemoryStore` is the storage SPI decoupling memory window logic from the database layer, allowing chat histories to persist in PostgreSQL, Redis, or DynamoDB across server restarts and cluster scaling.
+
+---
+
+### Hands-On Practice Exercises
+
+#### Exercise 1: Conversation Export to Markdown Auditor
+**Problem Statement**:  
+Write a utility method `String exportTranscriptToMarkdown(ChatMemory memory)` that formats all messages in a `ChatMemory` into an executive markdown audit log with roles and message counts.
+
+<details>
+<summary>👉 View Solution</summary>
+
 ```java
 package com.genai.langchain4j.exercises;
 
-import com.genai.langchain4j.memory.ChatMemory;
-import com.genai.langchain4j.memory.ChatMessage;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.memory.ChatMemory;
 
 public class TranscriptAuditExporter {
 
@@ -503,108 +407,44 @@ public class TranscriptAuditExporter {
 
         int turn = 1;
         for (ChatMessage msg : memory.messages()) {
-            sb.append(String.format("| %d | **%s** | %s |\n", turn++, msg.role(), msg.text().replace("\n", " ")));
+            sb.append(String.format("| %d | **%s** | %s |\n", turn++, msg.type(), msg.text().replace("\n", " ")));
         }
         return sb.toString();
     }
 }
 ```
+</details>
 
-### Exercise 3: PII Masking Memory Filter
-**Task**: Build a memory interceptor that scrubs sensitive credit card numbers (matching regex `\b\d{4}[ -]?\d{4}[ -]?\d{4}[ -]?\d{4}\b`) from user messages before persisting them into `ChatMemory`.
-**Solution**:
+#### Exercise 2: PII Scrubbing Memory Interceptor
+**Problem Statement**:  
+Build a utility method `ChatMessage sanitize(ChatMessage message)` that scrubs credit card numbers (matching 13 to 16 digits) from user messages before they are added to `ChatMemory`.
+
+<details>
+<summary>👉 View Solution</summary>
+
 ```java
 package com.genai.langchain4j.exercises;
 
-import com.genai.langchain4j.memory.ChatMessage;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.ChatMessageType;
+import dev.langchain4j.data.message.UserMessage;
 
 public class PiiScrubbingMemoryFilter {
 
     private static final String CC_REGEX = "\\b(?:\\d[ -]*?){13,16}\\b";
 
     public static ChatMessage sanitize(ChatMessage original) {
-        if (original.role() != ChatMessage.Role.USER) {
+        if (original.type() != ChatMessageType.USER) {
             return original;
         }
 
         String scrubbed = original.text().replaceAll(CC_REGEX, "[REDACTED_CREDIT_CARD]");
-        return new ChatMessage(original.role(), scrubbed);
+        return UserMessage.from(scrubbed);
     }
 }
 ```
+</details>
 
 ---
 
-## 9. Self-Check Quiz
-
-### Question 1: Why is an unbounded conversation history dangerous in production LLM applications?
-- A) Large Language Models automatically crash if they receive more than 10 messages.
-- B) It causes context window overflow errors, drives token costs exponentially higher with every turn, and introduces severe latency spikes.
-- C) Relational databases cannot store more than 100 strings.
-- D) It violates the HTTP/1.1 protocol specification.
-
-*Answer*: **B**. Every turn in an unbounded history retransmits all past tokens. This leads to context length violations ($128\text{k}$ tokens), massive token bills, and degrading response times.
-
----
-
-### Question 2: In `MessageWindowChatMemory`, what happens to the leading `SystemMessage` when the window overflows?
-- A) It is evicted first because it is the oldest message.
-- B) It is retained permanently; the window evicts the oldest non-system dialogue turns to preserve agent instructions.
-- C) It throws a `BufferOverflowException`.
-- D) It is overwritten by the latest user message.
-
-*Answer*: **B**. LangChain4j guarantees that the leading `SystemMessage` is never discarded, ensuring that core system guardrails and persona constraints remain active regardless of conversation length.
-
----
-
-### Question 3: How does `AiServices` isolate chat history for different concurrent users?
-- A) By creating a separate JVM process for each user.
-- B) Using the `@MemoryId` annotation on a method parameter combined with a `ChatMemoryProvider` that returns dedicated memory instances per ID.
-- C) By prefixing all user names to the system prompt.
-- D) LangChain4j can only handle one user at a time.
-
-*Answer*: **B**. Tagging a user ID parameter with `@MemoryId` instructs `AiServices` to look up or construct an isolated `ChatMemory` for that specific identifier via `ChatMemoryProvider`.
-
----
-
-### Question 4: When should you prefer `TokenWindowChatMemory` over `MessageWindowChatMemory`?
-- A) Always, because message counts are deprecated.
-- B) When users submit large, highly variable payloads (e.g., code snippets, CSV files, log dumps) where counting turns does not protect against token budget exhaustion.
-- C) Only when running on mobile Android devices.
-- D) When using local Ollama models instead of OpenAI.
-
-*Answer*: **B**. A single user turn can contain 15,000 tokens of error logs. A count-based window cannot detect this, whereas `TokenWindowChatMemory` measures exact token weight and enforces your token budget.
-
----
-
-### Question 5: What is the purpose of the `ChatMemoryStore` interface in LangChain4j?
-- A) To cache generated embedding vectors in memory.
-- B) To provide a pluggable persistence SPI for saving and restoring conversational turns to external databases (PostgreSQL, Redis, MongoDB) across application restarts.
-- C) To serialize Java bytecode into native assemblies.
-- D) To charge the user's credit card for API usage.
-
-*Answer*: **B**. `ChatMemoryStore` is the storage SPI decoupling memory window logic from the database layer, allowing chat histories to persist in PostgreSQL, Redis, or DynamoDB across server restarts and cluster scaling.
-
----
-
-## 10. Day 44 Wrap-Up & What's Next
-
-You've solved the amnesia problem! Your LangChain4j agents can now remember conversations just like humans do.
-
-Here are the key takeaways:
-- **Never dump unbounded history**: An uncontrolled chat history leads to context crashes, massive latency, and exploding token costs.
-- **Sliding windows protect your budget**: Use `MessageWindowChatMemory` for simple turn caps or `TokenWindowChatMemory` for strict token budgeting.
-- **System prompts are sacred**: LangChain4j guarantees that initial `@SystemMessage` instructions are never evicted when sliding windows roll forward.
-- **`@MemoryId` for multi-tenancy**: Always isolate memory per user or session ID to prevent conversation mix-ups.
-
-### What's Coming Up Next?
-Now your agent remembers what users say. But when you ask an LLM to extract data (like pulling dates, prices, or product names out of messy emails), LLMs love to get creative. They add conversational chatter like *"Sure! Here is the JSON you requested:"*, breaking your automated Java parsers!
-
-Tomorrow in **[Day 45: Structured Extraction & Guardrails](../Day_45_Structured_Extraction_Guardrails/Day_45_Structured_Extraction_Guardrails.md)**, we'll force LLMs to behave with mathematical precision using LangChain4j's structured extractors and guardrails. Keep up the awesome momentum!
-
----
-
-| Previous Day | Course Hub | Next Day |
-|:---|:---:|---:|
-| [Day 43: LangChain4j Introduction & AiServices](../Day_43_LangChain4j_Introduction_AiServices/Day_43_LangChain4j_Introduction_AiServices.md) | [All 60 Days Overview](../../README.md) | [Day 45: Structured Extraction & Guardrails](../Day_45_Structured_Extraction_Guardrails/Day_45_Structured_Extraction_Guardrails.md) |
-
+[← Previous: Day 43 - LangChain4j Introduction](../Day_43_LangChain4j_Introduction_AiServices/Day_43_LangChain4j_Introduction_AiServices.md) | [Next: Day 45 - Structured Extraction & Guardrails →](../Day_45_Structured_Extraction_Guardrails/Day_45_Structured_Extraction_Guardrails.md)

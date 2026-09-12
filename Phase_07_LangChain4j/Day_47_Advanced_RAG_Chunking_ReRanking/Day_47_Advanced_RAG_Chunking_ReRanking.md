@@ -1,285 +1,287 @@
 # Day 47: Advanced RAG — Chunking, Scoring & Re-Ranking
 
-## Precision Retrieval with Recursive Splitters, Cross-Encoder Re-Ranking, and Query Routing
-
-| Previous Day | Course Hub | Next Day |
-|:---|:---:|---:|
-| [Day 46: RAG Pipeline in LangChain4j](../Day_46_RAG_Pipeline_in_LangChain4j/Day_46_RAG_Pipeline_in_LangChain4j.md) | [All 60 Days Overview](../../README.md) | [Day 48: Tool Execution & Function Calling](../Day_48_Tool_Execution_Function_Calling/Day_48_Tool_Execution_Function_Calling.md) |
+[← Previous: Day 46 - RAG Pipeline in LangChain4j](../Day_46_RAG_Pipeline_in_LangChain4j/Day_46_RAG_Pipeline_in_LangChain4j.md) | [Next: Day 48 - Tool Execution & Function Calling →](../Day_48_Tool_Execution_Function_Calling/Day_48_Tool_Execution_Function_Calling.md)
 
 ---
 
-Welcome back to Day 47! Yesterday, you built your very first LangChain4j RAG pipeline. That's a huge milestone. But in real-world production, naive RAG hits a wall: vector similarity is great at finding text that *sounds* related, but it often misses the exact needle in the haystack—or worse, slices a crucial sentence right in half!
-
-Today, we level up to **Advanced RAG**. We're going to transform our pipeline into an Olympic-grade retrieval engine using intelligent recursive chunking, two-stage retrieval with cross-encoder re-ranking, and query routing. If these terms sound intimidating, don't sweat it—we'll demystify each one with friendly, everyday analogies before touching code.
-
----
-
-> 💡 **New Word Alert! Plain English Definitions for Today's Concepts**
->
-> - **Bi-Encoder**: A search technique where questions and document chunks are converted into vector numbers *independently*. Think of it like a quick keyword scanner or automated sports timer—it can blitz through a million items in milliseconds to give you the top 20 candidates, but its score is coarse.
-> - **Cross-Encoder (`ScoringModel`)**: A high-precision AI model that reads the user's question AND a document chunk *together at the same time*, analyzing every single nuance and word relationship. It's much slower than a bi-encoder, so you only unleash it on the top 10–20 finalists.
-> - **Re-Ranking**: The process of taking the rough top 20 results from vector search and re-ordering them with a cross-encoder so the true best answer shoots right to position #1.
-> - **Rank Inversion**: The exact moment when a document that was buried at candidate #18 in vector search gets evaluated by the re-ranker and wins the #1 gold medal spot!
-> - **Recursive Chunking & Sliding Overlap**: Instead of blindly cutting a document every 500 characters (which might slice a password exception rule right down the middle), recursive chunking splits at natural paragraph (`\n\n`) and sentence (`.`) boundaries. Overlap keeps a small 50-character buffer between chunks so no meaning is severed.
-> - **Query Routing**: An intelligent switchboard. Instead of dumping every company manual into one giant vector bucket, you route HR questions to the HR store, and Java bug questions to the DevOps store!
+## 1. Topic Overview
+Advanced RAG enhances standard semantic search by combining structure-aware recursive document chunking with sliding overlap, two-stage cross-encoder re-ranking (`ScoringModel`), and dynamic query routing. In enterprise Java systems, these architectural patterns eliminate false positives, correct rank inversion, minimize context window token waste, and deliver up to 99% retrieval precision across specialized multi-domain vector stores.
 
 ---
 
-## What Will You Learn Today?
+## 2. Basic Foundations (True Zero)
 
-- **The Chunking Dilemma**: Why naive character-based text slicing ruins semantic embeddings, and how recursive splitting with sliding overlap preserves conversational meaning.
-- **The Two-Stage Retrieval Architecture**: Combining fast, high-recall Bi-Encoder vector search with high-precision Cross-Encoder Re-Ranking (`ScoringModel`).
-- **Rank Inversion in Action**: How re-rankers fix false positives and elevate buried, highly relevant context from the bottom of candidate lists to rank 1.
-- **LangChain4j `ScoringModel` Integration**: Using Cohere Rerank, BGE-Reranker, and custom cross-encoders within `ReRankingContentRetriever`.
-- **Dynamic Query Routing**: Directing user queries intelligently across specialized domain vector stores (DevOps, HR, Legal, Financial) rather than a single monolithic index.
-- **Context Compression & Noise Reduction**: Eliminating redundant filler text to minimize prompt token costs and improve LLM attention focus.
+### Why Naive RAG Fails in Production
+Basic vector search (Bi-Encoder embedding) is fast, but it suffers from two major vulnerabilities:
+1. **Naive Slicing Bugs**: Blindly slicing a document every 500 characters cuts sentences and conditional clauses in half. If a policy states: *"Employees may never disclose passwords, except during authorized audits by the VP of Security"*, a naive cut can place the exception into the next chunk, causing the AI to report that exceptions never exist!
+2. **Vocabulary & Angle Mismatches**: Vector similarity is coarse. Out of 100,000 documents, it can find the top 20 candidates in 5 milliseconds, but the true #1 answer is frequently ranked down at position #14 or #18 (a problem known as **Rank Inversion**).
 
----
+### Relatable Physical Analogy: The Olympic Qualifier vs. The Final Medal Judges
+Imagine organizing an Olympic Gymnastics Championship with 10,000 global competitors:
+- **Stage 1: Automated Qualifier (Bi-Encoder Vector Search)**: You cannot have elite Olympic master judges evaluate all 10,000 athletes for 45 minutes each. Instead, automated electronic timing and balance sensors run a rapid 30-second filter, quickly reducing 10,000 athletes down to the **top 20 finalists** in minutes. It is fast, but coarse.
+- **Stage 2: Master Panel Evaluation (Cross-Encoder Re-Ranking)**: The elite human master judges evaluate only those **top 20 finalists**, scrutinizing every micro-second of form, posture, and difficulty. They re-rank the board: Athlete #18 delivers a flawless routine and takes the **Gold Medal**!
 
-## 1. Real-World Analogy: The Olympic Gymnastics Qualifier vs. The Final Medal Judges
-
-Imagine organizing the Olympic Gymnastics Championship with 10,000 global competitors:
-
-### Stage 1: The Qualifier (Bi-Encoder Vector Search)
-You have 10,000 gymnasts. You cannot have the top five Olympic master judges evaluate each gymnast for 45 minutes; it would take three months.
-- Instead, you run a **fast, automated qualifier**: a 30-second basic routine evaluated by automated timing and balance sensors.
-- In 2 hours, you filter 10,000 competitors down to the **top 20 finalists**.
-- *Trade-off*: It was fast and cheap, but the ranking inside the top 20 is coarse and imperfect. The 18th gymnast might actually have a brilliant routine that the automated sensors under-scored.
-
-### Stage 2: The Final Medal Round (Cross-Encoder Re-Ranking)
-Now you bring in the world's **elite Olympic panel**.
-- They do not evaluate all 10,000 gymnasts. They only judge the **top 20 finalists**.
-- They analyze every micro-second of joint movement, posture, and difficulty (**Deep Joint Attention**).
-- They re-order the rankings: Competitor #18 delivers a flawless performance and takes the **Gold Medal (Rank Inversion)**!
-
-```
-      STAGE 1: BI-ENCODER (FAST & COARSE)               STAGE 2: CROSS-ENCODER (DEEP & ACCURATE)
-   ┌─────────────────────────────────────┐         ┌──────────────────────────────────────────────┐
-   │ 1,000,000 Indexed Document Chunks   │         │ Top 20 Candidates from Stage 1               │
-   │                                     │         │                                              │
-   │ Fast Cosine Vector Search (HNSW):   │         │ Deep Joint Self-Attention (Query + Document):│
-   │  Candidate 1 (score: 0.82)          │         │  Candidate 14 ──► Rank 1 (Score: 0.98) 🥇    │
-   │  Candidate 2 (score: 0.81)          │         │  Candidate 1  ──► Rank 2 (Score: 0.74) 🥈    │
-   │  ...                                │         │  Candidate 8  ──► Rank 3 (Score: 0.69) 🥉    │
-   │  Candidate 14 (score: 0.76)         │         │                                              │
-   │                                     │         │ (Corrects rank inversion, filters noise)     │
-   │ ⚡ 10 milliseconds across millions!  │         │ 🎯 Passes only the top-3 to LLM Prompt       │
-   └──────────────────┬──────────────────┘         └──────────────────────────────────────────────┘
-                      │ Top 20 Candidates
-                      └────────────────────────────────────────────►
-```
-
-In modern enterprise RAG:
-1. **Bi-Encoders (Embeddings)** retrieve the top 20–50 candidate chunks in milliseconds.
-2. **Cross-Encoders (`ScoringModel`)** score those candidates against the user's full query, re-ranking the most relevant context to the very top.
-
----
-
-## 2. The Chunking Dilemma: Naive Slicing vs. Recursive Overlap
-
-How you chop a 100-page enterprise PDF into text chunks dictates the accuracy of your entire RAG pipeline.
-
-### The Naive Slicing Bug
-
-If you chunk text purely by character count (e.g., every 500 characters):
-```
-Chunk 1: "...and under no circumstances should an employee disclose passwords, except in the case of..."
-Chunk 2: "...authorized emergency drills conducted by the VP of Cybersecurity with written approval."
-```
-- A user asks: *"Can I ever disclose passwords?"*
-- Embedding search matches **Chunk 1**.
-- Chunk 1 says: *"Under no circumstances should an employee disclose passwords, except in the case of..."*
-- The model never sees the authorized exception in Chunk 2 because the semantic thought was bisected!
-
-```
-       NAIVE FIXED-LENGTH CHUNKING                    RECURSIVE OVERLAP CHUNKING
-   ┌───────────────────────────────────┐        ┌──────────────────────────────────────────────┐
-   │ [Chunk 1: 500 chars]              │        │ [Chunk 1: 500 chars]                         │
-   │ "...passwords, except in case of" │        │ "...passwords, except in case of emergency"  │
-   ├───────────────────────────────────┤        │ (Trailing 50 chars overlap with Chunk 2)     │
-   │ [Chunk 2: 500 chars]              │        ├──────────────────────────────────────────────┤
-   │ "authorized emergency drills..."  │        │ [Chunk 2: 500 chars]                         │
-   │                                   │        │ "except in case of emergency authorized      │
-   │ ❌ Sliced mid-clause!             │        │  emergency drills conducted by VP..."        │
-   │ ❌ Context severed!               │        │ ✅ Complete semantic thought preserved!      │
-   └───────────────────────────────────┘        └──────────────────────────────────────────────┘
-```
-
-### Production Chunking Strategies
-
-1. **Paragraph-Aware Splitting**: Chunk along natural `\n\n` boundaries so paragraphs remain intact.
-2. **Sentence-Aware Splitting**: Fall back to sentence boundaries (`.`, `!`, `?`) when a paragraph exceeds maximum chunk size.
-3. **Sliding Overlap**: Ensure every chunk shares the final $50\text{–}100$ characters with the start of the subsequent chunk, guaranteeing that boundary clauses are never lost.
-
----
-
-## 3. LangChain4j `ScoringModel` (Cross-Encoder Re-Ranking)
-
-### Bi-Encoders vs. Cross-Encoders
-
-- **Bi-Encoder (`EmbeddingModel`)**: Encodes the query and document independently into separate vectors. Fast, but lacks deep cross-attention between specific words in the query and text.
-- **Cross-Encoder (`ScoringModel`)**: Passes the query and candidate chunk *together* into a single transformer, calculating full self-attention across every token. Slow for 1,000,000 chunks, but lightning-fast and surgically accurate for 20 candidates.
-
-```mermaid
-graph TD
-    subgraph BiEncoder["Bi-Encoder (Stage 1: EmbeddingModel)"]
-        Q1["User Query"] --> E1["EmbeddingModel"] --> V1["Vector Q"]
-        D1["Document Chunk"] --> E2["EmbeddingModel"] --> V2["Vector D"]
-        V1 & V2 --> Cosine["Dot Product / Cosine (Approximate)"]
-    end
-
-    subgraph CrossEncoder["Cross-Encoder (Stage 2: ScoringModel)"]
-        Q2["User Query"] & D2["Document Chunk"] --> Concat["[CLS] Query [SEP] Document [SEP]"]
-        Concat --> Attention["Full Cross-Attention Self-Attention Layers"]
-        Attention --> Score["Calibrated Relevance Score (0.0 to 1.0)"]
-    end
-```
-
-### 3.1 The `ScoringModel` Contract
-
-```java
-package dev.langchain4j.model.scoring;
-
-public interface ScoringModel {
-    double score(String text, String query);
-    List<Double> scoreAll(List<String> texts, String query);
-}
-```
-
-### 3.2 `ReRankingContentRetriever`
-
-LangChain4j provides a turnkey wrapper combining an underlying `ContentRetriever` with a `ScoringModel`:
+### Minimal Beginner-Friendly Working Code
+Here is how to set up two-stage re-ranking in LangChain4j using `ReRankingContentRetriever`:
 
 ```java
 package com.genai.langchain4j.advancedrag;
 
-import dev.langchain4j.model.scoring.ScoringModel;
 import dev.langchain4j.model.cohere.CohereScoringModel;
+import dev.langchain4j.model.scoring.ScoringModel;
 import dev.langchain4j.rag.content.retriever.ContentRetriever;
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
 import dev.langchain4j.rag.content.retriever.ReRankingContentRetriever;
 
-public class AdvancedRagFactory {
+public class SimpleReRankingSetup {
 
-    public static ContentRetriever createReRankingRetriever(EmbeddingStoreContentRetriever baseRetriever) {
-        // 1. Configure the cross-encoder scoring model (e.g. Cohere Rerank v3)
+    public static ContentRetriever buildTwoStageRetriever(EmbeddingStoreContentRetriever baseRetriever) {
+        // 1. Configure the Stage 2 Cross-Encoder Scoring Model (e.g. Cohere Rerank v3)
         ScoringModel scoringModel = CohereScoringModel.builder()
             .apiKey(System.getenv("COHERE_API_KEY"))
             .modelName("rerank-english-v3.0")
             .build();
 
-        // 2. Wrap the base retriever: retrieves top-20, re-ranks, returns top-3
+        // 2. Wrap the Stage 1 retriever: retrieves top 20 candidates,
+        // evaluates cross-attention, and returns the top 3 highest quality chunks!
         return ReRankingContentRetriever.builder()
             .contentRetriever(baseRetriever)
             .scoringModel(scoringModel)
-            .maxResults(3)           // Top-3 highest quality chunks
-            .minScore(0.65)          // Discard irrelevant matches
+            .maxResults(3)           // Final surgical top-3 candidates for the prompt
+            .minScore(0.65)          // Discards low-relevance false positives
             .build();
     }
 }
 ```
 
----
-
-## 4. Enterprise Dynamic Query Routing
-
-In complex enterprise environments, dumping all documents (Kubernetes runbooks, HR benefits, accounting manuals, legal patents) into a single vector store degrades retrieval accuracy.
-
-A query like *"What is the policy for node evictions?"* might retrieve an HR policy on employee dismissal rather than Kubernetes pod eviction!
-
-A **Query Router** analyzes incoming user intent and routes the query to the dedicated domain vector store:
-
-```mermaid
-flowchart TD
-    UserQuery["User Query: 'Can I carry over 5 days of unused PTO?'"]
-    Router["Query Router (Classification Model)"]
-    
-    UserQuery --> Router
-    
-    Router -->|Intent: DevOps / K8s| Store1["Infrastructure Vector Store"]
-    Router -->|Intent: HR / Benefits| Store2["HR & Benefits Vector Store"]
-    Router -->|Intent: Finance / Billing| Store3["Accounting & Tax Vector Store"]
-    
-    Store2 --> Retrieved["Relevant Document Excerpt: 'PTO Carryover Policy'"]
-    Retrieved --> LLM["AiServices (Grounded Answer)"]
-```
+### Line-by-Line Walkthrough
+1. **`CohereScoringModel.builder()`**: Instantiates a Cross-Encoder transformer model that receives both the query and document chunk simultaneously, evaluating deep token-to-token cross-attention.
+2. **`ReRankingContentRetriever.builder()`**: LangChain4j's composable wrapper uniting Stage 1 candidate retrieval with Stage 2 re-ranking.
+3. **`.contentRetriever(baseRetriever)`**: The Stage 1 Bi-Encoder retriever (e.g., PostgreSQL `pgvector`) that fetches an initial wide net of candidates (e.g., top 20).
+4. **`.maxResults(3).minScore(0.65)`**: The cross-encoder re-ranks the 20 candidates, discards anything below the 0.65 relevance score, and passes the 3 absolute best chunks into the LLM prompt.
 
 ---
 
-## 5. Complete Runnable Companion Code Architecture
-
-In this lesson's companion code (`Phase_07_LangChain4j/Day_47_Advanced_RAG_Chunking_ReRanking/code/`), we provide a complete, pure Java 21 implementation:
+## 3. Core Concept Walkthrough (Basic → Intermediate)
 
 ```
-Day_47_Advanced_RAG_Chunking_ReRanking/code/
-├── DocumentSplitter.java                # Contract for document chunking
-├── RecursiveDocumentSplitter.java       # Production recursive splitter with paragraph preservation & overlap
-├── ScoringModel.java                    # Cross-encoder scoring SPI contract
-├── SimulatedCrossEncoderScoringModel.java # Joint self-attention simulation computing deep relevance
-├── ReRankingContentRetriever.java       # Turnkey re-ranking retriever demonstrating rank inversion
-├── QueryRouter.java                     # Dynamic query router directing queries to specialized stores
-└── AdvancedRagDemo.java                 # Comprehensive executable test suite verifying all 3 advanced patterns
++-------------------------------------------------------------------------------+
+|                       TWO-STAGE ADVANCED RAG PIPELINE                         |
++-------------------------------------------------------------------------------+
+|                                                                               |
+|  User Query: "What is the memory limit for HNSW index on 10M vectors?"        |
+|         |                                                                     |
+|         v                                                                     |
+|  [ STAGE 1: Bi-Encoder Vector Search (High Recall, Coarse Ranking) ]          |
+|  Query & Chunks embedded independently; cosine search via HNSW in pgvector    |
+|  Output: Top 20 Candidates in 5ms:                                            |
+|    - Candidate #1  (Score: 0.81) [Spring Boot Virtual Threads]                |
+|    - Candidate #2  (Score: 0.79) [Kafka Replication In-Sync]                  |
+|    - ...                                                                      |
+|    - Candidate #14 (Score: 0.72) [PostgreSQL HNSW 10M vectors: 4GB RAM]       |
+|         |                                                                     |
+|         v (Top 20 Candidates passed to Stage 2)                               |
+|  [ STAGE 2: Cross-Encoder Re-Ranking (High Precision ScoringModel) ]         |
+|  Deep Joint Self-Attention: [Query + Candidate] together in Transformer       |
+|         |                                                                     |
+|         v RANK INVERSION OCCURS!                                              |
+|    - Winner #1 (Score: 0.96, was #14): [PostgreSQL HNSW 10M vectors: 4GB RAM] |
+|    - Winner #2 (Score: 0.42, was #1):  [Spring Boot Virtual Threads]          |
+|         |                                                                     |
+|         v                                                                     |
+|  Only the Top-2 Surgical Winners injected into LLM Prompt!                    |
++-------------------------------------------------------------------------------+
 ```
 
-### Verification & Demonstration Output
+### The Chunking Dilemma: Recursive Splitting with Overlap
+Standard character chunking severs sentences. LangChain4j provides `DocumentSplitters.recursive(...)`:
+1. **Paragraph First (`\n\n`)**: Splits along natural paragraphs to keep semantic thoughts unified.
+2. **Sentence Second (`.`, `!`, `?`)**: If a paragraph exceeds the token target (e.g., 500 tokens), it splits cleanly on sentence boundaries.
+3. **Sliding Overlap**: A buffer (e.g., 50 characters or tokens) shared between consecutive chunks ensures boundary conditions are never lost.
 
-Execute `AdvancedRagDemo.java`:
+```java
+package com.genai.langchain4j.advancedrag;
 
-```bash
-javac -d out Phase_07_LangChain4j/Day_47_Advanced_RAG_Chunking_ReRanking/code/*.java
-java -cp out com.genai.langchain4j.advancedrag.AdvancedRagDemo
+import java.util.ArrayList;
+import java.util.List;
+
+public final class RecursiveChunker {
+
+    private RecursiveChunker() {}
+
+    public static List<String> chunkWithOverlap(String text, int chunkSize, int overlap) {
+        if (text == null || text.isBlank()) return List.of();
+        if (chunkSize <= overlap) throw new IllegalArgumentException("chunkSize must be greater than overlap");
+
+        List<String> chunks = new ArrayList<>();
+        int step = chunkSize - overlap;
+        int length = text.length();
+
+        for (int start = 0; start < length; start += step) {
+            int end = Math.min(start + chunkSize, length);
+            chunks.add(text.substring(start, end));
+            if (end == length) break;
+        }
+
+        return chunks;
+    }
+}
 ```
 
+### Bi-Encoders vs. Cross-Encoders: Architectural Comparison
+
+| Architectural Trait | Bi-Encoder (`EmbeddingModel`) | Cross-Encoder (`ScoringModel`) |
+|:---|:---|:---|
+| **Mechanism** | Encodes query and document independently into vectors. | Encodes `[Query + Document]` together through joint attention layers. |
+| **Speed / Scalability** | **Ultra-Fast (< 5ms)**; vectors are pre-computed in database index. | **Slower (30–100ms)**; requires forward pass per candidate pair. |
+| **Search Space** | Can search across 10,000,000 documents. | Feasible only for 10–50 candidate chunks. |
+| **Precision** | Coarse; susceptible to keyword and semantic overlap bias. | **Surgical precision**; evaluates exact logical and grammatical alignment. |
+| **Pipeline Role** | **Stage 1**: Candidate Retrieval (High Recall). | **Stage 2**: Candidate Re-Ranking (High Precision). |
+
+---
+
+## 4. Prerequisite & Supporting Concepts
+
+### Prerequisite / Supporting Concept: Enterprise Dynamic Query Routing
+In large enterprises, placing all documents (HR, IT, Legal, Finance) into a single vector store causes cross-domain confusion:
+- User asks: *"What is the policy for node evictions?"*
+- A monolithic vector store might match an HR document on employee termination rather than Kubernetes pod evictions!
+- A **Query Router** inspects the user query and directs it exclusively to the appropriate domain vector store:
+
 ```
-==================================================================
-  DAY 47: ADVANCED RAG - CHUNKING, SCORING & RE-RANKING DEMO     
-==================================================================
-
---- 1. Recursive Document Chunking with Sliding Overlap ---
-Generated Chunks Count: 3
-   [Chunk 1 (178 chars)]:
-   "Spring Boot 3.3 introduces enhanced virtual thread support for reactive and web frameworks. When running on OpenJDK 21, tomcat threads are dynamically mapped to virtual carriers."
-
-   [Chunk 2 (223 chars)]:
-   "threads are dynamically mapped to virtual carriers.  PostgreSQL vector extensions require tuned maintenance_work_mem settings. For databases with over 10 million vectors, HNSW index construction requires at least 4GB of RAM."
-
-   [Chunk 3 (197 chars)]:
-   "index construction requires at least 4GB of RAM.  Kafka event brokers require minimum in-sync replicas configured to two. This ensures zero message loss even during unplanned broker pod eviction."
-
---- 2. Cross-Encoder Re-Ranking (Rank Inversion Demonstration) ---
-Stage 1 Bi-Encoder Rankings (Coarse Vector Similarity):
-   Initial Rank 1: "Spring Boot 3.3 introduces enhanced virtual thread support for reactive frameworks."
-   Initial Rank 2: "Kafka event brokers require minimum in-sync replicas configured to two."
-   Initial Rank 3: "For databases with over 10 million vectors, HNSW index construction requires at least 4GB of RAM."
-
-Stage 2 Cross-Encoder Rankings (Deep Joint-Attention Re-Ranking):
-   New Rank 1 (score: 0.260, was initial rank 3): "For databases with over 10 million vectors, HNSW index construction requires at least 4GB of RAM."
-
---- 3. Enterprise Dynamic Query Routing ---
-Query 1: "How many pods should be provisioned for Kubernetes cluster autoscaling?" -> Route to: INFRASTRUCTURE_DEV_DOCS
-Query 2: "Can I carry over 5 days of unused PTO into the next calendar quarter?" -> Route to: LEGAL_AND_HR_POLICY
-Query 3: "What is the corporate tax deduction limit for employee travel meals?" -> Route to: FINANCIAL_ACCOUNTING
-
-==================================================================
-  ADVANCED RAG VERIFICATION COMPLETED SUCCESSFULLY               
-==================================================================
+ User Query ──► [ Query Router / Intent Classifier ]
+                     ├── (Intent: Kubernetes / IT) ──► IT Infrastructure Store
+                     ├── (Intent: PTO / Benefits)    ──► HR & Benefits Store
+                     └── (Intent: Tax / Expense)     ──► Financial Accounting Store
 ```
 
 ---
 
-## 6. Why Advanced RAG Matters for Senior Engineers
+## 5. Advanced Depth (Intermediate → Advanced)
 
-1. **Elimination of False Positives**: Bi-encoders frequently return chunks that share similar keywords but address an unrelated topic. Cross-encoders eliminate over 80% of these irrelevant candidates.
-2. **Context Window Hygiene**: Injecting 20 coarse chunks into a prompt consumes thousands of tokens and dilutes the model's attention ("Lost in the Middle" phenomenon). Re-ranking down to the top 2–3 surgical chunks improves answer precision while saving 85% on token costs.
-3. **Enterprise Domain Segregation**: Dynamic query routing enables strict compliance isolation (e.g. keeping executive compensation documents in an encrypted store accessible only via authorized query routes).
+### Reciprocal Rank Fusion (RRF) Scorer
+When merging candidates from multiple searches (e.g., keyword search + vector search), use the standard RRF formula to combine ranks without uncalibrated score distortion:
+
+$$RRF(d) = \sum_{m \in M} \frac{1}{60 + r_m}$$
+
+```java
+package com.genai.langchain4j.advancedrag;
+
+public final class ReciprocalRankScorer {
+
+    public static final int K = 60;
+
+    private ReciprocalRankScorer() {}
+
+    public static double computeRrf(int biEncoderRank, int crossEncoderRank) {
+        double term1 = 1.0 / (K + biEncoderRank);
+        double term2 = 1.0 / (K + crossEncoderRank);
+        return term1 + term2;
+    }
+}
+```
+
+### Intent-Based Query Classifier for Routing
+```java
+package com.genai.langchain4j.advancedrag;
+
+public final class QueryRouter {
+
+    public enum DomainStore { INFRASTRUCTURE_DEVOPS, HR_POLICY, FINANCIAL_ACCOUNTING }
+
+    private QueryRouter() {}
+
+    public static DomainStore route(String query) {
+        String lower = query.toLowerCase();
+        if (lower.contains("k8s") || lower.contains("kubernetes") || lower.contains("pod") || lower.contains("docker") || lower.contains("kafka")) {
+            return DomainStore.INFRASTRUCTURE_DEVOPS;
+        }
+        if (lower.contains("pto") || lower.contains("vacation") || lower.contains("leave") || lower.contains("insurance") || lower.contains("benefits")) {
+            return DomainStore.HR_POLICY;
+        }
+        return DomainStore.FINANCIAL_ACCOUNTING;
+    }
+}
+```
+
+### Common Anti-Patterns & Production Traps
+
+| Anti-Pattern | Why It Breaks in Production | Correct Architectural Solution |
+|:---|:---|:---|
+| **Applying Cross-Encoder to 10,000 Chunks** | Joint cross-attention is computationally heavy; running it over thousands of documents locks the server and incurs seconds of latency. | Use Bi-Encoders to retrieve the top 20 candidates, then apply the Cross-Encoder only to those 20 finalists. |
+| **Fixed Character Chunking Without Overlap** | Cuts sentences in half, causing queries to miss crucial boundary clauses. | Use recursive paragraph/sentence splitters with a 50–100 character sliding overlap window. |
+| **Single Monolithic Vector Store for All Company Data** | General queries retrieve irrelevant documents from unrelated departments (e.g., HR matching IT infrastructure queries). | Segregate data into specialized vector collections and route queries with a `QueryRouter`. |
 
 ---
 
-## 7. Practical Exercises
+## 6. Quick Recap
+- **Naive RAG** suffers from semantic slicing bugs and coarse vector ranking where the true answer is buried in candidate results.
+- **Recursive Chunking with Overlap** respects natural paragraph and sentence boundaries, preserving semantic thoughts intact.
+- **Two-Stage Retrieval** pairs fast Bi-Encoder vector search (top 20 candidates in 5ms) with surgical Cross-Encoder re-ranking (`ScoringModel`).
+- **Rank Inversion** occurs when a cross-encoder evaluates the top 20 candidates and promotes the true answer from rank #18 up to #1.
+- **Dynamic Query Routing** directs user inquiries to domain-specific vector stores (DevOps, HR, Finance) to eliminate cross-domain noise.
 
-### Exercise 1: Sliding Overlap Validator
-**Task**: Build a utility method `boolean hasOverlap(String chunk1, String chunk2, int minOverlapLength)` that verifies whether the end of `chunk1` is present at the beginning of `chunk2`, ensuring that recursive chunking maintained continuity.
-**Solution**:
+---
+
+## 7. Self-Check Questions & Practice Exercises
+
+### 5-Question Self-Check Quiz
+
+#### Question 1
+What is the fundamental difference between a Bi-Encoder and a Cross-Encoder?
+- A) Bi-encoders process images, while cross-encoders process audio.
+- B) Bi-encoders embed query and documents independently into vectors for fast search, while cross-encoders compute joint self-attention across the combined query-document pair for high accuracy.
+- C) Cross-encoders run only on mobile devices.
+- D) Bi-encoders are deprecated in modern AI.
+
+#### Question 2
+Why is recursive document chunking with overlap superior to fixed-character chunking?
+- A) It doubles the clock speed of the GPU.
+- B) It prevents splitting sentences or paragraphs mid-thought and preserves context across chunk boundaries via a sliding overlap window.
+- C) It compresses text using GZIP.
+- D) It bypasses vector database licensing fees.
+
+#### Question 3
+What is "Rank Inversion" in a two-stage retrieval pipeline?
+- A) When a database crashes and reverses its primary keys.
+- B) When a highly relevant document ranked lower in Stage 1 bi-encoder vector search is elevated to Rank 1 by the Stage 2 cross-encoder re-ranking model.
+- C) Sorting search results in alphabetical order.
+- D) An error caused by negative cosine similarity.
+
+#### Question 4
+In LangChain4j, which component wraps a base `ContentRetriever` with a `ScoringModel`?
+- A) `MessageWindowChatMemory`
+- B) `ReRankingContentRetriever`
+- C) `JdbcTemplate`
+- D) `OpenAiChatModel`
+
+#### Question 5
+Why is Dynamic Query Routing important in multi-domain enterprise applications?
+- A) It prevents queries from searching the wrong knowledge bases, reducing noise, preventing cross-domain hallucinations, and enforcing compliance boundaries.
+- B) It allows the model to run without internet access.
+- C) It encrypts network traffic between microservices.
+- D) Query routing is only used for billing calculations.
+
+---
+
+### Quiz Answers & Explanations
+1. **B**: Bi-encoders allow pre-computing and caching vector embeddings for millions of chunks, whereas cross-encoders perform full joint attention between the query and candidate text, providing superior precision at higher computational cost.
+2. **B**: Fixed-character slicing frequently cuts words and conditional clauses in half. Recursive splitting respects structural grammar (paragraphs, sentences) and uses overlap to maintain semantic continuity.
+3. **B**: Bi-encoders use approximate cosine distance and can rank true answers lower due to vocabulary mismatch. The cross-encoder re-evaluates candidates and promotes the true answer to the top.
+4. **B**: `ReRankingContentRetriever` accepts an underlying `ContentRetriever` to fetch initial candidates, scores them with a `ScoringModel`, and returns the top-K highest-scoring segments.
+5. **A**: Routing queries to specific domain stores (e.g. routing a tax question to finance and a cluster question to DevOps) prevents irrelevant cross-domain matches and guarantees that specialized retrieval policies are applied.
+
+---
+
+### Hands-On Practice Exercises
+
+#### Exercise 1: Sliding Overlap Validator
+**Problem Statement**:  
+Build a utility method `boolean hasOverlap(String chunk1, String chunk2, int minOverlapLength)` that verifies whether the trailing suffix of `chunk1` is present at the beginning of `chunk2`, ensuring that recursive chunking maintained continuity.
+
+<details>
+<summary>👉 View Solution</summary>
+
 ```java
 package com.genai.langchain4j.exercises;
 
@@ -295,29 +297,15 @@ public class ChunkOverlapValidator {
     }
 }
 ```
+</details>
 
-### Exercise 2: Reciprocal Rank Fusion (RRF) Scorer
-**Task**: Write a method that calculates the RRF score for a document given its rank in Stage 1 ($r_1$) and Stage 2 ($r_2$):
-$$\text{RRF}(d) = \frac{1}{60 + r_1} + \frac{1}{60 + r_2}$$
-**Solution**:
-```java
-package com.genai.langchain4j.exercises;
+#### Exercise 2: Intent-Based Query Classifier
+**Problem Statement**:  
+Build a regex-based query classifier that categorizes questions into `SQL_QUERY`, `REST_API`, or `GENERAL_JAVA` for routing to distinct code documentation stores.
 
-public class ReciprocalRankScorer {
+<details>
+<summary>👉 View Solution</summary>
 
-    public static final int K = 60;
-
-    public static double computeRrf(int biEncoderRank, int crossEncoderRank) {
-        double term1 = 1.0 / (K + biEncoderRank);
-        double term2 = 1.0 / (K + crossEncoderRank);
-        return term1 + term2;
-    }
-}
-```
-
-### Exercise 3: Intent-Based Query Classifier
-**Task**: Build a regex-based query classifier that categorizes questions into `SQL_QUERY`, `REST_API`, or `GENERAL_JAVA` for routing to distinct code documentation stores.
-**Solution**:
 ```java
 package com.genai.langchain4j.exercises;
 
@@ -326,6 +314,7 @@ public class CodeQueryClassifier {
     public enum CodeDomain { SQL_QUERY, REST_API, GENERAL_JAVA }
 
     public static CodeDomain classify(String query) {
+        if (query == null) return CodeDomain.GENERAL_JAVA;
         String lower = query.toLowerCase();
         if (lower.contains("select") || lower.contains("join") || lower.contains("table") || lower.contains("postgres")) {
             return CodeDomain.SQL_QUERY;
@@ -337,74 +326,8 @@ public class CodeQueryClassifier {
     }
 }
 ```
+</details>
 
 ---
 
-## 8. Self-Check Quiz
-
-### Question 1: What is the fundamental difference between a Bi-Encoder and a Cross-Encoder?
-- A) Bi-encoders process images, while cross-encoders process audio.
-- B) Bi-encoders embed query and documents independently into vectors for fast search, while cross-encoders compute joint self-attention across the combined query-document pair for high accuracy.
-- C) Cross-encoders run only on mobile devices.
-- D) Bi-encoders are deprecated in modern AI.
-
-*Answer*: **B**. Bi-encoders allow pre-computing and caching vector embeddings for millions of chunks, whereas cross-encoders perform full joint attention between the query and candidate text, providing superior precision at higher computational cost.
-
----
-
-### Question 2: Why is recursive document chunking with overlap superior to fixed-character chunking?
-- A) It doubles the speed of the GPU.
-- B) It prevents splitting sentences or paragraphs mid-thought and preserves context across chunk boundaries via a sliding overlap window.
-- C) It compresses the text using GZIP.
-- D) It bypasses vector database licensing fees.
-
-*Answer*: **B**. Fixed-character slicing frequently cuts words and conditional clauses in half. Recursive splitting respects structural grammar (paragraphs, sentences) and uses overlap to maintain semantic continuity.
-
----
-
-### Question 3: What is "Rank Inversion" in a two-stage retrieval pipeline?
-- A) When a database crashes and reverses its primary keys.
-- B) When a highly relevant document ranked lower in Stage 1 bi-encoder vector search is elevated to Rank 1 by the Stage 2 cross-encoder re-ranking model.
-- C) Sorting search results in alphabetical order.
-- D) An error caused by negative cosine similarity.
-
-*Answer*: **B**. Bi-encoders use approximate cosine distance and can rank true answers lower due to vocabulary mismatch. The cross-encoder re-evaluates candidates and promotes the true answer to the top.
-
----
-
-### Question 4: In LangChain4j, which component wraps a base `ContentRetriever` with a `ScoringModel`?
-- A) `MessageWindowChatMemory`
-- B) `ReRankingContentRetriever`
-- C) `JdbcTemplate`
-- D) `OpenAiChatModel`
-
-*Answer*: **B**. `ReRankingContentRetriever` accepts an underlying `ContentRetriever` to fetch initial candidates, scores them with a `ScoringModel`, and returns the top-K highest-scoring segments.
-
----
-
-### Question 5: Why is Dynamic Query Routing important in multi-domain enterprise applications?
-- A) It prevents queries from searching the wrong knowledge bases, reducing noise, preventing cross-domain hallucinations, and enforcing compliance boundaries.
-- B) It allows the model to run without internet access.
-- C) It encrypts network traffic between microservices.
-- D) Query routing is only used for billing calculations.
-
-*Answer*: **A**. Routing queries to specific domain stores (e.g. routing a tax question to finance and a cluster question to DevOps) prevents irrelevant cross-domain matches and guarantees that specialized retrieval policies are applied.
-
----
-
-## 9. Day 47 Mentor Wrap-Up: You've Mastered Precision Search!
-
-Take a breath and appreciate how far you've come! Today you moved beyond standard "toy" RAG into enterprise-grade retrieval engineering:
-1. You understand why naive character chunking breaks code and policy documents, and how recursive splitting with sliding overlap protects semantic continuity.
-2. You mastered the Olympic qualifier analogy: Bi-Encoders give you blazing speed across millions of chunks, while Cross-Encoders give you master-judge precision on the top 20 candidates.
-3. You saw how `ReRankingContentRetriever` in LangChain4j fixes rank inversion so the LLM gets the cleanest, most pinpoint accurate context possible.
-4. You wired up domain query routers to send questions directly to specialized stores instead of getting lost in a monolithic haystack.
-
-Tomorrow in **Day 48: Tool Execution & Function Calling**, we give our AI models hands! You'll learn how to let an LLM call your real Java methods, fetch live data from APIs, and run calculations. See you there!
-
----
-
-| Previous Day | Course Hub | Next Day |
-|:---|:---:|---:|
-| [Day 46: RAG Pipeline in LangChain4j](../Day_46_RAG_Pipeline_in_LangChain4j/Day_46_RAG_Pipeline_in_LangChain4j.md) | [All 60 Days Overview](../../README.md) | [Day 48: Tool Execution & Function Calling](../Day_48_Tool_Execution_Function_Calling/Day_48_Tool_Execution_Function_Calling.md) |
-
+[← Previous: Day 46 - RAG Pipeline in LangChain4j](../Day_46_RAG_Pipeline_in_LangChain4j/Day_46_RAG_Pipeline_in_LangChain4j.md) | [Next: Day 48 - Tool Execution & Function Calling →](../Day_48_Tool_Execution_Function_Calling/Day_48_Tool_Execution_Function_Calling.md)

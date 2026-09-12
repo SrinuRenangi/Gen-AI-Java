@@ -1,423 +1,353 @@
 # Day 46: RAG Pipeline in LangChain4j
 
-## Composable Document Ingestion, Semantic Retrieval, and Context Augmentation in Java
-
-| Previous Day | Course Hub | Next Day |
-|:---|:---:|---:|
-| [Day 45: Structured Extraction & Guardrails](../Day_45_Structured_Extraction_Guardrails/Day_45_Structured_Extraction_Guardrails.md) | [All 60 Days Overview](../../README.md) | [Day 47: Advanced RAG — Chunking, Scoring & Re-Ranking](../Day_47_Advanced_RAG_Chunking_ReRanking/Day_47_Advanced_RAG_Chunking_ReRanking.md) |
+[← Previous: Day 45 - Structured Extraction & Guardrails](../Day_45_Structured_Extraction_Guardrails/Day_45_Structured_Extraction_Guardrails.md) | [Next: Day 47 - Advanced RAG Chunking & Re-Ranking →](../Day_47_Advanced_RAG_Chunking_ReRanking/Day_47_Advanced_RAG_Chunking_ReRanking.md)
 
 ---
 
-## Friendly Welcome: The Open-Book AI Superpower
-
-Hey there, friend! Welcome to Day 46.
-
-Imagine you are sitting for the most difficult legal or medical examination in the world:
-- If you had to take it **closed-book**, you'd have to memorize hundreds of thousands of laws and statistics. You'd likely forget the 2026 tax limits or hallucinate an outdated regulation.
-- But imagine taking it **open-book with a world-class research librarian sitting next to you**! The moment a difficult question appears, the librarian speeds to the library shelves, photocopies the exact two paragraphs that answer the question, and lays them on your desk. You read the excerpt and answer with 100% factual accuracy, citing the exact chapter and page!
-
-That open-book research superpower is **Retrieval-Augmented Generation (RAG)**!
-
-Today, we are going to build a complete, composable RAG pipeline from scratch in LangChain4j. You'll learn how to parse enterprise documents (PDFs, Word docs, Markdown), chunk them into clean text segments, index them into vector stores, and connect your semantic search engine directly into your `AiServices` interfaces with one line of code!
+## 1. Topic Overview
+Retrieval-Augmented Generation (RAG) in LangChain4j decouples the ingestion write-path (document parsing, chunking, embedding, vector storage) from the online retrieval read-path (query embedding, similarity scoring, context augmentation) using clean, composable Service Provider Interfaces (SPIs). This architecture allows enterprise Java systems to ground declarative `AiServices` agents in private company knowledge bases with deterministic citations and zero model hallucinations.
 
 ---
 
-> 💡 **New Word Alert! Key Concepts for Today**
->
-> - **RAG (Retrieval-Augmented Generation)**: The technique of retrieving relevant facts from your private company documents and feeding them into the AI prompt before generating an answer. It eliminates hallucinations and grounds the AI in reality!
-> - **Ingestion Pipeline**: The background "write path" where you parse raw documents (PDF, DOCX, TXT), split them into chunks, calculate embedding vectors, and save them in a vector database.
-> - **`TextSegment`**: A manageable chunk of text (e.g. 300 to 500 tokens) accompanied by metadata (like document title, URL, page number, and tenant ID).
-> - **`ContentRetriever`**: LangChain4j's core search SPI. Given a user query, it finds and returns the most relevant `TextSegment`s from your vector store or search index.
-> - **`minScore`**: A similarity score cutoff (e.g. `0.75`). It tells the system: *"If the best matching document isn't relevant enough, don't include it!"* This prevents the AI from answering with irrelevant nonsense.
-> - **Easy-RAG**: A convenient LangChain4j utility that lets you point to a folder of files and automatically parses, chunks, embeds, and indexes them with a single line of Java code!
+## 2. Basic Foundations (True Zero)
 
----
+### What is RAG in LangChain4j?
+When an LLM is asked about proprietary internal data (such as enterprise refund policies or Kubernetes cluster configurations), it cannot answer accurately because that information was never part of its public training set.
 
-## What Will You Learn Today?
+RAG turns a **closed-book exam** into an **open-book exam**:
+1. When a user asks a question, your application searches your private vector store for the exact paragraphs that contain the answer.
+2. It injects those retrieved paragraphs directly into the prompt as verified context.
+3. The LLM reads the excerpt and synthesizes a 100% factual answer citing the source document.
 
-- **The Decoupled RAG Philosophy**: Why LangChain4j splits RAG into clean, composable SPIs (Ingestion, Storage, Retrieval, Augmentation) rather than a monolithic black box.
-- **The Ingestion Pipeline**: Parsing enterprise PDFs, Word documents, and text files, chunking them into `TextSegment` objects, generating vectors via `EmbeddingModel`, and indexing into `EmbeddingStore`.
-- **The Core Retrieval SPIs**: Mastering `ContentRetriever`, `EmbeddingStoreContentRetriever`, and `RetrievalAugmentor`.
-- **Declarative RAG with `AiServices`**: Connecting your semantic search engine directly into declarative Java interfaces with a single builder method.
-- **Easy-RAG for Rapid Prototyping**: Ingesting directories of multi-format enterprise files with turnkey one-liners.
-- **Precision Filtering & Quality Thresholds**: Tuning cosine similarity cutoffs (`minScore`) and document count limits (`maxResults`) to prevent token waste and context pollution.
+### Relatable Physical Analogy: The Open-Book University Exam
+Imagine taking a high-stakes corporate tax examination:
+- **Closed-Book (Vanilla LLM)**: You are locked in a room with no notes, no books, and no internet. When asked: *"What is the equipment depreciation limit under Section 179 for 2026?"*, you cannot remember the exact number and guess: *"Probably $1,000,000"*, causing severe compliance fines.
+- **Open-Book with a Research Assistant (RAG Pipeline)**: You sit at a desk accompanied by a fast research assistant. When the question arrives, the assistant navigates directly to the tax code shelf (**Vector Store**), photocopies the relevant paragraph (**Semantic Retrieval**), and places it on your desk (**Context Augmentation**). You read: *"Section 179 limit for 2026 is $1,220,000"*, and answer with perfect accuracy and citations.
 
----
-
-## 1. Real-World Analogy: The Open-Book University Exam
-
-Imagine sitting for the world's most demanding corporate tax law examination:
-
-### Approach A: The Closed-Book Exam (Raw LLM)
-You are locked in a room with no notes, no internet, and no tax code books. You must rely solely on whatever facts you memorized during university three years ago:
-- When asked: *"Under Section 179 of the 2026 tax code, what is the equipment depreciation limit?"*
-- You cannot remember the updated 2026 figure. You guess: *"Probably $1,000,000."*
-- You hallucinated an outdated or incorrect number. In high-stakes business, this causes catastrophic regulatory fines.
-
-### Approach B: The Open-Book Exam with an Expert Research Librarian (RAG)
-You sit at a desk equipped with a high-speed research librarian:
-1. When the question arrives, you hand it to the librarian: *"Find the section on 2026 equipment depreciation."*
-2. The librarian consults the library catalog index (**Vector Store**), navigates directly to the exact shelf and page (**Semantic Retrieval**), photocopies the relevant paragraph, and lays it on your desk (**Context Augmentation**).
-3. You read the excerpt: *"Section 179 limit for 2026 is $1,220,000."*
-4. You synthesize the answer for the examiner with 100% factual accuracy and cite the official publication.
-
-```
-       RAW MODEL (CLOSED BOOK)                          RAG PIPELINE (OPEN BOOK)
-   ┌──────────────────────────────┐            ┌──────────────────────────────────────────────┐
-   │ Prompt: "What is the refund  │            │ User Prompt: "What is the refund policy?"    │
-   │  policy for Tier-2 accounts?"│            └──────────────────────┬───────────────────────┘
-   └──────────────┬───────────────┘                                   │
-                  ▼                                                   ▼
-   ┌──────────────────────────────┐            ┌──────────────────────────────────────────────┐
-   │ Model Guess / Hallucination: │            │ ContentRetriever & EmbeddingStore            │
-   │ "Refunds are typically 14    │            │ • Converts query to vector via EmbeddingModel│
-   │  days, but check your terms."│            │ • Retrieves top-2 matches from pgvector      │
-   │                              │            │   [Match 1: "Policy 402: 30-day window"]     │
-   │ (Vague, ungrounded, unverified)           └──────────────────────┬───────────────────────┘
-   └──────────────────────────────┘                                   │
-                                                                      ▼
-                                                       ┌──────────────────────────────────────────────┐
-                                                       │ RetrievalAugmentor                           │
-                                                       │ Injects retrieved paragraph into prompt:     │
-                                                       │ "Answer using strictly this excerpt: ..."    │
-                                                       └──────────────────────┬───────────────────────┘
-                                                                              │
-                                                                              ▼
-                                                       ┌──────────────────────────────────────────────┐
-                                                       │ Grounded Verifiable Response:                │
-                                                       │ "Tier-2 accounts are eligible for refunds    │
-                                                       │  within 30 calendar days (Policy 402)."      │
-                                                       └──────────────────────────────────────────────┘
-```
-
----
-
-## 2. The Two Halves of LangChain4j RAG: Ingestion vs. Retrieval
-
-A production RAG architecture consists of two asynchronous lifecycles:
-1. **The Ingestion Pipeline (Write Path)**: Runs in the background (or via event triggers) to convert unstructured documents into indexed vector records.
-2. **The Retrieval & Generation Pipeline (Read Path)**: Runs on-demand when a user submits a question.
-
-```mermaid
-flowchart TD
-    subgraph IngestionPath["1. Ingestion Pipeline (Offline / Background)"]
-        DocFile["Enterprise Documents (PDF, DOCX, MD)"] --> Parser["DocumentParser (Apache Tika)"]
-        Parser --> Chunker["DocumentSplitter (e.g. 500 tokens / 50 overlap)"]
-        Chunker --> Segments["TextSegment List + Metadata"]
-        Segments --> Embedder["EmbeddingModel (e.g. text-embedding-3-small)"]
-        Embedder --> Vectors["Embedding Vectors (1536-dim float arrays)"]
-        Vectors --> Store["EmbeddingStore (pgvector / Qdrant / Milvus)"]
-    end
-
-    subgraph RetrievalPath["2. Retrieval & Generation Pipeline (Online / Real-Time)"]
-        UserQuery["User Inquiry: 'How do I configure Kafka partitions?'"] --> RetAug["RetrievalAugmentor"]
-        RetAug --> CR["ContentRetriever"]
-        CR --> QueryEmbed["EmbeddingModel.embed(query)"]
-        QueryEmbed --> StoreSearch["EmbeddingStore.findRelevant(vector, topK, minScore)"]
-        Store -->|Cosine Similarity Search| StoreSearch
-        StoreSearch --> Context["Relevant TextSegments Extracted"]
-        Context --> PromptInjection["Assemble Augmented Prompt"]
-        PromptInjection --> LLM["ChatLanguageModel (AiServices)"]
-        LLM --> FinalAnswer["Grounded Response with Citations"]
-    end
-```
-
----
-
-## 3. Core Architectural Contracts
-
-LangChain4j organizes RAG around distinct, single-responsibility interfaces:
-
-### 3.1 `TextSegment`
-A `TextSegment` represents a discrete chunk of text extracted from a larger document, accompanied by a key-value `Metadata` map (e.g. document name, page number, author, tenant ID):
+### Minimal Beginner-Friendly Working Code
+Here is how to set up an in-memory RAG pipeline and connect it to a declarative `AiServices` agent:
 
 ```java
-package dev.langchain4j.data.segment;
+package com.genai.langchain4j.rag;
 
-import dev.langchain4j.data.document.Metadata;
-
-public class TextSegment {
-    private final String text;
-    private final Metadata metadata;
-    // ...
-}
-```
-
-### 3.2 `EmbeddingModel`
-The engine that transforms human language strings into dense floating-point vector arrays:
-
-```java
-package dev.langchain4j.model.embedding;
-
-import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
-import java.util.List;
+import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.model.openai.OpenAiChatModel;
+import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
+import dev.langchain4j.rag.content.retriever.ContentRetriever;
+import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
+import dev.langchain4j.service.AiServices;
+import dev.langchain4j.service.SystemMessage;
+import dev.langchain4j.service.UserMessage;
+import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
 
-public interface EmbeddingModel {
-    Embedding embed(String text);
-    Embedding embed(TextSegment textSegment);
-    List<Embedding> embedAll(List<TextSegment> textSegments);
+public class SimpleRagRunner {
+
+    public interface CorporateAssistant {
+        @SystemMessage("You are an enterprise support assistant. Answer strictly using the provided context.")
+        String ask(@UserMessage String question);
+    }
+
+    public static void main(String[] args) {
+        // 1. Models & Vector Store
+        ChatLanguageModel chatModel = OpenAiChatModel.builder()
+            .apiKey(System.getenv("OPENAI_API_KEY"))
+            .modelName("gpt-4o")
+            .build();
+
+        EmbeddingModel embeddingModel = OpenAiEmbeddingModel.withApiKey(System.getenv("OPENAI_API_KEY"));
+        InMemoryEmbeddingStore<TextSegment> embeddingStore = new InMemoryEmbeddingStore<>();
+
+        // 2. Ingest verified corporate facts
+        TextSegment policyChunk = TextSegment.from(
+            "Enterprise refund policy permits customer subscription reversals strictly within 30 calendar days of invoice dispatch."
+        );
+        embeddingStore.add(embeddingModel.embed(policyChunk).content(), policyChunk);
+
+        // 3. Configure ContentRetriever (top-1 match, minScore 0.70)
+        ContentRetriever retriever = EmbeddingStoreContentRetriever.builder()
+            .embeddingStore(embeddingStore)
+            .embeddingModel(embeddingModel)
+            .maxResults(1)
+            .minScore(0.70)
+            .build();
+
+        // 4. Wire retriever directly into declarative AiServices!
+        CorporateAssistant assistant = AiServices.builder(CorporateAssistant.class)
+            .chatLanguageModel(chatModel)
+            .contentRetriever(retriever)
+            .build();
+
+        // The assistant automatically retrieves the policy chunk and answers factually!
+        String response = assistant.ask("What is the time window for customer subscription refunds?");
+        System.out.println("Grounded Response:\n" + response);
+    }
 }
 ```
 
-### 3.3 `EmbeddingStore<TextSegment>`
-The database interface managing vector storage and similarity searches:
-
-```java
-package dev.langchain4j.store.embedding;
-
-import dev.langchain4j.data.embedding.Embedding;
-import dev.langchain4j.data.segment.TextSegment;
-import java.util.List;
-
-public interface EmbeddingStore<Embedded> {
-    String add(Embedding embedding);
-    void add(String id, Embedding embedding);
-    String add(Embedding embedding, Embedded embedded);
-    List<String> addAll(List<Embedding> embeddings, List<Embedded> embedded);
-
-    List<EmbeddingMatch<Embedded>> findRelevant(Embedding referenceEmbedding, int maxResults, double minScore);
-}
-```
-
-### 3.4 `ContentRetriever`
-The high-level query SPI that bridges retrieval into `AiServices`:
-
-```java
-package dev.langchain4j.rag.content.retriever;
-
-import dev.langchain4j.rag.content.Content;
-import dev.langchain4j.rag.query.Query;
-import java.util.List;
-
-public interface ContentRetriever {
-    List<Content> retrieve(Query query);
-}
-```
+### Line-by-Line Walkthrough
+1. **`TextSegment.from(...)`**: Constructs an atomic text chunk representing a document excerpt.
+2. **`embeddingStore.add(embeddingModel.embed(chunk).content(), chunk)`**: Converts the text chunk into a high-dimensional float vector and persists it in the vector store alongside the raw text.
+3. **`EmbeddingStoreContentRetriever.builder()`**: Constructs the retrieval SPI. `maxResults(1)` limits context size, while `minScore(0.70)` discards weak matches.
+4. **`.contentRetriever(retriever)`**: Attaches the retriever to the `AiServices` builder. LangChain4j automatically intercepts user questions, queries the vector store, injects the retrieved excerpt into the prompt, and invokes the chat model.
 
 ---
 
-## 4. Easy-RAG: Rapid Prototyping in 3 Lines of Code
+## 3. Core Concept Walkthrough (Basic → Intermediate)
 
-For quick prototypes, LangChain4j provides **Easy-RAG** via `EmbeddingStoreIngestor`:
+```
++-------------------------------------------------------------------------------+
+|                       LANGCHAIN4J TWO-PATH RAG LIFECYCLE                      |
++-------------------------------------------------------------------------------+
+|                                                                               |
+|  [ PATH 1: OFFLINE INGESTION PIPELINE (Write Path) ]                          |
+|  Enterprise Documents (PDF, DOCX, Markdown)                                   |
+|         |                                                                     |
+|         v                                                                     |
+|  [ DocumentParser (Apache Tika) ] -> Extract plain text                       |
+|         |                                                                     |
+|         v                                                                     |
+|  [ DocumentSplitter ] -> Chunks into TextSegments (e.g. 500 tokens / 50 ov)   |
+|         |                                                                     |
+|         v                                                                     |
+|  [ EmbeddingModel ] -> Generates vector coordinates                           |
+|         |                                                                     |
+|         v                                                                     |
+|  [ EmbeddingStore (pgvector, Qdrant, Milvus) ] -> Indexed storage             |
+|                                                                               |
+|  ===========================================================================  |
+|                                                                               |
+|  [ PATH 2: ONLINE RETRIEVAL PIPELINE (Read Path) ]                            |
+|  User Query: "What is our refund window?"                                     |
+|         |                                                                     |
+|         v                                                                     |
+|  [ ContentRetriever ] -> EmbeddingStoreContentRetriever                       |
+|         |                                                                     |
+|         v                                                                     |
+|  [ EmbeddingStore.findRelevant(queryVector, maxResults, minScore) ]           |
+|         |                                                                     |
+|         v                                                                     |
+|  [ Context Augmentation ] -> Injects retrieved TextSegments into prompt       |
+|         |                                                                     |
+|         v                                                                     |
+|  [ ChatLanguageModel (AiServices) ] -> Returns grounded answer with citations |
++-------------------------------------------------------------------------------+
+```
+
+### The 4 Core RAG Abstractions in LangChain4j
+1. **`TextSegment`**: An immutable chunk of text paired with a `Metadata` map (carrying document name, page number, section title, and tenant ID).
+2. **`EmbeddingModel`**: Converts strings and `TextSegment` instances into mathematical vector coordinates (`Embedding`).
+3. **`EmbeddingStore<TextSegment>`**: The database abstraction for vector persistence and cosine similarity queries (backed by PostgreSQL `pgvector`, Redis, Qdrant, Milvus, etc.).
+4. **`ContentRetriever`**: The high-level query SPI that takes an incoming `Query` and returns matching `Content` items for prompt augmentation.
+
+### Easy-RAG: Ingesting Entire Folders in 3 Lines of Code
+For rapid prototyping or local desktop search, LangChain4j provides `EmbeddingStoreIngestor`:
 
 ```java
 package com.genai.langchain4j.rag;
 
 import dev.langchain4j.data.document.Document;
 import dev.langchain4j.data.document.loader.FileSystemDocumentLoader;
-import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
-import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
+import dev.langchain4j.data.segment.TextSegment;
+import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.EmbeddingStoreIngestor;
 
 import java.util.List;
 
 public class EasyRagSetup {
 
-    public static InMemoryEmbeddingStore buildStoreFromFolder(String folderPath) {
-        // 1. Load all PDFs, Word docs, and Markdown from directory
-        List<Document> documents = FileSystemDocumentLoader.loadDocuments(folderPath);
+    public static void ingestFolder(String directoryPath, EmbeddingStore<TextSegment> store, EmbeddingModel model) {
+        // 1. Load all PDFs, DOCX, and Markdown files from directory recursively
+        List<Document> documents = FileSystemDocumentLoader.loadDocuments(directoryPath);
 
-        // 2. Initialize vector store & embedding model
-        InMemoryEmbeddingStore embeddingStore = new InMemoryEmbeddingStore();
-        OpenAiEmbeddingModel embeddingModel = OpenAiEmbeddingModel.withApiKey(System.getenv("OPENAI_API_KEY"));
-
-        // 3. One-line ingestion pipeline: parses, splits, embeds, and indexes!
-        EmbeddingStoreIngestor.ingest(documents, embeddingStore);
-
-        return embeddingStore;
+        // 2. Automates parsing, chunking, embedding generation, and database insertion!
+        EmbeddingStoreIngestor.ingest(documents, store);
     }
 }
 ```
 
 ---
 
-## 5. Declarative RAG with `AiServices`
+## 4. Prerequisite & Supporting Concepts
 
-Connecting your RAG pipeline to a declarative interface is achieved via `.contentRetriever(...)`:
+### Prerequisite / Supporting Concept: Tuning `minScore` and `maxResults`
+In `EmbeddingStoreContentRetriever`:
+- **`maxResults(int k)`**: Defines the maximum number of document chunks returned. Setting $k$ too high (e.g., 20) clutters the prompt with irrelevant noise and triggers the "Lost in the Middle" attention penalty. Standard default: 3 to 5 chunks.
+- **`minScore(double score)`**: Sets the minimum cosine similarity threshold (e.g., `0.75`).
+  - If a user asks an off-topic question (*"What is the airspeed of an unladen swallow?"* against a banking manual), the vector store returns zero documents.
+  - The model then safely refuses to answer (*"I do not have information in the knowledge base"*) rather than hallucinating!
 
-### Step 1: Define the Declarative Agent Interface
+---
+
+## 5. Advanced Depth (Intermediate → Advanced)
+
+### Multi-Tenant Metadata Filtering
+In enterprise applications, multiple clients or corporate departments share the same vector store. You must prevent User A from retrieving confidential salary or HR records belonging to Department B:
 
 ```java
 package com.genai.langchain4j.rag;
 
-import dev.langchain4j.service.SystemMessage;
-import dev.langchain4j.service.UserMessage;
-
-@SystemMessage("""
-    You are an expert enterprise systems architect for Acme Cloud Solutions.
-    Answer all user inquiries strictly using the corporate knowledge base retrieved for you.
-    If the answer is not present in the provided excerpts, clearly state that you do not know.
-    """)
-public interface EnterpriseArchitectAgent {
-
-    String askQuestion(@UserMessage String question);
-}
-```
-
-### Step 2: Bind the `ContentRetriever` into `AiServices`
-
-```java
-package com.genai.langchain4j.rag;
-
-import dev.langchain4j.model.chat.ChatLanguageModel;
-import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
-import dev.langchain4j.service.AiServices;
-import dev.langchain4j.store.embedding.EmbeddingStore;
-
-public class AgentFactory {
-
-    public static EnterpriseArchitectAgent createAgent(
-            ChatLanguageModel chatModel,
-            EmbeddingModel embeddingModel,
-            EmbeddingStore store) {
-
-        // Configure semantic search: top-3 closest matches with at least 0.75 similarity
-        EmbeddingStoreContentRetriever contentRetriever = EmbeddingStoreContentRetriever.builder()
-            .embeddingStore(store)
-            .embeddingModel(embeddingModel)
-            .maxResults(3)
-            .minScore(0.75) // Prevents irrelevant document hallucination
-            .build();
-
-        // Declarative binding: LangChain4j automatically executes the RAG retrieval loop!
-        return AiServices.builder(EnterpriseArchitectAgent.class)
-            .chatLanguageModel(chatModel)
-            .contentRetriever(contentRetriever)
-            .build();
-    }
-}
-```
-
----
-
-## 6. Complete Runnable Companion Code Architecture
-
-In this lesson's companion code (`Phase_07_LangChain4j/Day_46_RAG_Pipeline_in_LangChain4j/code/`), we provide a complete, pure Java 21 implementation of LangChain4j's RAG pipeline:
-
-```
-Day_46_RAG_Pipeline_in_LangChain4j/code/
-├── TextSegment.java                   # Document chunk holding text and metadata
-├── Embedding.java                     # Dense float array vector with cosine similarity
-├── EmbeddingMatch.java                # Search match result container with score sorting
-├── EmbeddingModel.java                # Functional contract for text embedding
-├── SimulatedEmbeddingModel.java       # Deterministic 8-dimensional semantic embedding engine
-├── InMemoryEmbeddingStore.java        # Thread-safe vector store with similarity scoring
-├── ContentRetriever.java              # Retrieval SPI contract matching LangChain4j
-├── EmbeddingStoreContentRetriever.java# Vector-backed implementation of ContentRetriever
-├── RetrievalAugmentor.java            # Enterprise prompt builder assembling grounded context
-└── LangChain4jRagDemo.java            # Executable verification suite demonstrating ingestion and RAG queries
-```
-
-### Verification & Demonstration Output
-
-Execute `LangChain4jRagDemo.java`:
-
-```bash
-javac -d out Phase_07_LangChain4j/Day_46_RAG_Pipeline_in_LangChain4j/code/*.java
-java -cp out com.genai.langchain4j.rag.LangChain4jRagDemo
-```
-
-```
-==================================================================
-  DAY 46: LANGCHAIN4J RAG PIPELINE & RETRIEVAL AUGMENTATION DEMO 
-==================================================================
-
---- 1. Ingesting Enterprise Knowledge Base Documents ---
-   [Ingested doc-1] from k8s-security.pdf: "Acme Cloud Kubernetes clusters enforce Pod Securit..."
-   [Ingested doc-2] from spring-database-guide.pdf: "Spring Boot microservices connect to pgvector data..."
-   [Ingested doc-3] from corporate-policy.pdf: "Enterprise refund policy permits customer subscrip..."
-   [Ingested doc-4] from kafka-operations.pdf: "Apache Kafka cluster partitions must be scaled to ..."
-Total Indexed Documents: 4
-
---- 2. Executing Semantic Query on Database Policies ---
-Retrieved Sources Count: 1
-   -> Matched Doc: spring-database-guide.pdf | Spring Boot microservices connect to pgvector database instances using HikariCP connection pools capped at 20 connections.
-
-Generated Augmented Prompt Sent to LLM:
-
-Answer the customer inquiry based exclusively on the following enterprise documentation:
-
---- BEGIN DOCUMENTATION CONTEXT ---
-[Source 1] (doc: spring-database-guide.pdf, section: HikariPools):
-Spring Boot microservices connect to pgvector database instances using HikariCP connection pools capped at 20 connections.
-
---- END DOCUMENTATION CONTEXT ---
-
-User Inquiry: How many connections are configured for the Spring postgres database pool?
-If the documentation does not contain the answer, state clearly that you do not know.
-
---- 3. Executing Semantic Query on Refund Timelines ---
-Retrieved Sources Count: 1
-   -> Matched Doc: corporate-policy.pdf | Enterprise refund policy permits customer subscription reversals strictly within 30 calendar days of invoice dispatch.
-
-==================================================================
-  LANGCHAIN4J RAG PIPELINE VERIFICATION COMPLETED SUCCESSFULLY   
-==================================================================
-```
-
----
-
-## 7. Why LangChain4j RAG Matters for Senior Engineers
-
-1. **Decoupled Architecture**: Unlike frameworks that bundle vector search tightly with model communication, LangChain4j treats `ContentRetriever` as an independent SPI. You can swap in hybrid search, Elasticsearch, or pgvector without changing your prompt templates or domain interfaces.
-2. **Deterministic Grounding**: By enforcing strict `minScore` cutoffs, queries that do not match enterprise documents return zero sources, allowing the agent to honestly report that it does not know rather than fabricating an answer.
-3. **Clean Enterprise Maintenance**: Upgrading embedding models or re-indexing vector stores is completely decoupled from your business layer.
-
----
-
-## 8. Practical Exercises
-
-### Exercise 1: Multi-Tenant Metadata Filtering
-**Task**: Extend `ContentRetriever` to accept a `tenantId` string, filtering matches so that queries from `tenant-A` never retrieve documents belonging to `tenant-B`.
-**Solution**:
-```java
-package com.genai.langchain4j.exercises;
-
-import com.genai.langchain4j.rag.TextSegment;
+import dev.langchain4j.data.segment.TextSegment;
 import java.util.List;
 
-public class MultiTenantContentRetriever {
+public final class MultiTenantFilter {
 
-    public static List<TextSegment> filterByTenant(List<TextSegment> retrieved, String expectedTenantId) {
-        return retrieved.stream()
-            .filter(seg -> expectedTenantId.equals(seg.metadata().get("tenantId")))
+    private MultiTenantFilter() {}
+
+    public static List<TextSegment> filterByTenant(List<TextSegment> segments, String currentTenantId) {
+        if (segments == null || segments.isEmpty()) {
+            return List.of();
+        }
+
+        return segments.stream()
+            .filter(segment -> currentTenantId.equals(segment.metadata().getString("tenantId")))
             .toList();
     }
 }
 ```
 
-### Exercise 2: Document Source Citation Formatter
-**Task**: Build a helper method `String formatCitations(List<TextSegment> segments)` that converts retrieved segments into a markdown table of cited sources (Doc Name, Section, Excerpt).
-**Solution**:
-```java
-package com.genai.langchain4j.exercises;
+### Document Source Citation Formatter
+For regulatory compliance, users should be presented with clickable citations showing where the AI found its facts:
 
-import com.genai.langchain4j.rag.TextSegment;
+```java
+package com.genai.langchain4j.rag;
+
+import dev.langchain4j.data.segment.TextSegment;
 import java.util.List;
 
-public class CitationFormatter {
+public final class CitationFormatter {
 
-    public static String formatCitations(List<TextSegment> segments) {
-        StringBuilder sb = new StringBuilder("| # | Document | Section | Excerpt |\n|---|---|---|---|\n");
-        for (int i = 0; i < segments.size(); i++) {
-            TextSegment s = segments.get(i);
-            sb.append(String.format("| %d | %s | %s | %s |\n",
-                i + 1,
-                s.metadata().getOrDefault("document", "Unknown"),
-                s.metadata().getOrDefault("section", "N/A"),
-                s.text().substring(0, Math.min(60, s.text().length())) + "..."
-            ));
+    private CitationFormatter() {}
+
+    public static String formatMarkdownCitations(List<TextSegment> retrievedSegments) {
+        if (retrievedSegments == null || retrievedSegments.isEmpty()) {
+            return "No citations available.";
         }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("\n\n### Verified Sources:\n");
+        sb.append("| # | Document | Section | Excerpt |\n");
+        sb.append("|:--|:---------|:--------|:--------|\n");
+
+        for (int i = 0; i < retrievedSegments.size(); i++) {
+            TextSegment seg = retrievedSegments.get(i);
+            String doc = seg.metadata().getString("documentName");
+            String section = seg.metadata().getString("sectionTitle");
+            String excerpt = seg.text().length() > 60 ? seg.text().substring(0, 60) + "..." : seg.text();
+
+            sb.append(String.format("| %d | %s | %s | %s |\n", i + 1, doc != null ? doc : "Unknown", section != null ? section : "N/A", excerpt));
+        }
+
         return sb.toString();
     }
 }
 ```
 
-### Exercise 3: Reciprocal Similarity Threshold Calibrator
-**Task**: Write a utility method that checks the distribution of scores in `List<Double> similarityScores`. If the top score is below a strict threshold of $0.65$, return an empty list to signal that no relevant context was found.
-**Solution**:
+### Common Anti-Patterns & Production Traps
+
+| Anti-Pattern | Why It Breaks in Production | Correct Architectural Solution |
+|:---|:---|:---|
+| **Omitting `minScore`** | When an off-topic question is submitted, the vector store returns the closest 3 chunks even if their similarity is 0.12, causing hallucinations. | Always configure `.minScore(0.75)` on `EmbeddingStoreContentRetriever` to filter weak matches. |
+| **Monolithic File Ingestion** | Ingesting 500-page PDF files without chunking causes token truncation and averages diverse topics into an indistinct vector representation. | Use `DocumentSplitters.recursive(...)` with 300–500 tokens and 50-token sliding overlap. |
+| **Re-Embedding Unchanged Documents** | Running `EmbeddingModel.embed()` across millions of rows on every server restart wastes thousands of dollars in cloud API spend. | Check document hash checksums in your database and embed only new or modified documents. |
+
+---
+
+## 6. Quick Recap
+- **RAG (Retrieval-Augmented Generation)** grounds conversational models in private enterprise data by retrieving verified text chunks and injecting them into the prompt.
+- The **Ingestion Path (Write)** parses, chunks, embeds, and stores documents in vector databases; the **Retrieval Path (Read)** queries the vector store, augments the prompt, and generates grounded answers.
+- In LangChain4j, RAG is decoupled across **`TextSegment`**, **`EmbeddingModel`**, **`EmbeddingStore`**, and **`ContentRetriever`**.
+- Declarative agents connect to semantic search via `.contentRetriever(...)` on `AiServices.builder()`.
+- Set **`minScore(0.75)`** to prune weak matches and prevent hallucinations on out-of-domain queries.
+
+---
+
+## 7. Self-Check Questions & Practice Exercises
+
+### 5-Question Self-Check Quiz
+
+#### Question 1
+What is the primary role of `ContentRetriever` in LangChain4j?
+- A) To convert Java bytecode into WebAssembly.
+- B) To act as the standard query SPI that accepts a user query and returns relevant `TextSegment` contents from a vector store or search index.
+- C) To bill the user's credit card.
+- D) To format JSON schemas.
+
+#### Question 2
+In LangChain4j RAG, why is setting a `minScore` threshold on `EmbeddingStoreContentRetriever` critical?
+- A) It speeds up the GPU clock rate.
+- B) It prevents low-similarity, irrelevant documents from being injected into the prompt, preventing the model from hallucinating or answering off-topic questions.
+- C) It is required by the SQL standard.
+- D) It reduces the memory size of Java virtual threads.
+
+#### Question 3
+What is Easy-RAG in LangChain4j?
+- A) A low-cost subscription tier from OpenAI.
+- B) A turnkey utility (`EmbeddingStoreIngestor`) that automates document parsing, recursive splitting, embedding generation, and vector indexing in a few lines of code.
+- C) A specialized Python script that runs outside the JVM.
+- D) An embedded relational database.
+
+#### Question 4
+How are retrieved documents injected into a declarative `AiServices` agent?
+- A) By passing them manually in every method invocation.
+- B) By configuring `.contentRetriever(...)` on `AiServices.builder(...)`, allowing the framework to execute retrieval and prompt augmentation transparently.
+- C) By writing the files to the JVM classpath.
+- D) `AiServices` does not support RAG.
+
+#### Question 5
+What is the purpose of `TextSegment` metadata in enterprise search?
+- A) To store the author, document title, section heading, and security tenant ID alongside the text chunk, enabling post-filtering and verifiable citations.
+- B) To store Java class reflection bytecodes.
+- C) To encrypt the database disk partition.
+- D) Metadata is ignored by LangChain4j.
+
+---
+
+### Quiz Answers & Explanations
+1. **B**: `ContentRetriever` is the foundational SPI bridging retrieval mechanisms (vector stores, hybrid search, keyword indexes) to the generation layer (`AiServices`).
+2. **B**: Without a `minScore` threshold, the vector store will always return the top-K closest vectors, even if their similarity is completely irrelevant to the user's question, causing context contamination.
+3. **B**: Easy-RAG provides high-level convenience methods allowing developers to point to a folder of enterprise files and have them automatically parsed, chunked, embedded, and stored with minimal boilerplate.
+4. **B**: By attaching a `ContentRetriever` to `AiServices.builder()`, LangChain4j intercepts user messages, queries the retriever, constructs the augmented prompt, and invokes the model automatically.
+5. **A**: Metadata carries critical provenance data (document URI, page number, tenant ID) allowing systems to format source citations and filter search results by security context.
+
+---
+
+### Hands-On Practice Exercises
+
+#### Exercise 1: Multi-Tenant Metadata Filtering
+**Problem Statement**:  
+Write a utility method `filterByTenant(List<TextSegment> retrieved, String expectedTenantId)` that filters matches so that queries from `tenant-A` never retrieve documents belonging to `tenant-B`.
+
+<details>
+<summary>👉 View Solution</summary>
+
+```java
+package com.genai.langchain4j.exercises;
+
+import dev.langchain4j.data.segment.TextSegment;
+import java.util.List;
+
+public class MultiTenantContentRetriever {
+
+    public static List<TextSegment> filterByTenant(List<TextSegment> retrieved, String expectedTenantId) {
+        if (retrieved == null) return List.of();
+        return retrieved.stream()
+            .filter(seg -> expectedTenantId.equals(seg.metadata().getString("tenantId")))
+            .toList();
+    }
+}
+```
+</details>
+
+#### Exercise 2: Reciprocal Similarity Threshold Calibrator
+**Problem Statement**:  
+Write a utility method that checks the distribution of scores in `List<Double> similarityScores`. If the top score is below a strict threshold of `0.65`, return `false` to signal that no reliable context was found.
+
+<details>
+<summary>👉 View Solution</summary>
+
 ```java
 package com.genai.langchain4j.exercises;
 
@@ -433,79 +363,8 @@ public class RelevanceThresholdCalibrator {
     }
 }
 ```
+</details>
 
 ---
 
-## 9. Self-Check Quiz
-
-### Question 1: What is the primary role of `ContentRetriever` in LangChain4j?
-- A) To convert Java bytecodes into WebAssembly.
-- B) To act as the standard query SPI that accepts a user query and returns relevant `TextSegment` contents from a vector store or search index.
-- C) To bill the user's credit card.
-- D) To format JSON schemas.
-
-*Answer*: **B**. `ContentRetriever` is the foundational SPI bridging retrieval mechanisms (vector stores, hybrid search, keyword indexes) to the generation layer (`AiServices`).
-
----
-
-### Question 2: In LangChain4j RAG, why is setting a `minScore` threshold on `EmbeddingStoreContentRetriever` critical?
-- A) It speeds up the GPU clock rate.
-- B) It prevents low-similarity, irrelevant documents from being injected into the prompt, preventing the model from hallucinating or answering off-topic questions.
-- C) It is required by the SQL standard.
-- D) It reduces the memory size of Java virtual threads.
-
-*Answer*: **B**. Without a `minScore` threshold, the vector store will always return the top-K closest vectors, even if their similarity is completely irrelevant to the user's question, causing context contamination.
-
----
-
-### Question 3: What is Easy-RAG in LangChain4j?
-- A) A low-cost subscription tier from OpenAI.
-- B) A turnkey utility (`EmbeddingStoreIngestor`) that automates document parsing, recursive splitting, embedding generation, and vector indexing in a few lines of code.
-- C) A specialized Python script that runs outside the JVM.
-- D) An embedded relational database.
-
-*Answer*: **B**. Easy-RAG provides high-level convenience methods allowing developers to point to a folder of enterprise files and have them automatically parsed, chunked, embedded, and stored with minimal boilerplate.
-
----
-
-### Question 4: How are retrieved documents injected into a declarative `AiServices` agent?
-- A) By passing them manually in every method invocation.
-- B) By configuring `.contentRetriever(...)` on the `AiServices.builder(...)`, allowing the framework to execute retrieval and prompt augmentation transparently.
-- C) By writing the files to the JVM classpath.
-- D) `AiServices` does not support RAG.
-
-*Answer*: **B**. By attaching a `ContentRetriever` to `AiServices.builder()`, LangChain4j intercepts user messages, queries the retriever, constructs the augmented prompt, and invokes the model automatically.
-
----
-
-### Question 5: What is the purpose of `TextSegment` metadata in enterprise search?
-- A) To store the author, document title, section heading, and security tenant ID alongside the text chunk, enabling post-filtering and verifiable citations.
-- B) To store Java class reflection bytecodes.
-- C) To encrypt the database disk partition.
-- D) Metadata is ignored by LangChain4j.
-
-*Answer*: **A**. Metadata carries critical provenance data (document URI, page number, tenant ID) allowing systems to format source citations and filter search results by security context.
-
----
-
-## 10. Day 46 Wrap-Up & What's Next
-
-You've built the open-book research engine that powers modern enterprise AI search!
-
-Let's review today's golden rules:
-- **Two asynchronous paths**: The background Ingestion Pipeline (parse, chunk, embed, store) and the real-time Retrieval Pipeline (search, augment, generate).
-- **`ContentRetriever` is the bridge**: It queries your vector store and returns relevant `TextSegment`s with metadata intact.
-- **Tune `minScore`**: Protect your context window from low-quality, irrelevant noise by enforcing a strict similarity cutoff.
-- **Easy-RAG for rapid wins**: Ingesting an entire folder of mixed enterprise documents takes just a few lines of code.
-
-### What's Coming Up Next?
-Basic vector search is great, but what happens when a user types a vague question? Or what if a search returns 20 documents, but the truly crucial fact is buried at #18?
-
-Tomorrow in **[Day 47: Advanced RAG — Chunking, Scoring & Re-Ranking](../Day_47_Advanced_RAG_Chunking_ReRanking/Day_47_Advanced_RAG_Chunking_ReRanking.md)**, we'll level up our retrieval game with semantic chunking, cross-encoder re-ranking models (like Cohere and Jina), and query expansion!
-
----
-
-| Previous Day | Course Hub | Next Day |
-|:---|:---:|---:|
-| [Day 45: Structured Extraction & Guardrails](../Day_45_Structured_Extraction_Guardrails/Day_45_Structured_Extraction_Guardrails.md) | [All 60 Days Overview](../../README.md) | [Day 47: Advanced RAG — Chunking, Scoring & Re-Ranking](../Day_47_Advanced_RAG_Chunking_ReRanking/Day_47_Advanced_RAG_Chunking_ReRanking.md) |
-
+[← Previous: Day 45 - Structured Extraction & Guardrails](../Day_45_Structured_Extraction_Guardrails/Day_45_Structured_Extraction_Guardrails.md) | [Next: Day 47 - Advanced RAG Chunking & Re-Ranking →](../Day_47_Advanced_RAG_Chunking_ReRanking/Day_47_Advanced_RAG_Chunking_ReRanking.md)
