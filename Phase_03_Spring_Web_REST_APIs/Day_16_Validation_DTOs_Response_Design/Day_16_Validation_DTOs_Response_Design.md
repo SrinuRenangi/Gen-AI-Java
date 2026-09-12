@@ -1,168 +1,142 @@
-# Day 16: Request Validation, DTOs & Response Design
+# 🛡️ Day 16: Request Validation, DTOs & Response Design
+## Protecting Enterprise AI Gateways with Java 21 Records, Jakarta Validation & RFC 7807
 
-Hey there, friend! Welcome to Day 16. Today we're learning one of the most critical defensive skills in enterprise backend engineering: **Request Validation, DTOs, and Response Design**.
-
-Here is a golden rule that every experienced software developer lives by: **Never, ever trust client input.** 
-
-In an ordinary web application, bad input might just cause a database error. But in AI applications, sending unvalidated text can burn thousands of dollars in cloud API bills, cause infinite loops in RAG chunkers, or leak confidential system secrets! Today, we're going to build a fortress around our REST APIs.
-
----
-
-| Previous Day | Course Hub | Next Day |
+| ⬅️ Previous Day | 📚 Course Hub | ➡️ Next Day |
 |:---|:---:|---:|
-| [Day 15: HTTP Deep Dive & First REST Controller](../Day_15_HTTP_Deep_Dive_First_REST_Controller/Day_15_HTTP_Deep_Dive_First_REST_Controller.md) | [All 60 Days Overview](../../README.md) | [Day 17: Exception Handling & Global Error Strategy](../Day_17_Exception_Handling_Global_Strategy/Day_17_Exception_Handling_Global_Strategy.md) |
+| [← Day 15: HTTP Deep Dive & First REST Controller](../Day_15_HTTP_Deep_Dive_First_REST_Controller/Day_15_HTTP_Deep_Dive_First_REST_Controller.md) | [All 60 Days Overview](../../README.md) | [Day 17: Exception Handling & Global Error Strategy →](../Day_17_Exception_Handling_Global_Strategy/Day_17_Exception_Handling_Global_Strategy.md) |
+
+[![Phase](https://img.shields.io/badge/Phase_03-Spring_Web_REST_APIs-yellow.svg?style=for-the-badge)](../../README.md)
+[![Day](https://img.shields.io/badge/Day-16_of_60-blue.svg?style=for-the-badge)](../../README.md)
+[![Difficulty](https://img.shields.io/badge/Difficulty-Intermediate-blue.svg?style=for-the-badge)](../../README.md)
+[![Topic](https://img.shields.io/badge/Spring_Web-Validation_%26_DTOs-orange.svg?style=for-the-badge)](../../README.md)
 
 ---
 
-## 📌 What Will You Learn Today?
+## 1. Topic Overview
 
-Today, you and I will master:
-- **The DTO Pattern**: Why you should NEVER expose database entities directly to the web, and how Java 21 Records make perfect DTOs.
-- **Jakarta Bean Validation**: Using declarative annotations like `@NotBlank`, `@Size`, `@Min`, and `@Max` so Spring rejects bad input before your code even runs.
-- **Custom Cross-Field Validation**: Validating relationships between two fields (e.g. ensuring `chunkOverlap < chunkSize` so chunkers don't get stuck in infinite loops).
-- **RFC 7807 Problem Details**: The official international standard for returning clean, uniform error JSON to your clients.
-- **Building a Production AI Completion Gateway**: A complete, hardened Spring Boot service that validates prompts, models, and temperatures defensively.
+Request validation, Data Transfer Objects (DTOs), and standardized response design establish an impenetrable perimeter defense line for enterprise web applications. In Generative AI systems, strict request validation prevents Financial Denial-of-Service (FDoS) attacks from unbounded prompts, guards against infinite loops in sliding-window document chunkers, and shields internal database credentials from accidental leakage by decoupling domain models from public API contracts using RFC 7807 Problem Details.
 
 ---
 
-> 💡 **New Word Alert: Validation & DTO Terms Demystified**
->
-> 1. **DTO (Data Transfer Object)**: A simple Java class or Record used strictly to carry data across the web. It has zero business logic and only contains the exact fields the client needs to see.
-> 2. **Why Never Expose Entities**: If you expose a database `@Entity` directly over the web, you risk accidentally leaking sensitive database columns (like password hashes or internal keys) or letting hackers overwrite values they shouldn't!
-> 3. **Bean Validation (Jakarta Validation)**: Declarative rules you attach to fields using annotations like `@NotBlank`, `@Size`, `@Min`, and `@Max`.
-> 4. **`@Valid`**: The magic keyword you put on your controller parameters (`@Valid @RequestBody MyRequest req`) that tells Spring: *"Check all the validation rules on this object before letting the request enter my method!"*
-> 5. **RFC 7807 Problem Details**: A standardized international JSON format for reporting errors to API clients, including fields like `type`, `title`, `status`, `detail`, and `instance`.
+## 2. Basic Foundations (True Zero)
 
----
+### Plain English Definitions
+- **DTO (Data Transfer Object)**: A lightweight, immutable Java carrier (such as a Java 21 Record) designed exclusively to transport data across HTTP network boundaries without containing database mappings or domain logic.
+- **Jakarta Bean Validation (Hibernate Validator)**: A declarative specification using annotations like `@NotBlank`, `@Size`, `@Min`, and `@Max` to enforce integrity constraints before business logic runs.
+- **`@Valid`**: The parameter annotation that instructs Spring's `DispatcherServlet` to inspect all validation rules on the incoming request body before executing the controller method.
+- **RFC 7807 Problem Details (`application/problem+json`)**: An international IETF standard specifying a structured, predictable JSON format (`type`, `title`, `status`, `detail`, `instance`) for reporting errors to HTTP clients.
+- **Mass Assignment Vulnerability**: A severe security risk where external clients send unintended JSON keys (such as `role: "ADMIN"` or `apiKey: "..."`) that bind directly to database entities if DTOs are omitted.
 
-## Table of Contents
-
-1. [Why This Day Matters for a 3-Year Enterprise Gen AI Engineer](#1-why-this-day-matters-for-a-3-year-enterprise-gen-ai-engineer)
-2. [Real-World Analogy: Airport Security & Customs Baggage Scanner](#2-real-world-analogy-airport-security--customs-baggage-scanner)
-3. [The DTO Pattern: Why Never Expose Domain Entities to the Web](#3-the-dto-pattern-why-never-expose-domain-entities-to-the-web)
-4. [Java 21 Records as Modern DTOs](#4-java-21-records-as-modern-dtos)
-5. [Under the Hood: Spring MVC Validation Architecture](#5-under-the-hood-spring-mvc-validation-architecture)
-6. [Jakarta Bean Validation In-Depth](#6-jakarta-bean-validation-in-depth)
-7. [Custom Constraints & Cross-Field Validation](#7-custom-constraints--cross-field-validation)
-8. [Enterprise Response Design: Envelopes vs RFC 7807 Problem Details](#8-enterprise-response-design-envelopes-vs-rfc-7807-problem-details)
-9. [Hands-On Code Walkthrough: Production AI Completion Gateway](#9-hands-on-code-walkthrough-production-ai-completion-gateway)
-10. [Step-by-Step Compilation & Testing](#10-step-by-step-compilation--testing)
-11. [Hands-On Exercises (With Complete Solutions)](#11-hands-on-exercises-with-complete-solutions)
-12. [Self-Check Quiz](#12-self-check-quiz)
-
----
-
-## 1. Why This Day Matters for a 3-Year Enterprise Gen AI Engineer
-
-When a junior developer builds an AI wrapper, they write:
-
-```java
-// ❌ JUNIOR MISTAKE: Raw strings, no bounds, zero validation
-@PostMapping("/chat")
-public String chat(@RequestBody String prompt) {
-    return openAiClient.generate(prompt);
-}
-```
-
-What goes wrong in production?
-1. **Financial Denial of Service (FDoS)**: An attacker sends a 10-megabyte prompt containing 2.5 million characters. Your server serializes it, sends it to OpenAI/Anthropic, and within 30 seconds your company incurs a **$75.00 billing charge** for a single request.
-2. **Negative and Out-of-Bounds Hyperparameters**: A client passes `temperature: -5.0` or `max_tokens: -100`. The underlying Python or C++ LLM inference engine throws an unhandled `SIGFPE` or `400 Bad Request`, crashing your downstream service orchestrator.
-3. **RAG Sliding-Window Infinite Loops**: A developer configures document chunking with `chunkSize: 500` and `chunkOverlap: 500`. Because the advance step size is `chunkSize - chunkOverlap = 0`, the chunker gets stuck in an infinite loop, consuming 100% CPU on all cores until the JVM crashes with `OutOfMemoryError`.
-4. **Data Leakage via Entity Serialization**: Returning a raw JPA database entity directly from a controller serializes sensitive internal fields—such as tenant API keys, hashed passwords, or internal audit metadata—straight into the HTTP response.
-
-A senior enterprise AI engineer treats HTTP validation as a **hard perimeter defense line**. By the time any request payload reaches your business service or LLM client, it has passed rigorous schema, boundary, and semantic integrity checks.
-
----
-
-## 2. Real-World Analogy: Airport Security & Customs Baggage Scanner
-
+### Relatable Physical Analogy: Airport Security Baggage Scanner
 ```
 [ Incoming Passenger (Raw JSON) ]
               │
               ▼
-    [ Passport Control ] ─────────► Missing passport? (Null/Blank payload) ──► DENIED (400)
+    [ Passport Control ] ─────────► Missing passport? (Null/Blank payload) ──► REJECT (400)
               │
               ▼
-   [ Baggage X-Ray Scanner ] ─────► Prohibited items? (temp < 0, tokens > 4k) ─► DENIED (422)
+    [ Baggage X-Ray Scanner ] ─────► Prohibited items? (temp < 0, tokens > 4k) ─► REJECT (422)
               │
               ▼
-[ Customs Clearance Inspection ] ─► Overlap >= Chunk Size? (Cross-field error) ─► DENIED (422)
+ [ Customs Clearance Inspection ] ─► Overlap >= Chunk Size? (Cross-field error) ─► REJECT (422)
               │
               ▼
-  [ Boarding Gate: LLM Runway ] ──► Validated, safe DTO accepted for flight!
+   [ Boarding Gate: LLM Runway ] ──► Validated, safe DTO accepted for takeoff!
 ```
 
-Imagine an international airport:
-- **Passengers** arrive with luggage (HTTP Request JSON payload).
-- **TSA Baggage Scanner** checks dimensions and weight limits (`@Size`, `@Min`, `@Max`). If your bag exceeds 50 lbs or carries prohibited liquids, it is rejected immediately at the checkpoint—it never gets loaded onto the aircraft.
-- **Customs Documentation** verifies that your visa and passport match (Cross-field validation).
-- **The Aircraft** (Your expensive LLM inference engine / Vector DB) only carries passengers who have cleared every security checkpoint.
+Just as airport baggage screeners intercept oversized luggage and hazardous items before boarding, Spring validation stops malformed prompts, negative temperatures, and malicious payloads at the controller door before they consume GPU inference cycles or corrupt storage.
 
-Validating at the controller layer guarantees that your downstream services, database pools, and third-party LLM API budgets never waste resources processing malformed data.
+### Minimal Beginner-Friendly Working Code Example
 
----
-
-## 🧭 The Plain English Bridge: DTOs & Validation Demystified
-
-If you've ever returned a database entity directly from a controller or written 30 lines of `if (name == null || name.isEmpty())`, here is why modern enterprise Java uses DTOs and `@Valid`:
-
-| Enterprise Concept | The Old Anti-Pattern | The Modern Java 21 Way | Why It Matters (Plain English) |
-| :--- | :--- | :--- | :--- |
-| **Data Carrier** | Returning `@Entity User` directly to the browser. | Returning a clean `UserResponse` **Java Record**. | Prevents leaking sensitive columns (`passwordHash`, API keys) and avoids infinite recursion in JSON serialization! |
-| **Input Validation** | 20 lines of manual `if-else` checking `prompt.length() > 500`. | Annotate record fields: `@NotBlank`, `@Size(max = 1000)`. | Declarative validation: one annotation handles null checks, empty strings, and whitespace. |
-| **Triggering Checks**| Forgetting to check input, leading to NPEs. | Put **`@Valid`** in the method parameter: `(@Valid @RequestBody PromptRequest req)`. | Spring automatically validates *before* your method runs. If invalid, it immediately aborts with `400 Bad Request`. |
-| **Global Error Catcher** | Putting `try-catch` blocks in every single controller method. | Create a single class annotated with **`@RestControllerAdvice`**. | A global safety net: catches exceptions thrown from anywhere and formats a beautiful, uniform JSON error response. |
-
----
-
-## 3. The DTO Pattern: Why Never Expose Domain Entities to the Web
-
-A **Data Transfer Object (DTO)** is an object that carries data between processes (e.g., between the web browser/client and the Spring REST controller). It contains **no business logic** and only fields required for the specific API contract.
-
-### The Dangers of Exposing JPA Domain Entities
-
-```
-   ┌─────────────────────────────────────────────────────────────┐
-   │                        HTTP CLIENT                          │
-   └──────────────┬──────────────────────────────▲───────────────┘
-                  │ JSON Request                 │ JSON Response
-                  │ { "username": "alice",       │ { "id": 1, "username": "alice",
-                  │   "role": "ADMIN" }          │   "passwordHash": "$2a$12$...",
-                  │ (Mass Assignment Attack!)    │   "openaiApiKey": "sk-proj-..." }
-                  ▼                              │ (Information Leakage!)
-   ┌─────────────────────────────────────────────┴───────────────┐
-   │                  CONTROLLER / SERVICE                       │
-   │                                                             │
-   │   JPA Entity: UserAccount                                   │
-   │   - Long id                                                 │
-   │   - String username                                         │
-   │   - String passwordHash                                     │
-   │   - String openaiApiKey                                     │
-   │   - String role                                             │
-   └─────────────────────────────────────────────────────────────┘
-```
-
-| Risk | Domain Entity Directly in Controller | DTO Pattern |
-| :--- | :--- | :--- |
-| **Mass Assignment** | Client can inject JSON fields like `"role": "ADMIN"` or `"accountBalance": 1000000`, binding directly to the entity. | DTO only exposes fields the client is permitted to submit (e.g., `prompt`, `model`). |
-| **Information Disclosure** | Internal columns like `password_hash`, `stripe_customer_id`, or `llm_api_key` can be accidentally serialized into JSON. | DTO contains only the exact attributes designed for the client response contract. |
-| **Contract Coupling** | Any database schema change (renaming a table column) immediately breaks external mobile or web clients. | DB schema can evolve independently from the public REST API contract. |
-| **Circular Serialization** | Bidirectional relationships (e.g., `PromptTemplate` -> `List<PromptVersion>` -> `PromptTemplate`) trigger `StackOverflowError` during Jackson serialization. | DTOs are flat or explicitly structured trees without circular references. |
-
----
-
-## 4. Java 21 Records as Modern DTOs
-
-Prior to Java 16, Java developers wrote verbose POJOs with getters, setters, `equals()`, `hashCode()`, and `toString()`, or relied heavily on Project Lombok (`@Data`, `@Value`, `@Builder`).
-
-Java 21 **Records** are the ideal paradigm for DTOs:
-1. **Immutability by Default**: All fields are `private final`. Once constructed, a DTO cannot be mutated by background threads.
-2. **Zero Boilerplate**: The compiler automatically generates accessors, canonical constructor, `equals()`, `hashCode()`, and `toString()`.
-3. **Compact Constructors**: Enable clean parameter normalization and defensive copies without duplicating field assignments.
-4. **First-Class Jackson Support**: Spring Boot 3 / Jackson seamlessly serializes and deserializes records without requiring explicit `@JsonProperty` annotations.
+Let us examine a minimal validated AI prompt endpoint using a Java 21 Record DTO:
 
 ```java
-// Production-grade DTO using Java 21 Record
+package com.javagenai.day16;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
+
+public record PromptRequest(
+    @NotBlank(message = "Prompt cannot be blank")
+    @Size(max = 500, message = "Prompt cannot exceed 500 characters")
+    String prompt
+) {}
+
+@SpringBootApplication
+@RestController
+@RequestMapping("/api/v1/validation-demo")
+public class MinimalValidationApp {
+
+    public static void main(String[] args) {
+        SpringApplication.run(MinimalValidationApp.class, args);
+    }
+
+    @PostMapping("/ask")
+    public Map<String, String> askQuestion(@Valid @RequestBody PromptRequest request) {
+        return Map.of("status", "ACCEPTED", "prompt", request.prompt());
+    }
+}
+```
+
+#### Line-by-Line Walkthrough
+1. `public record PromptRequest(...)`: Declares an immutable Java 21 Record serving as the API boundary DTO.
+2. `@NotBlank`: Rejects `null`, empty strings (`""`), or whitespace-only inputs (`"   "`).
+3. `@Size(max = 500)`: Restricts prompt length to 500 characters, preventing memory exhaustion and token budget overruns.
+4. `@Valid @RequestBody`: Triggers Spring's argument resolver to deserialize JSON into the record and immediately evaluate Jakarta annotations. If violations exist, Spring halts execution and returns an error response.
+
+---
+
+## 3. Core Concept Walkthrough (Basic → Intermediate)
+
+### 3.1 Why Domain Entities Must Never Be Exposed
+Exposing JPA `@Entity` classes directly over REST APIs introduces severe architectural flaws:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        HTTP CLIENT                          │
+└──────────────┬──────────────────────────────▲───────────────┘
+               │ JSON Request                 │ JSON Response
+               │ { "username": "alice",       │ { "id": 1, "username": "alice",
+               │   "role": "ADMIN" }          │   "passwordHash": "$2a$12$...",
+               │ (Mass Assignment Attack!)    │   "openaiApiKey": "sk-proj-..." }
+               ▼                              │ (Information Leakage!)
+┌─────────────────────────────────────────────┴───────────────┐
+│                  CONTROLLER / SERVICE                       │
+│                                                             │
+│   JPA Entity: UserAccount                                   │
+│   - Long id                                                 │
+│   - String username                                         │
+│   - String passwordHash                                     │
+│   - String openaiApiKey                                     │
+│   - String role                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+| Threat | Entity Directly in Controller | DTO Pattern (Java 21 Record) |
+| :--- | :--- | :--- |
+| **Mass Assignment** | Callers inject `"role": "ADMIN"` directly into entity state | DTO only exposes fields allowed for client input |
+| **Information Leakage** | Database columns like `passwordHash` or `apiKey` serialize to JSON | DTO explicitly limits response fields to safe contracts |
+| **Schema Coupling** | Renaming a database column instantly breaks mobile and web clients | Database schema evolves independently from public API |
+| **Circular Jackson Loops** | Bidirectional relationships trigger `StackOverflowError` | DTOs form flat, clean acyclic trees |
+
+### 3.2 Java 21 Records as High-Performance DTOs
+Java 21 Records provide shallow immutability, compact syntax, and defensive initialization without third-party annotation processors like Lombok:
+
+```java
+package com.javagenai.day16.dto;
+
+import jakarta.validation.constraints.*;
+import java.util.List;
+
 public record CompletionRequest(
     @NotBlank(message = "Prompt must not be empty")
     @Size(max = 4000, message = "Prompt exceeds 4000 character limit")
@@ -171,8 +145,8 @@ public record CompletionRequest(
     @NotBlank(message = "Model name is required")
     String model,
 
-    @DecimalMin(value = "0.0", message = "Temperature must be at least 0.0")
-    @DecimalMax(value = "2.0", message = "Temperature must not exceed 2.0")
+    @DecimalMin(value = "0.0", message = "Temperature must be >= 0.0")
+    @DecimalMax(value = "2.0", message = "Temperature must be <= 2.0")
     double temperature,
 
     @Min(value = 1, message = "maxTokens must be at least 1")
@@ -188,18 +162,14 @@ public record CompletionRequest(
 }
 ```
 
----
-
-## 5. Under the Hood: Spring MVC Validation Architecture
-
-When a client sends an HTTP `POST` request with JSON to a Spring Boot REST controller, what happens behind the scenes?
+### 3.3 Spring MVC Validation Pipeline Under the Hood
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Client
     participant DS as DispatcherServlet
-    participant HMA as HandlerMethodArgumentResolver<br/>(RequestResponseBodyMethodProcessor)
+    participant HMA as HandlerMethodArgumentResolver
     participant JCK as Jackson (HttpMessageConverter)
     participant VAL as Validator (Hibernate Validator)
     participant CTL as RestController Method
@@ -223,66 +193,12 @@ sequenceDiagram
     end
 ```
 
-### Key Architectural Components
+### 3.4 Custom Constraints: Corporate Approved AI Model Whitelist
+When built-in annotations are insufficient, create custom constraint validators:
 
-1. **`DispatcherServlet`**: The front controller that receives all incoming HTTP requests.
-2. **`RequestResponseBodyMethodProcessor`**: The built-in argument resolver that handles `@RequestBody`. It uses Jackson (`MappingJackson2HttpMessageConverter`) to convert JSON into a Java object.
-3. **Hibernate Validator**: The reference implementation of Jakarta Bean Validation (JSR 380). When it detects `@Valid` or `@Validated` on the controller parameter, it scans the object graph for constraint annotations.
-4. **`BindingResult`**: An internal Spring container that records all field-level and global constraint errors.
-5. **`MethodArgumentNotValidException`**: Thrown automatically by Spring when validation fails on a `@Valid @RequestBody` parameter.
-
----
-
-## 6. Jakarta Bean Validation In-Depth
-
-Spring Boot Starter Validation (`spring-boot-starter-validation`) pulls in Jakarta Validation API and Hibernate Validator.
-
-### The Most Essential Annotations for Gen AI APIs
-
-| Annotation | Applicable Types | Gen AI Use Case | Example |
-| :--- | :--- | :--- | :--- |
-| `@NotNull` | Any Object | Ensures parameter is not omitted from JSON. | `@NotNull(message = "Temperature cannot be null") Double temperature` |
-| `@NotEmpty` | `CharSequence`, `Collection`, `Map`, Array | Ensures collection or string is not null and has `length > 0`. | `@NotEmpty List<String> documents` |
-| `@NotBlank` | `CharSequence` | Ensures string has at least one non-whitespace character. | `@NotBlank(message = "Prompt cannot be blank") String prompt` |
-| `@Size(min, max)` | `CharSequence`, `Collection`, `Map` | Enforces length or element count bounds. | `@Size(max = 4000) String prompt`, `@Size(max = 4) List<String> stop` |
-| `@Min(value)` | Numeric types | Enforces lower bound integer limits. | `@Min(1) int maxTokens` |
-| `@Max(value)` | Numeric types | Enforces upper bound integer limits. | `@Max(4096) int maxTokens` |
-| `@DecimalMin`, `@DecimalMax` | `BigDecimal`, `Double`, `Float`, `String` | Enforces floating point bounds (e.g., temperature, top_p). | `@DecimalMin("0.0") @DecimalMax("2.0") double temperature` |
-| `@Pattern(regexp)` | `CharSequence` | Enforces regex format (e.g., model naming convention). | `@Pattern(regexp = "^(gpt-4o\|claude-3-5-sonnet\|llama3\\.2)$")` |
-| `@Positive`, `@PositiveOrZero` | Numeric types | Enforces positive numbers. | `@Positive int topK` |
-
-### `@Valid` vs `@Validated`: When to Use Which?
-
-```
-                     ┌───────────────────────────────┐
-                     │       @Valid vs @Validated    │
-                     └───────────────┬───────────────┘
-                                     │
-           ┌─────────────────────────┴─────────────────────────┐
-           ▼                                                   ▼
-   [ @Valid (Jakarta) ]                                [ @Validated (Spring) ]
-   • Standard Java / Jakarta EE                        • Spring-specific annotation
-   • Placed on @RequestBody parameters                 • Placed at CLASS level on @RestController
-   • Triggers nested validation on child objects       • Enables validation for @PathVariable / @RequestParam
-   • Does NOT support validation groups                • Supports validation groups
-```
-
-- Use **`@Valid`** on `@RequestBody` parameters in controller methods.
-- Use **`@Validated`** on the `@RestController` class when you want Spring to validate `@PathVariable` (e.g. `@Min(1) @PathVariable Long id`) or `@RequestParam`.
-
----
-
-## 7. Custom Constraints & Cross-Field Validation
-
-Built-in annotations cover single-field checks. However, enterprise AI platforms require domain-specific validation:
-1. **Whitelist Model Check**: Ensuring the client only requests approved corporate LLMs.
-2. **Cross-Field Validation**: Ensuring `chunkOverlap < chunkSize` in document splitters.
-
-### Implementing a Custom Constraint: `@ApprovedModel`
-
-#### Step 1: Define the Annotation
+#### 1. Define the Annotation
 ```java
-package com.enterprise.ai.validation;
+package com.javagenai.day16.validation;
 
 import jakarta.validation.Constraint;
 import jakarta.validation.Payload;
@@ -290,18 +206,18 @@ import java.lang.annotation.*;
 
 @Documented
 @Constraint(validatedBy = ApprovedModelValidator.class)
-@Target({ ElementType.FIELD, ElementType.PARAMETER, ElementType.RECORD_COMPONENT })
+@Target({ ElementType.FIELD, ElementType.RECORD_COMPONENT, ElementType.PARAMETER })
 @Retention(RetentionPolicy.RUNTIME)
 public @interface ApprovedModel {
-    String message() default "The specified AI model is not approved for corporate use";
+    String message() default "Model is not approved for corporate use";
     Class<?>[] groups() default {};
     Class<? extends Payload>[] payload() default {};
 }
 ```
 
-#### Step 2: Implement the `ConstraintValidator`
+#### 2. Implement the Validator
 ```java
-package com.enterprise.ai.validation;
+package com.javagenai.day16.validation;
 
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
@@ -309,56 +225,44 @@ import java.util.Set;
 
 public class ApprovedModelValidator implements ConstraintValidator<ApprovedModel, String> {
 
-    private static final Set<String> ALLOWED_MODELS = Set.of(
-        "gpt-4o", "gpt-4o-mini", "claude-3-5-sonnet", "llama3.2", "mistral-large"
+    private static final Set<String> ALLOWED = Set.of(
+        "gpt-4o", "gpt-4o-mini", "claude-3-5-sonnet", "llama-3.2", "mistral-large"
     );
 
     @Override
     public boolean isValid(String value, ConstraintValidatorContext context) {
         if (value == null || value.isBlank()) {
-            return false; // Leave blank checks to @NotBlank or fail here
+            return false;
         }
-        return ALLOWED_MODELS.contains(value.toLowerCase().trim());
+        return ALLOWED.contains(value.toLowerCase().trim());
     }
 }
 ```
 
----
+### 3.5 Cross-Field Validation: Preventing RAG Infinite Loops
+In document chunking systems, if `chunkOverlap >= chunkSize`, the advance step (`chunkSize - chunkOverlap`) is $\le 0$, resulting in an infinite CPU loop:
 
-## 8. Enterprise Response Design: Envelopes vs RFC 7807 Problem Details
+```java
+package com.javagenai.day16.dto;
 
-When design architects discuss REST API responses, two primary patterns emerge:
+import jakarta.validation.constraints.Min;
 
-### Pattern A: The Response Envelope (`ApiResponse<T>`)
-Wraps every single response (success or failure) in a standardized outer wrapper:
-
-```json
-{
-  "success": true,
-  "statusCode": 200,
-  "data": {
-    "completion": "Virtual threads optimize high-concurrency I/O...",
-    "model": "gpt-4o"
-  },
-  "metadata": {
-    "promptTokens": 15,
-    "completionTokens": 42,
-    "latencyMs": 284,
-    "timestamp": "2026-09-09T08:50:00Z"
-  }
+public record RagChunkingRequest(
+    @Min(100) int chunkSize,
+    @Min(0) int chunkOverlap
+) {
+    public RagChunkingRequest {
+        if (chunkOverlap >= chunkSize) {
+            throw new IllegalArgumentException(
+                "chunkOverlap (" + chunkOverlap + ") must be strictly less than chunkSize (" + chunkSize + ")"
+            );
+        }
+    }
 }
 ```
 
-**Pros**: Highly consistent for frontend developers; unified client parsing.  
-**Cons**: Redundant with HTTP headers and status codes; anti-RESTful if errors return HTTP 200 with `success: false`.
-
-### Pattern B: Pure REST + RFC 7807 Problem Details (Industry Best Practice)
-- **Successful Requests (200 OK / 201 Created)**: Return the domain DTO directly with HTTP headers for metadata (e.g. `X-Token-Usage`, `X-Latency-Ms`).
-- **Failed Requests (4xx / 5xx)**: Return standard **RFC 7807 Problem Details** with `Content-Type: application/problem+json`.
-
-### Spring Boot 3 `ProblemDetail` Specification
-
-Spring Boot 3 introduces built-in support for RFC 7807 via `org.springframework.http.ProblemDetail`:
+### 3.6 Standard RFC 7807 Problem Details
+Spring Boot 3 provides native support for RFC 7807 via `ProblemDetail`:
 
 ```json
 {
@@ -370,243 +274,133 @@ Spring Boot 3 introduces built-in support for RFC 7807 via `org.springframework.
   "invalid-params": [
     {
       "name": "prompt",
-      "reason": "Prompt must not be null, empty, or blank",
+      "reason": "Prompt must not be empty",
       "rejectedValue": ""
     },
     {
       "name": "temperature",
-      "reason": "Temperature must be between 0.0 and 2.0",
+      "reason": "Temperature must be <= 2.0",
       "rejectedValue": 3.5
     }
   ],
   "properties": {
-    "timestamp": "2026-09-09T08:55:19.358Z"
+    "timestamp": "2026-09-12T10:15:00Z"
   }
 }
 ```
 
-Standard RFC 7807 fields:
-- **`type`**: A URI reference identifying the problem type.
-- **`title`**: A short, human-readable summary of the problem type (should not change between occurrences).
-- **`status`**: The HTTP status code set by the origin server.
-- **`detail`**: A human-readable explanation specific to this occurrence of the problem.
-- **`instance`**: A URI reference identifying the specific occurrence of the problem.
-- **Extension members (e.g. `invalid-params`)**: Custom properties for debugging and client error mapping.
+---
+
+## 4. Prerequisite & Supporting Concepts
+
+### Prerequisite / Supporting Concept: `@Valid` vs `@Validated`
+- **`@Valid` (Jakarta EE standard)**: Placed on `@RequestBody` parameters to initiate validation on request DTOs and nested objects.
+- **`@Validated` (Spring Framework)**: Placed at the class level (`@RestController`) to enable validation for individual `@PathVariable` or `@RequestParam` parameters (e.g., `@Min(1) @PathVariable Long id`).
+
+### Prerequisite / Supporting Concept: The Plain English Bridge to Validation
+
+| Concept | The Old Anti-Pattern | Modern Java 21 & Spring Boot 3 | Why It Matters |
+| :--- | :--- | :--- | :--- |
+| **Data Carrier** | Returning `@Entity` JPA classes directly | Clean Java 21 Record DTOs | Eliminates credential leaks and mass-assignment attacks |
+| **Validation Rules** | 25 lines of repetitive `if (p == null)` checks | Declarative annotations (`@NotBlank`, `@Size`) | Self-documenting, reusable constraints |
+| **Trigger Mechanism**| Forgetting to check nulls, causing NPEs | `@Valid` parameter modifier | Rejects invalid payloads before business logic runs |
+| **Error Format** | Ad-hoc custom JSON error formats | Standard RFC 7807 `ProblemDetail` | Uniform API contracts across all frontend and client SDKs |
 
 ---
 
-## 9. Hands-On Code Walkthrough: Production AI Completion Gateway
+## 5. Advanced Depth (Intermediate → Advanced)
 
-In this day's companion code (`Phase_03_Spring_Web_REST_APIs/Day_16_Validation_DTOs_Response_Design/code/`), we build a complete, runnable enterprise validation architecture:
+### 5.1 Common Mistakes & Misconceptions
 
-### 1. `CompletionRequest.java`
-Implements the AI completion request DTO as a Java 21 Record with defensive copy collections and contract bounds:
+#### Mistake 1: Using `400 Bad Request` Instead of `422 Unprocessable Entity` for Semantic Failures
+- **`400 Bad Request`**: Indicates syntactically malformed HTTP requests (e.g. malformed JSON syntax, invalid escaping, truncated payload) where Jackson fails to deserialize the body.
+- **`422 Unprocessable Entity`**: Indicates that JSON syntax is completely valid, but the values fail semantic Bean Validation constraints (`temperature > 2.0`, `prompt blank`).
+
+#### Mistake 2: Missing `@Valid` on Nested Objects
+If a DTO contains a nested object or collection of objects, omitting `@Valid` on that field prevents validation from cascading into the child object:
+```java
+// ❌ BAD: Nested parameters inside ModelConfig are NOT validated!
+public record ChatRequest(
+    @NotBlank String prompt,
+    ModelConfig config // Missing @Valid!
+) {}
+
+// ✅ GOOD: Validation cascades into ModelConfig
+public record ChatRequest(
+    @NotBlank String prompt,
+    @Valid @NotNull ModelConfig config
+) {}
+```
+
+#### Mistake 3: Returning Mutable Collections from DTOs
+Exposing mutable lists allows outside code or background threads to modify DTO state:
+```java
+// ❌ BAD: Caller can mutate the internal stop sequence list
+public record BadDto(List<String> stops) {}
+
+// ✅ GOOD: Defensive copy creates an immutable unmodifiable list
+public record GoodDto(List<String> stops) {
+    public GoodDto {
+        stops = (stops == null) ? List.of() : List.copyOf(stops);
+    }
+}
+```
+
+---
+
+## 6. Quick Recap
+
+| Annotation / Concept | Scope | Functionality | AI Gateway Context |
+| :--- | :--- | :--- | :--- |
+| **Java 21 Record** | DTO definition | Immutable, boilerplate-free data carrier | Prevents entity leakage & mass assignment |
+| **`@NotBlank`** | String field | Disallows `null`, `""`, and whitespace | Enforces non-empty user and system prompts |
+| **`@Size(min, max)`** | String / List | Restricts character length or element counts | Prevents FDoS token explosion attacks |
+| **`@DecimalMin / Max`**| Floating point | Restricts numerical range | Enforces valid temperature ($0.0 \le T \le 2.0$) |
+| **`@Valid`** | Parameter / Field | Initiates Jakarta validation on target | Halts execution if constraints fail |
+| **RFC 7807** | Response design | Standardized error payload schema | Exposes detailed field rejection reasons |
+
+---
+
+## 7. Self-Check Questions & Practice Exercises
+
+### Self-Check Questions
+
+1. **Why is returning a database JPA entity directly from a REST controller considered an anti-pattern?**
+   - *Answer*: It creates severe security risks (leaking sensitive database columns like hashed passwords and API keys, and exposing mass assignment vulnerabilities), couples API contracts to database schema changes, and causes `StackOverflowError` during serialization of bidirectional relationships.
+2. **What is the difference between `@NotNull`, `@NotEmpty`, and `@NotBlank`?**
+   - *Answer*: `@NotNull` only ensures a reference is not null (empty strings or whitespace pass). `@NotEmpty` ensures the string is not null and has `length > 0` (whitespace passes). `@NotBlank` ensures the string is not null, not empty, and contains at least one non-whitespace character.
+3. **Why should prompt inputs enforce strict `@Size(max = ...)` bounds in LLM microservices?**
+   - *Answer*: To prevent Financial Denial-of-Service (FDoS) attacks where malicious actors send massive multi-megabyte payloads that exhaust memory and incur immense token inference costs on third-party AI APIs.
+4. **What media type header must accompany an RFC 7807 Problem Details response?**
+   - *Answer*: `Content-Type: application/problem+json` (or `application/problem+xml`).
+5. **How do you ensure validation rules cascade into nested objects within a parent request DTO?**
+   - *Answer*: By annotating the nested field or collection with `@Valid` inside the parent DTO definition.
+
+---
+
+### Hands-On Practice Exercises
+
+#### 🏋️ Exercise 1: Build a Vector Search DTO with Embedding Dimension Validation
+**Objective**: Construct a Java 21 Record `VectorSearchRequest` that validates vector dimensions (must be exactly 384 or 1536) and restricts `topK` between 1 and 100:
 
 ```java
-package code;
+package com.javagenai.day16;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
-public record CompletionRequest(
-    String prompt,
-    String model,
-    double temperature,
-    int maxTokens,
-    String systemPrompt,
-    List<String> stopSequences
-) {
-    public static final Set<String> ALLOWED_MODELS = Set.of(
-        "gpt-4o", "gpt-4o-mini", "claude-3-5-sonnet", "llama3.2", "mistral-large"
-    );
-
-    public CompletionRequest {
-        stopSequences = (stopSequences == null) 
-            ? Collections.emptyList() 
-            : List.copyOf(stopSequences);
-
-        if (systemPrompt != null && systemPrompt.isBlank()) {
-            systemPrompt = null;
-        }
-    }
-}
-```
-
-### 2. `ProblemDetail.java`
-Implements the full RFC 7807 Problem Details specification with structured field-level violation arrays and JSON serialization:
-
-```java
-public class ProblemDetail {
-    private URI type;
-    private String title;
-    private int status;
-    private String detail;
-    private URI instance;
-    private final List<InvalidParam> invalidParams = new ArrayList<>();
-    private final Map<String, Object> properties = new LinkedHashMap<>();
-
-    public record InvalidParam(String name, String reason, Object rejectedValue) {}
-
-    public static ProblemDetail forValidationFailure(String detail, String instancePath) {
-        ProblemDetail pd = forStatusAndDetail(422, detail);
-        pd.setTitle("Validation Failed");
-        pd.setType(URI.create("https://api.enterprise-ai.internal/errors/validation-failed"));
-        pd.setInstance(URI.create(instancePath));
-        return pd;
-    }
-    // ...
-}
-```
-
-### 3. `RagChunkingRequest.java` & Cross-Field Logic
-Validates sliding-window parameters:
-```java
-// Cross-field validation: chunkOverlap must be strictly less than chunkSize
-if (req.chunkOverlap() >= req.chunkSize()) {
-    violations.add(new Violation(
-        "chunkOverlap",
-        "chunkOverlap (" + req.chunkOverlap() + ") must be strictly less than chunkSize (" + req.chunkSize() + ") to allow window advancement",
-        req.chunkOverlap()
-    ));
-}
-```
-
----
-
-## 10. Step-by-Step Compilation & Testing
-
-Let's compile and execute the complete demonstration using standard JDK 21:
-
-```powershell
-# 1. Navigate to your course workspace
-cd "c:\Users\sriva\OneDrive\Desktop\GEN AI COURSE\JAVA"
-
-# 2. Compile all Day 16 Java files
-javac Phase_03_Spring_Web_REST_APIs/Day_16_Validation_DTOs_Response_Design/code/*.java
-
-# 3. Execute the ValidationDemo test suite
-java -cp Phase_03_Spring_Web_REST_APIs/Day_16_Validation_DTOs_Response_Design code.ValidationDemo
-```
-
-### Expected Output
-
-```
-================================================================================
- DAY 16: REQUEST VALIDATION, DTOs & RESPONSE DESIGN (RFC 7807 PROBLEM DETAILS)  
-================================================================================
-
---- SCENARIO 1: Valid AI Completion Request ---
- [SUCCESS] Validation Passed! Processing AI completion...
- HTTP Status: 200 OK
- Response Body:
-   ID: cmpl_9a8b7c6d
-   Model: gpt-4o
-   Completion: "Virtual threads unmount from carrier threads during socket blocking, allowing millions of concurrent LLM calls."
-   Prompt Tokens: 17
-   Completion Tokens: 27
-   Total Tokens: 44
-   Latency: 238ms
-   Timestamp: 2026-09-09T08:55:19.279475400Z
-
---- SCENARIO 2: Multi-Field Validation Failure (422 Unprocessable Entity) ---
- [VALIDATION REJECTED] Found 5 violations.
- Content-Type: application/problem+json
- HTTP Status: 422
-
- RFC 7807 Problem Detail Payload:
-{
-  "type": "https://api.enterprise-ai.internal/errors/validation-failed",
-  "title": "Validation Failed",
-  "status": 422,
-  "detail": "Validation failed with 5 constraint violation(s)",
-  "instance": "/api/v1/chat/completions",
-  "invalid-params": [
-    {
-      "name": "prompt",
-      "reason": "Prompt must not be null, empty, or blank",
-      "rejectedValue": "   "
-    },
-    {
-      "name": "model",
-      "reason": "Model 'unapproved-gpt-2' is not approved. Allowed models: [gpt-4o, claude-3-5-sonnet, llama3.2, gpt-4o-mini, mistral-large]",
-      "rejectedValue": "unapproved-gpt-2"
-    },
-    {
-      "name": "temperature",
-      "reason": "Temperature must be between 0.0 (deterministic) and 2.0 (creative)",
-      "rejectedValue": 3.5
-    },
-    {
-      "name": "maxTokens",
-      "reason": "maxTokens must be between 1 and 4096 tokens",
-      "rejectedValue": -10
-    },
-    {
-      "name": "stopSequences",
-      "reason": "A maximum of 4 stop sequences may be specified",
-      "rejectedValue": 5
-    }
-  ],
-  "properties": {
-    "timestamp": "2026-09-09T08:55:19.358027100Z"
-  }
-}
-
---- SCENARIO 3: Cross-Field Validation Failure in RAG Pipeline ---
- [VALIDATION REJECTED] Cross-field constraint violation detected!
- HTTP Status: 422
-{
-  "type": "https://api.enterprise-ai.internal/errors/validation-failed",
-  "title": "Validation Failed",
-  "status": 422,
-  "detail": "Validation failed with 1 constraint violation(s)",
-  "instance": "/api/v1/rag/documents/chunk",
-  "invalid-params": [
-    {
-      "name": "chunkOverlap",
-      "reason": "chunkOverlap (600) must be strictly less than chunkSize (500) to allow window advancement",
-      "rejectedValue": 600
-    }
-  ],
-  "properties": {
-    "timestamp": "2026-09-09T08:55:19.368522100Z"
-  }
-}
-
---- SCENARIO 4: Valid Boundary Conditions (temp=0.0, maxTokens=4096) ---
- [SUCCESS] Boundary conditions accepted! Temperature: 0.0, MaxTokens: 4096
-
-================================================================================
- DAY 16 DEMONSTRATION COMPLETE: ALL ARCHITECTURAL CONSTRAINTS VERIFIED!         
-================================================================================
-```
-
----
-
-## 11. Hands-On Exercises (With Complete Solutions)
-
-### Exercise 1: Embedding Vector Search DTO
-**Task**: Design a Java 21 Record DTO `VectorSearchRequest` for a RAG vector similarity search endpoint.
-Rules:
-- `queryVector`: Must not be null or empty, and must have an embedding dimension of exactly 1536 (OpenAI `text-embedding-3-small`) or 384 (`all-MiniLM-L6-v2`).
-- `topK`: Must be between 1 and 100 inclusive.
-- `similarityThreshold`: Optional double between 0.0 and 1.0 (defaults to 0.7 if omitted).
-
-#### Solution:
-```java
 public record VectorSearchRequest(
     List<Double> queryVector,
     int topK,
     Double similarityThreshold
 ) {
-    private static final Set<Integer> VALID_DIMENSIONS = Set.of(384, 1536);
+    private static final Set<Integer> ALLOWED_DIMS = Set.of(384, 1536);
 
     public VectorSearchRequest {
         if (queryVector == null || queryVector.isEmpty()) {
             throw new IllegalArgumentException("queryVector cannot be null or empty");
         }
-        if (!VALID_DIMENSIONS.contains(queryVector.size())) {
+        if (!ALLOWED_DIMS.contains(queryVector.size())) {
             throw new IllegalArgumentException(
                 "queryVector dimension (" + queryVector.size() + ") must be either 384 or 1536"
             );
@@ -614,29 +408,42 @@ public record VectorSearchRequest(
         if (topK < 1 || topK > 100) {
             throw new IllegalArgumentException("topK must be between 1 and 100");
         }
-        if (similarityThreshold == null) {
-            similarityThreshold = 0.7;
-        } else if (similarityThreshold < 0.0 || similarityThreshold > 1.0) {
+        similarityThreshold = (similarityThreshold == null) ? 0.70 : similarityThreshold;
+        if (similarityThreshold < 0.0 || similarityThreshold > 1.0) {
             throw new IllegalArgumentException("similarityThreshold must be between 0.0 and 1.0");
         }
     }
 }
 ```
 
----
+#### 🏋️ Exercise 2: Build a Spring `@RestControllerAdvice` RFC 7807 Exception Handler
+**Objective**: Build a global exception handler that catches `MethodArgumentNotValidException` and constructs an RFC 7807 `ProblemDetail` with an `invalid-params` list:
 
-### Exercise 2: Spring 6 `ProblemDetail` Global Handler
-**Task**: Write the Spring `@RestControllerAdvice` method that intercepts `MethodArgumentNotValidException` and produces an RFC 7807 `ProblemDetail` with an `invalid-params` list.
-
-#### Solution:
 ```java
+package com.javagenai.day16;
+
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.net.URI;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+
 @RestControllerAdvice
 public class GlobalValidationExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ProblemDetail> handleValidationExceptions(
-            MethodArgumentNotValidException ex, HttpServletRequest request) {
-
+    public ResponseEntity<ProblemDetail> handleValidationErrors(
+        MethodArgumentNotValidException ex,
+        HttpServletRequest request
+    ) {
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
             HttpStatus.UNPROCESSABLE_ENTITY.value(),
             "Validation failed with " + ex.getBindingResult().getErrorCount() + " error(s)"
@@ -645,9 +452,7 @@ public class GlobalValidationExceptionHandler {
         problemDetail.setType(URI.create("https://api.enterprise-ai.internal/errors/validation-failed"));
         problemDetail.setInstance(URI.create(request.getRequestURI()));
 
-        List<Map<String, Object>> invalidParams = ex.getBindingResult()
-            .getFieldErrors()
-            .stream()
+        List<Map<String, Object>> invalidParams = ex.getBindingResult().getFieldErrors().stream()
             .map(err -> Map.of(
                 "name", (Object) err.getField(),
                 "reason", err.getDefaultMessage() != null ? err.getDefaultMessage() : "Invalid value",
@@ -667,77 +472,6 @@ public class GlobalValidationExceptionHandler {
 
 ---
 
-### Exercise 3: Prompt Injection Guard Validator
-**Task**: Create a custom constraint validator `@NoPromptInjection` that checks user prompt input against high-risk prompt injection delimiters (such as `IGNORE PREVIOUS INSTRUCTIONS`, `SYSTEM PROMPT:`, `---BEGIN ADMIN MODE---`).
-
-#### Solution:
-```java
-@Documented
-@Constraint(validatedBy = NoPromptInjectionValidator.class)
-@Target({ ElementType.FIELD, ElementType.RECORD_COMPONENT, ElementType.PARAMETER })
-@Retention(RetentionPolicy.RUNTIME)
-public @interface NoPromptInjection {
-    String message() default "Prompt contains prohibited administrative injection phrases";
-    Class<?>[] groups() default {};
-    Class<? extends Payload>[] payload() default {};
-}
-
-public class NoPromptInjectionValidator implements ConstraintValidator<NoPromptInjection, String> {
-
-    private static final List<String> BLACKLISTED_PATTERNS = List.of(
-        "ignore previous instructions",
-        "system prompt:",
-        "begin admin mode",
-        "disregard all prior instructions",
-        "you are now in developer mode"
-    );
-
-    @Override
-    public boolean isValid(String value, ConstraintValidatorContext context) {
-        if (value == null || value.isBlank()) {
-            return true; // Let @NotBlank handle blank checks
-        }
-
-        String normalized = value.toLowerCase();
-        for (String pattern : BLACKLISTED_PATTERNS) {
-            if (normalized.contains(pattern)) {
-                return false;
-            }
-        }
-        return true;
-    }
-}
-```
-
----
-
-## 12. Self-Check Quiz
-
-### Q1: Why should you use `422 Unprocessable Entity` instead of `400 Bad Request` for semantic Bean Validation failures?
-> **Answer**: `400 Bad Request` indicates that the HTTP request was syntactically malformed (e.g., truncated JSON, unclosed quotes, invalid HTTP headers) and could not be parsed by Jackson. `422 Unprocessable Entity` indicates that the JSON syntax was 100% valid, but the data contained semantic or constraint violations (e.g., `temperature: 3.5`, blank prompt, unsupported model). This separation allows client SDKs and monitoring dashboards to distinguish between client serialization bugs and business validation rejections.
-
-### Q2: Why is a Java 21 Record preferred over a Lombok `@Data` class for DTOs?
-> **Answer**: Lombok `@Data` generates mutable POJOs with setters, a default zero-arg constructor, and mutable internal state. In high-concurrency environments running on Virtual Threads, shared mutable DTOs can introduce race conditions or accidental mutations. Java 21 Records are shallowly immutable by default, have concise declarative syntax, compile to compact bytecode without annotation processing hacks, and integrate natively with Jackson.
-
-### Q3: What is the media type required by RFC 7807 when returning a `ProblemDetail` payload?
-> **Answer**: The standardized media type is `application/problem+json` (or `application/problem+xml` for XML APIs). Clients inspect this `Content-Type` header to immediately determine that the payload follows the standard IETF Problem Details schema.
-
-### Q4: If a client sends `"stopSequences": null`, how should your DTO compact constructor handle it?
-> **Answer**: It should perform defensive assignment, normalizing `null` to `Collections.emptyList()` (or `List.of()`). If non-null, it should wrap it with `List.copyOf(stopSequences)` to guarantee that the client list cannot be mutated after DTO construction.
-
-### Q5: How do you validate cross-field constraints (such as `chunkOverlap < chunkSize`) in standard Jakarta Bean Validation?
-> **Answer**: Field-level annotations (`@Min`, `@Size`) only inspect a single field in isolation. To inspect multiple fields together, you create a **class-level constraint annotation** (e.g. `@ValidChunkingConfig`) targeted at `ElementType.TYPE` or `ElementType.RECORD_COMPONENT`, where the corresponding validator receives the entire DTO instance and evaluates the relationship between both fields.
-
----
-
-## Day 16 Summary & Next Steps
-
-You've built an airtight perimeter defense today! Let's celebrate what you learned:
-1. **Never Trust Input**: You protected your backend and cloud billing from malicious, oversized, or malformed payloads.
-2. **Records as DTOs**: You used Java 21 Records to create clean, immutable data carriers that never leak database secrets.
-3. **Declarative Validation**: You used `@Valid`, `@NotBlank`, and `@Size` to automate input validation effortlessly.
-4. **Custom Cross-Field Checks**: You prevented nasty infinite loops in document chunking with custom class-level constraints.
-5. **RFC 7807 Standards**: You returned standardized, professional error envelopes that any frontend client can parse.
-
-👉 **Tomorrow in Day 17: Exception Handling & Global Error Strategy** — What happens when an external AI service goes down, times out, or throws a 429 rate limit error? Tomorrow, we'll build a bulletproof global safety net using `@RestControllerAdvice` and centralized correlation IDs so your application never crashes in production! See you tomorrow! 🛡️⚡
-
+| ⬅️ Previous Day | 📚 Course Hub | ➡️ Next Day |
+|:---|:---:|---:|
+| [← Day 15: HTTP Deep Dive & First REST Controller](../Day_15_HTTP_Deep_Dive_First_REST_Controller/Day_15_HTTP_Deep_Dive_First_REST_Controller.md) | [All 60 Days Overview](../../README.md) | [Day 17: Exception Handling & Global Error Strategy →](../Day_17_Exception_Handling_Global_Strategy/Day_17_Exception_Handling_Global_Strategy.md) |
