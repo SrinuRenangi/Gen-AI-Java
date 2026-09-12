@@ -10,123 +10,124 @@
 
 ---
 
-## Friendly Welcome: Locking the Front Door of Your AI Platform
+## 1. Topic Overview
 
-Hey there, friend! Welcome to Day 27—and welcome to **Phase 5: Spring Security**!
-
-If you leave a normal blog application open to the internet without a password, someone might read a post five minutes early. But if you leave an **AI REST API** open to the internet without authentication, an automated bot will discover your endpoint, fire off 500 requests per second to GPT-4o, and run up a $50,000 credit card bill before you even wake up for breakfast!
-
-In Generative AI engineering, security is not an optional feature—it is a direct financial survival requirement.
-
-Today, we are going to learn how to lock down our Spring Boot application using **Spring Security 6**. We will demystify the famous **Security Filter Chain**, master the crystal-clear difference between 401 Unauthorized and 403 Forbidden, and see why modern Spring Boot 3 uses clean, modern lambda configuration instead of old deprecated classes!
+Spring Security 6 enforces authentication and authorization across enterprise applications using an intercepted HTTP pipeline called the `SecurityFilterChain`. In Generative AI platforms, this security architecture prevents financial denial of service (FDoS) attacks, stops unauthorized model inference, enforces multi-tenant isolation, and protects proprietary system prompts through modern, stateless lambda-configured filter chains.
 
 ---
 
-> 💡 **New Word Alert! Key Concepts for Today**
->
-> - **Authentication (`AuthN`)**: *"Who are you?"* Proving your digital identity (via password, API key, or JWT token).
-> - **Authorization (`AuthZ`)**: *"What are you allowed to do?"* Even if your identity is verified as Alice, do you have permission to use the expensive GPT-4o model, or are you only allowed to use the free local model?
-> - **Filter Chain (`SecurityFilterChain`)**: A lineup of security guards (checkpoints) that every HTTP request must walk through before reaching your `@RestController`. If any guard detects missing or invalid credentials, the request is stopped dead in its tracks.
-> - **HTTP 401 Unauthorized**: *"I don't know who you are. Please log in or provide a token."*
-> - **HTTP 403 Forbidden**: *"I know who you are, but you do not have permission to access this resource."*
-> - **`SecurityContextHolder`**: A VIP badge holder in Java memory where Spring stores the verified identity of the currently logged-in user for the duration of their HTTP request.
-> - **Stateless Session**: In modern REST APIs, the server does not store cookies or server sessions. Every single request must carry its own credentials (like a JWT Bearer token).
+## 2. Basic Foundations (True Zero)
 
----
-
-## Table of Contents
-
-1. [Why This Day Matters for a 3-Year Enterprise Gen AI Engineer](#1-why-this-day-matters-for-a-3-year-enterprise-gen-ai-engineer)
-2. [Real-World Analogy: Airport Customs & Boarding Gate Clearances](#2-real-world-analogy-airport-customs--boarding-gate-clearances)
-3. [Authentication vs Authorization: The Fundamental Distinction](#3-authentication-vs-authorization-the-fundamental-distinction)
-4. [Spring Security 6 Architecture & The Filter Chain](#4-spring-security-6-architecture--the-filter-chain)
-   - [From `DelegatingFilterProxy` to `SecurityFilterChain`](#from-delegatingfilterproxy-to-securityfilterchain)
-   - [The Sequence of Core Security Filters](#the-sequence-of-core-security-filters)
-5. [The Core Security Domain Objects](#5-the-core-security-domain-objects)
-   - [`SecurityContextHolder`](#securitycontextholder)
-   - [`SecurityContext`](#securitycontext)
-   - [`Authentication` (Principal, Credentials, Authorities)](#authentication-principal-credentials-authorities)
-6. [Modern Spring Boot 3 Security Configuration](#6-modern-spring-boot-3-security-configuration)
-   - [Why `WebSecurityConfigurerAdapter` is Dead](#why-websecurityconfigureradapter-is-dead)
-   - [Building a Stateless `SecurityFilterChain` Bean](#building-a-stateless-securityfilterchain-bean)
-7. [Enterprise Security Exception Handling (401 vs 403 in RFC 7807)](#7-enterprise-security-exception-handling-401-vs-403-in-rfc-7807)
-8. [Hands-On Code Walkthrough](#8-hands-on-code-walkthrough)
-9. [Step-by-Step Compilation & Execution](#9-step-by-step-compilation--execution)
-10. [Hands-On Exercises (With Complete Solutions)](#10-hands-on-exercises-with-complete-solutions)
-11. [Self-Check Quiz](#11-self-check-quiz)
-12. [Day 27 Wrap-Up & What's Next](#12-day-27-wrap-up--whats-next)
-
----
-
-## 1. Why This Day Matters for a 3-Year Enterprise Gen AI Engineer
-
-Securing AI applications presents distinct challenges that standard web tutorials never cover:
-
-1. **Financial Denial of Service (FDoS)**: Unlike standard microservices where requests cost fractions of a microsecond of CPU time, each LLM inference call incurs direct third-party billing costs ($0.03 to $0.15 per request). If an attacker finds an open endpoint, they can bankrupt an enterprise within hours.
-2. **Proprietary Prompt & Model Stealing**: Your system prompts, proprietary few-shot examples, and fine-tuned model endpoints must be protected behind strict authorization boundaries.
-3. **Multi-Tenant Data Isolation**: In RAG platforms, legal documents or HR records stored in `pgvector` must be inaccessible to unauthorized users. Even if the embedding search returns a high similarity score, the security filter must prevent cross-tenant exposure.
-4. **Spring Security 6 Paradigm Shift**: In Spring Boot 3 / Java 21, the legacy `WebSecurityConfigurerAdapter` class was completely removed. Senior engineers configure security using modern, component-based **`SecurityFilterChain`** beans with lambda DSLs.
-
----
-
-## 2. Real-World Analogy: Airport Customs & Boarding Gate Clearances
+### Authentication vs. Authorization
+When securing any API, two fundamental questions must be answered in strict sequence:
+1. **Authentication (`AuthN`) — "Who are you?"**: Validating identity credentials (passwords, JWT bearer tokens, or API keys). If validation fails, the API responds with **HTTP 401 Unauthorized**.
+2. **Authorization (`AuthZ`) — "What are you allowed to do?"**: Determining whether the authenticated identity possesses the permissions or roles required to execute the requested action. If permissions are insufficient, the API responds with **HTTP 403 Forbidden**.
 
 ```
-                             [ AIRPORT TERMINAL ]
-                                      │
-                                      ▼
-             [ STEP 1: PASSPORT CONTROL (AUTHENTICATION) ]
-             "Who are you? Prove your identity with a passport."
-             Officer checks passport photo & biometric thumbprint.
-                                      │
-                                      ├── Pass? ──► Identity verified: "Alice Smith"
-                                      └── Fail? ──► 401 UNAUTHORIZED (Turn away at border)
-                                      │
-                                      ▼
-            [ STEP 2: BOARDING GATE ACCESS (AUTHORIZATION) ]
-            "What privileges do you hold on Flight #AI-2026?"
-                                      │
-            ┌─────────────────────────┴─────────────────────────┐
-            ▼                                                   ▼
-[ Economy Seat 24B ]                                 [ Cockpit / First Class Lounge ]
-(Granted: SCOPE_ai:chat)                             (Requires: ROLE_ADMIN / PILOT)
-Access Granted to LLM Inference!                     Access Denied: 403 FORBIDDEN!
++-----------------------------------------------------------------------------------+
+|               THE AIRPORT CUSTOMS & BOARDING GATE ANALOGY                         |
+|                                                                                   |
+|                                [ AIRPORT TERMINAL ]                               |
+|                                         |                                         |
+|                                         v                                         |
+|             [ STEP 1: PASSPORT CONTROL (AUTHENTICATION - AuthN) ]                 |
+|             "Who are you? Prove your identity with a valid passport."             |
+|             Officer checks passport photo and biometric signature.                |
+|                                         |                                         |
+|                     +-------------------+-------------------+                     |
+|                     | Pass?                                 | Fail?               |
+|                     v                                       v                     |
+|         Identity verified: "Alice"              401 UNAUTHORIZED                  |
+|                     |                       (Turn away at the border!)            |
+|                     v                                                             |
+|             [ STEP 2: BOARDING GATE (AUTHORIZATION - AuthZ) ]                     |
+|             "What privileges does your boarding pass grant?"                     |
+|                     |                                                             |
+|           +---------+-------------------------+                                   |
+|           |                                   |                                   |
+|           v                                   v                                   |
+|   [ Economy Seat 24B ]             [ First Class / Cockpit ]                      |
+|   (Granted: SCOPE_ai:chat)         (Requires: ROLE_ADMIN / PILOT)                 |
+|   Access Granted to Model!         Access Denied: 403 FORBIDDEN!                  |
++-----------------------------------------------------------------------------------+
 ```
 
-- **Authentication ("Who are you?")**: Validating that the client presenting the request is indeed who they claim to be (via password, JWT token, or API key).
-- **Authorization ("What are you allowed to do?")**: Once the identity is verified, determining whether they hold the required role or authority to call this specific AI model or endpoint.
+### Minimal Beginner-Friendly Working Code Example
+
+Below is a self-contained Java simulation demonstrating how a security filter intercepts an incoming request, validates credentials, populates a security context, and enforces access permissions.
+
+```java
+import java.util.*;
+
+public class BasicSecurityFilterExample {
+
+    // Simulates Spring Security's Authentication object
+    record AuthenticationToken(String principal, List<String> authorities, boolean isAuthenticated) {}
+
+    // Simulates SecurityContextHolder using ThreadLocal storage
+    static class SecurityContextHolder {
+        private static final ThreadLocal<AuthenticationToken> context = new ThreadLocal<>();
+
+        public static void setAuthentication(AuthenticationToken auth) { context.set(auth); }
+        public static AuthenticationToken getAuthentication() { return context.get(); }
+        public static void clearContext() { context.remove(); }
+    }
+
+    // Simulates a filter gatekeeper
+    public static void executeRequest(String path, String authHeader) {
+        try {
+            // 1. Authentication Filter Phase
+            if (authHeader != null && authHeader.startsWith("Bearer secret-token-alice")) {
+                SecurityContextHolder.setAuthentication(
+                    new AuthenticationToken("alice", List.of("ROLE_USER", "SCOPE_ai:chat"), true)
+                );
+            }
+
+            // 2. Authorization Filter Phase
+            AuthenticationToken currentAuth = SecurityContextHolder.getAuthentication();
+
+            if (path.startsWith("/api/v1/public")) {
+                System.out.println("200 OK: Public endpoint accessed successfully.");
+            } else if (currentAuth == null || !currentAuth.isAuthenticated()) {
+                System.out.println("401 Unauthorized: Valid credentials required to access " + path);
+            } else if (path.startsWith("/api/v1/admin") && !currentAuth.authorities().contains("ROLE_ADMIN")) {
+                System.out.println("403 Forbidden: User '" + currentAuth.principal() + "' lacks ROLE_ADMIN for " + path);
+            } else {
+                System.out.println("200 OK: User '" + currentAuth.principal() + "' successfully accessed " + path);
+            }
+        } finally {
+            // Mandatory cleanup to prevent thread-pool memory leaks
+            SecurityContextHolder.clearContext();
+        }
+    }
+
+    public static void main(String[] args) {
+        System.out.println("--- Test 1: Anonymous Request to Protected Chat ---");
+        executeRequest("/api/v1/chat/completions", null);
+
+        System.out.println("\n--- Test 2: Authenticated User Accessing Chat ---");
+        executeRequest("/api/v1/chat/completions", "Bearer secret-token-alice");
+
+        System.out.println("\n--- Test 3: Authenticated User Accessing Admin Deploy ---");
+        executeRequest("/api/v1/admin/deploy", "Bearer secret-token-alice");
+    }
+}
+```
+
+#### Line-by-Line Walkthrough:
+- **Lines 6–7**: `AuthenticationToken` encapsulates the principal (user identity), granted authorities (roles/scopes), and an authentication flag.
+- **Lines 10–16**: `SecurityContextHolder` utilizes `ThreadLocal` to attach the identity to the executing request thread without passing credentials as explicit method parameters.
+- **Lines 22–26**: Simulates an authentication filter extracting the `Authorization: Bearer` header. If valid, it binds the authenticated principal to the current thread.
+- **Lines 31–37**: Simulates an authorization filter. If credentials are missing, it halts with `401 Unauthorized`. If the user is authenticated but lacks `ROLE_ADMIN`, it halts with `403 Forbidden`.
+- **Line 41**: The `finally` block executes `clearContext()`, ensuring recycled server threads never leak previous credentials.
 
 ---
 
-## 3. Authentication vs Authorization: The Fundamental Distinction
+## 3. Core Concept Walkthrough (Basic → Intermediate)
 
-| Concept | Authentication (`AuthN`) | Authorization (`AuthZ`) |
-| :--- | :--- | :--- |
-| **Question** | *"Who are you?"* | *"Are you permitted to perform this action?"* |
-| **Input** | Credentials (username/password, JWT, API Key, OAuth2 token) | Verified user identity + Granted Authorities (`ROLE_ADMIN`, `SCOPE_ai:write`) |
-| **Failure Code** | **`HTTP 401 Unauthorized`** | **`HTTP 403 Forbidden`** |
-| **Spring Interface** | `AuthenticationManager`, `AuthenticationProvider` | `AuthorizationManager`, `AccessDecisionManager` |
-| **Gen AI Example** | Verifying an incoming `Authorization: Bearer <jwt>` header is cryptographically signed. | Checking if the authenticated user has permission to invoke `gpt-4o` or only cheap local models. |
+### Spring Security 6 Architecture & Filter Chain
 
----
-
-## 🧭 The Mid-Level Java Developer Bridge: Spring Security Demystified
-
-The first time a developer adds `spring-boot-starter-security` to their `pom.xml`, their entire app immediately returns `401 Unauthorized` and prints a random password in the console! Here is why and how it works:
-
-| Spring Security Concept | What It Actually Does | Plain English Meaning |
-| :--- | :--- | :--- |
-| **Default Lockdown** | Spring Security adopts a "Zero-Trust" posture: all endpoints require login unless explicitly permitted. | A bouncer locks all doors by default until you tell them which door is public. |
-| **`SecurityFilterChain`** | A pipeline of 15+ standard Java `Filter` beans that intercept every HTTP request before it reaches `@RestController`. | A series of airport security checkpoints (passport check, metal detector, baggage scan). |
-| **`SecurityContextHolder`** | A static wrapper around a `ThreadLocal` variable storing the currently authenticated `UserPrincipal`. | A VIP wristband attached to the current thread while processing this HTTP request. |
-| **401 vs. 403** | 401 = Unauthenticated (no valid token/credentials). 403 = Authenticated, but lacking the required role. | 401: *"I don't know who you are."*<br>403: *"I know who you are, but you aren't allowed in this room."* |
-| **`csrf.disable()`** | Disables Cross-Site Request Forgery checks. | Needed for browser cookie sessions. For stateless REST APIs with JWT headers in mobile/React apps, CSRF is disabled because requests don't rely on cookies! |
-
----
-
-## 4. Spring Security 6 Architecture & The Filter Chain
-
-Spring Security is built entirely on standard Java Servlet **Filters**:
+Spring Security sits between the Servlet Container (Tomcat) and your application controllers:
 
 ```mermaid
 sequenceDiagram
@@ -143,7 +144,7 @@ sequenceDiagram
     DFP->>FCP: Delegate to Spring Managed Bean
     FCP->>SFC: Route through SecurityFilterChain
     
-    Note over SFC: 1. SecurityContextHolderFilter<br/>2. CorsFilter / CsrfFilter<br/>3. AuthenticationFilter (Validate Bearer Token)<br/>4. AuthorizationFilter (Check Authorities)
+    Note over SFC: 1. SecurityContextHolderFilter<br/>2. CorsFilter / CsrfFilter<br/>3. AuthenticationFilter (Bearer Token Check)<br/>4. AuthorizationFilter (Role & Scope Check)
     
     alt All Filters Pass
         SFC->>CTL: Dispatch to Controller method
@@ -155,58 +156,46 @@ sequenceDiagram
     end
 ```
 
-### The Sequence of Core Security Filters
-When a request enters the `SecurityFilterChain`, it traverses these ordered filters:
-1. **`SecurityContextHolderFilter`**: Loads any existing `SecurityContext` from session or previous state and attaches it to the current thread.
-2. **`CorsFilter` / `CsrfFilter`**: Validates Cross-Origin headers and CSRF tokens.
-3. **`AuthenticationFilter`** (e.g. `BearerTokenAuthenticationFilter`): Extracts credentials, invokes `AuthenticationManager`, and populates `SecurityContext` with the authenticated `Authentication` token.
-4. **`ExceptionTranslationFilter`**: Catches Spring Security exceptions and translates them to HTTP 401 or 403 responses.
-5. **`AuthorizationFilter`**: The final gatekeeper. Inspects `@PreAuthorize` rules or URL matchers. If the principal lacks the required authorities, throws `AccessDeniedException`.
-
----
-
-## 5. The Core Security Domain Objects
+### Core Security Domain Objects
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    SecurityContextHolder                    │
-│    (Static ThreadLocal accessor: SecurityContextHolder.get) │
-└──────────────────────────────┬──────────────────────────────┘
-                               │ holds
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│                       SecurityContext                       │
-│    (Scoped to the current request thread)                   │
-└──────────────────────────────┬──────────────────────────────┘
-                               │ holds
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│                        Authentication                       │
-│    - getPrincipal(): Object (e.g. UserDetails / String)     │
-│    - getCredentials(): Object (e.g. password / token)       │
-│    - getAuthorities(): Collection<GrantedAuthority>         │
-│    - isAuthenticated(): boolean                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Accessing the Authenticated User in Code
-```java
-// Anywhere in your Spring service or controller:
-Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-String currentUsername = auth.getName();
-boolean isAdmin = auth.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_ADMIN"));
++-----------------------------------------------------------------------------+
+|                            SecurityContextHolder                            |
+|             (Static accessor: SecurityContextHolder.getContext())           |
++--------------------------------------┬--------------------------------------+
+                                       | holds
+                                       v
++-----------------------------------------------------------------------------+
+|                               SecurityContext                               |
+|                     (Bound to current request thread)                       |
++--------------------------------------┬--------------------------------------+
+                                       | holds
+                                       v
++-----------------------------------------------------------------------------+
+|                               Authentication                                |
+|  - getPrincipal(): Object (e.g. UserDetails / String username)              |
+|  - getCredentials(): Object (e.g. password / token)                         |
+|  - getAuthorities(): Collection<GrantedAuthority> (ROLE_ADMIN, SCOPE_ai)    |
+|  - isAuthenticated(): boolean                                               |
++-----------------------------------------------------------------------------+
 ```
 
 ---
 
-## 6. Modern Spring Boot 3 Security Configuration
+### Modern Spring Boot 3 Security Configuration
 
-In Spring Boot 2, developers extended `WebSecurityConfigurerAdapter` and overrode `configure(HttpSecurity http)`. **This approach is completely deprecated and removed in Spring Boot 3.**
-
-### Modern Component-Based `SecurityFilterChain`
-In Spring Boot 3 (Java 21), you register a `@Bean` returning `SecurityFilterChain`:
+In Spring Boot 3 (Java 21), the legacy `WebSecurityConfigurerAdapter` class was completely removed. Security is now configured using component-based `@Bean` declarations with modern lambda DSLs:
 
 ```java
+package com.example.genai.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.SecurityFilterChain;
+
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -214,10 +203,10 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
-            // 1. Disable CSRF (Cross-Site Request Forgery) for stateless REST APIs
+            // 1. Disable CSRF for stateless REST APIs
             .csrf(csrf -> csrf.disable())
 
-            // 2. Configure Stateless Session Management (No HTTP Sessions / Cookies)
+            // 2. Set Stateless Session Management (No JSESSIONID cookies)
             .sessionManagement(session -> 
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
@@ -235,11 +224,11 @@ public class SecurityConfig {
                 // Admin endpoints require ROLE_ADMIN
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
 
-                // AI inference endpoints require specific scope
+                // AI inference endpoints require specific granted authorities
                 .requestMatchers("/api/v1/chat/**").hasAuthority("SCOPE_ai:chat")
                 .requestMatchers("/api/v1/rag/**").hasAuthority("SCOPE_ai:rag")
 
-                // Any other endpoint must be authenticated
+                // All other endpoints require authentication
                 .anyRequest().authenticated()
             )
             .build();
@@ -249,13 +238,11 @@ public class SecurityConfig {
 
 ---
 
-## 7. Enterprise Security Exception Handling (401 vs 403 in RFC 7807)
+### Enterprise RFC 7807 Exception Handlers
 
-When an unauthenticated or unauthorized client calls your AI API, Spring Security should not return raw HTML error pages. It must return **RFC 7807 Problem Details**:
+Spring Security should never return HTML error pages to REST clients. Enterprise APIs implement custom security entry points returning RFC 7807 `ProblemDetail` JSON objects:
 
-### 1. `AuthenticationEntryPoint` (401 Unauthorized)
-Fires when an anonymous or unauthenticated user tries to access a protected endpoint:
-
+#### 1. AuthenticationEntryPoint (HTTP 401)
 ```java
 @Component
 public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint {
@@ -280,9 +267,7 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
 }
 ```
 
-### 2. `AccessDeniedHandler` (403 Forbidden)
-Fires when an authenticated user attempts to access an endpoint they lack authorities for:
-
+#### 2. AccessDeniedHandler (HTTP 403)
 ```java
 @Component
 public class CustomAccessDeniedHandler implements AccessDeniedHandler {
@@ -296,7 +281,7 @@ public class CustomAccessDeniedHandler implements AccessDeniedHandler {
 
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(
             HttpStatus.FORBIDDEN.value(),
-            "You do not possess the required authorities (e.g. ROLE_ADMIN) to perform this operation"
+            "You do not possess the required authorities to perform this operation"
         );
         pd.setTitle("Forbidden");
         pd.setType(URI.create("https://api.enterprise-ai.internal/errors/forbidden"));
@@ -309,35 +294,69 @@ public class CustomAccessDeniedHandler implements AccessDeniedHandler {
 
 ---
 
-## 8. Hands-On Code Walkthrough
+## 4. Prerequisite & Supporting Concepts
 
-In this day's companion code (`Phase_05_Spring_Security/Day_27_Security_Fundamentals_Architecture/code/`), we built:
+### Prerequisite / Supporting Concept: DelegatingFilterProxy & FilterChainProxy
+The Servlet container (Tomcat) initializes standard Java Servlet filters before the Spring application context exists. Tomcat has no direct knowledge of Spring beans, dependency injection, or `@Configuration` classes.
 
-1. **`AuthenticationToken.java`**: Implements Spring Security's `Authentication` object holding principal, credentials, and granted authorities (`ROLE_USER`, `ROLE_ADMIN`, `SCOPE_ai:chat`).
-2. **`SecurityContext.java`**: Simulates `SecurityContextHolder` with `ThreadLocal` storage and mandatory cleanup.
-3. **`SecurityFilterChainSimulator.java`**: Recreates the core filter pipeline:
-   - `AuthenticationFilter` checking `Authorization: Bearer <token>`.
-   - `AuthorizationFilter` enforcing pattern matching (`permitAll()`, `hasRole()`, `hasAuthority()`).
-   - `ExceptionTranslationFilter` mapping to 401 vs 403.
-4. **`SecurityArchitectureDemo.java`**: Executable test harness verifying all 5 security scenarios.
+`DelegatingFilterProxy` acts as the bridge. It is registered in the servlet container under the name `springSecurityFilterChain`. When an HTTP request arrives, it looks up the real Spring-managed `FilterChainProxy` bean inside the `ApplicationContext` and delegates the request to the Spring Security pipeline.
+
+### Prerequisite / Supporting Concept: ThreadLocal Storage & Thread Recycling
+`SecurityContextHolder` uses a `ThreadLocal` variable by default (`MODE_THREADLOCAL`). In standard servlet containers, Tomcat uses a thread pool to process requests. If thread `Tomcat-Worker-1` processes a request for user Alice and finishes, that thread is returned to the pool.
+
+If `SecurityContextHolder.clearContext()` is not executed, and `Tomcat-Worker-1` is reused to process an unauthenticated request from an external attacker, the attacker inherits Alice's credentials! Spring Security's `SecurityContextHolderFilter` automatically clears this context in a `finally` block to guarantee safety.
+
+### Prerequisite / Supporting Concept: Why CSRF is Disabled in Stateless APIs
+Cross-Site Request Forgery (CSRF) exploits ambient browser authentication: browsers automatically attach stored cookies (`JSESSIONID`) to cross-origin requests.
+
+In modern stateless REST APIs:
+- Authentication is passed via custom HTTP headers: `Authorization: Bearer <jwt>`.
+- Browsers never automatically attach custom authorization headers to cross-site requests.
+- Since ambient credentials do not exist, CSRF attacks are physically impossible, making `.csrf(csrf -> csrf.disable())` standard and safe.
 
 ---
 
-## 9. Step-by-Step Compilation & Execution
+## 5. Advanced Depth (Intermediate → Advanced)
+
+### Financial Denial of Service (FDoS) in AI Platforms
+
+In traditional web applications, an unauthenticated endpoint leaks database rows or burns CPU cycles. In Generative AI, each call to an LLM provider costs real money ($0.03 to $0.15 per inference). A simple automated script executing 1,000 requests per minute will burn hundreds of dollars within minutes.
+
+```
++-----------------------------------------------------------------------------------+
+| BAD PRACTICE: Open AI Inference Endpoints                                         |
+|                                                                                   |
+| @PostMapping("/api/v1/chat")                                                      |
+| public ChatResponse chat(@RequestBody ChatRequest request) {                      |
+|     return openAiClient.generate(request.prompt()); // VULNERABLE TO FDOS!       |
+| }                                                                                 |
++-----------------------------------------------------------------------------------+
+| GOOD PRACTICE: Strict Scope Enforcement & Rate Limiting                           |
+|                                                                                   |
+| .requestMatchers("/api/v1/chat/**").hasAuthority("SCOPE_ai:chat")                 |
+| // Enforces authenticated identity and granular entitlement before invoking LLM!   |
++-----------------------------------------------------------------------------------+
+```
+
+---
+
+### Hands-On Simulation Code Walkthrough
+
+The companion code repository demonstrates this architecture:
+- `AuthenticationToken.java`: Implementation of Spring Security's `Authentication` object holding principal, credentials, and granted authorities.
+- `SecurityContext.java`: Simulates `SecurityContextHolder` with `ThreadLocal` storage and mandatory cleanup.
+- `SecurityFilterChainSimulator.java`: Recreates the core filter pipeline verifying `permitAll()`, `hasRole()`, and `hasAuthority()`.
+- `SecurityArchitectureDemo.java`: Executable test harness verifying all 5 security scenarios.
 
 ```powershell
-# 1. Navigate to workspace
-cd "c:\Users\sriva\OneDrive\Desktop\GEN AI COURSE\JAVA"
-
-# 2. Compile Day 27 code
+# Compile Day 27 code
 javac Phase_05_Spring_Security/Day_27_Security_Fundamentals_Architecture/code/*.java
 
-# 3. Execute the Security Demo
+# Run the security demo
 java -cp Phase_05_Spring_Security/Day_27_Security_Fundamentals_Architecture code.SecurityArchitectureDemo
 ```
 
-### Verified Output
-
+#### Verified Execution Output:
 ```
 ================================================================================
  DAY 27: SPRING SECURITY FUNDAMENTALS, FILTER CHAIN & ACCESS CONTROL            
@@ -380,13 +399,48 @@ java -cp Phase_05_Spring_Security/Day_27_Security_Fundamentals_Architecture code
 
 ---
 
-## 10. Hands-On Exercises (With Complete Solutions)
+## 6. Quick Recap
 
-### Exercise 1: Custom API Key Header Authentication Filter
+| Concept | Description | Enterprise Rule / Best Practice |
+| :--- | :--- | :--- |
+| **Authentication (`AuthN`)** | Verifying user identity | Fails with `401 Unauthorized`. |
+| **Authorization (`AuthZ`)** | Verifying permissions/roles | Fails with `403 Forbidden`. |
+| **`SecurityFilterChain`** | Pipeline of Servlet Filters | Configure via `@Bean SecurityFilterChain` with lambda DSL. |
+| **`SecurityContextHolder`** | Stores `Authentication` on current thread | Always clear at the end of execution to prevent thread pool leakage. |
+| **`csrf.disable()`** | Disables CSRF protection | Standard for stateless REST APIs using `Bearer` tokens. |
+| **`hasRole("ADMIN")`** | Automatically checks for `"ROLE_ADMIN"` | Equivalent to `hasAuthority("ROLE_ADMIN")`. |
+| **RFC 7807 `ProblemDetail`** | Standard JSON error structure | Return structured JSON rather than raw HTML on security errors. |
+
+---
+
+## 7. Self-Check Questions & Practice Exercises
+
+### Conceptual & Architectural Questions
+
+#### Q1: Why is CSRF disabled (`csrf.disable()`) in stateless REST APIs?
+**Answer**: CSRF attacks rely on browsers automatically attaching saved session cookies (`JSESSIONID`) to cross-origin requests. Modern stateless REST APIs authenticate via `Authorization: Bearer <token>` headers stored in application memory. Because browsers never automatically attach custom Authorization headers to cross-origin requests, CSRF attacks cannot occur, making CSRF protection redundant.
+
+#### Q2: Why was `WebSecurityConfigurerAdapter` removed in Spring Boot 3?
+**Answer**: `WebSecurityConfigurerAdapter` forced applications into inheritance-based configuration, making it difficult to compose multiple security configurations, apply conditional filters, or maintain clean bean boundaries. Spring Security 6 replaced it with component-based `@Bean` declarations (`SecurityFilterChain`), providing superior modularity and lambda-based configuration DSLs.
+
+#### Q3: What is the purpose of `DelegatingFilterProxy` in the Servlet Container?
+**Answer**: Standard Servlet Containers (like Tomcat) initialize standard filters before the Spring `ApplicationContext` is created. `DelegatingFilterProxy` acts as a bridge: it is registered in Tomcat and intercepts incoming HTTP requests, delegating them to the Spring-managed `FilterChainProxy` bean inside the Spring context.
+
+#### Q4: When does an application return `401 Unauthorized` versus `403 Forbidden`?
+**Answer**: An application returns `401 Unauthorized` when the user has **not provided valid authentication credentials** (e.g., missing or expired token). It returns `403 Forbidden` when the user's identity is **verified and authenticated**, but they lack the required permissions or roles to access the requested resource.
+
+#### Q5: Why is `SecurityContextHolder.clearContext()` essential in asynchronous or pooled-thread environments?
+**Answer**: `SecurityContextHolder` stores authentication state in a `ThreadLocal`. In web servers using thread pools, threads are recycled across requests. If you fail to clear the security context at the end of the request, the next unrelated client request handled by that recycled thread will inherit the previous user's credentials, causing severe privilege escalation vulnerabilities.
+
+---
+
+### Hands-On Practice Exercises
+
+#### Exercise 1: Custom API Key Header Authentication Filter
 **Task**: In enterprise B2B setups, partner microservices call your AI gateway using an API Key header: `X-API-Key: ak_enterprise_secret_99`. Write a custom Spring `OncePerRequestFilter` that inspects this header, verifies it against a service, and populates the `SecurityContext`.
 
-#### Solution:
 ```java
+// Solution:
 @Component
 public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
 
@@ -406,7 +460,10 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
         if (apiKey != null && !apiKey.isBlank()) {
             Optional<TenantIdentity> tenant = apiKeyService.verifyApiKey(apiKey);
             if (tenant.isPresent()) {
-                var authorities = List.of(new SimpleGrantedAuthority("ROLE_API_CLIENT"), new SimpleGrantedAuthority("SCOPE_ai:infer"));
+                var authorities = List.of(
+                    new SimpleGrantedAuthority("ROLE_API_CLIENT"), 
+                    new SimpleGrantedAuthority("SCOPE_ai:infer")
+                );
                 var authentication = new PreAuthenticatedAuthenticationToken(tenant.get().tenantId(), apiKey, authorities);
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
@@ -421,13 +478,11 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
 }
 ```
 
----
+#### Exercise 2: Registering Custom Filter in `SecurityFilterChain`
+**Task**: Register `ApiKeyAuthenticationFilter` to execute **before** `UsernamePasswordAuthenticationFilter` in Spring Boot 3.
 
-### Exercise 2: Registering Custom Filter in `SecurityFilterChain`
-**Task**: How do you register `ApiKeyAuthenticationFilter` to execute **before** `UsernamePasswordAuthenticationFilter` in Spring Boot 3?
-
-#### Solution:
 ```java
+// Solution:
 @Bean
 public SecurityFilterChain securityFilterChain(HttpSecurity http, ApiKeyAuthenticationFilter apiKeyFilter) throws Exception {
     return http
@@ -443,13 +498,11 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, ApiKeyAuthenti
 }
 ```
 
----
+#### Exercise 3: Role vs Authority Syntax in Spring Security
+**Task**: Explain the difference between `hasRole("ADMIN")` and `hasAuthority("ROLE_ADMIN")`.
 
-### Exercise 3: Role vs Authority Syntax in Spring Security
-**Task**: What is the difference between `hasRole("ADMIN")` and `hasAuthority("ROLE_ADMIN")`?
-
-#### Solution:
 ```java
+// Solution:
 // In Spring Security:
 // hasRole("ADMIN") automatically prepends the prefix "ROLE_" to the string!
 // It looks for a GrantedAuthority named "ROLE_ADMIN".
@@ -458,42 +511,11 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, ApiKeyAuthenti
 // hasAuthority("SCOPE_ai:chat") looks for the exact permission string.
 
 // Therefore:
-.hasRole("ADMIN") == .hasAuthority("ROLE_ADMIN") // True!
+// .hasRole("ADMIN") is equivalent to .hasAuthority("ROLE_ADMIN")
 ```
 
 ---
 
-## 11. Self-Check Quiz
-
-### Q1: Why is CSRF disabled (`csrf.disable()`) in stateless REST APIs?
-> **Answer**: CSRF attacks rely on the browser automatically attaching saved session cookies (`JSESSIONID`) to cross-origin requests. Modern stateless REST APIs authenticate via `Authorization: Bearer <token>` headers stored in memory (not ambient browser cookies). Because browsers never automatically attach custom Authorization headers to cross-origin requests, CSRF attacks are physically impossible, making CSRF tokens redundant.
-
-### Q2: Why was `WebSecurityConfigurerAdapter` removed in Spring Boot 3?
-> **Answer**: `WebSecurityConfigurerAdapter` forced applications into inheritance-based configuration, making it difficult to compose multiple security configurations, apply conditional filters, or maintain clean bean lifecycle boundaries. Spring Security 6 replaced it with component-based `@Bean` declarations (`SecurityFilterChain`), providing superior modularity and lambda-based configuration DSLs.
-
-### Q3: What is the purpose of `DelegatingFilterProxy` in the Servlet Container?
-> **Answer**: Standard Servlet Containers (like Tomcat) are created outside the Spring `ApplicationContext` and do not know about Spring beans. `DelegatingFilterProxy` is a standard servlet filter registered in Tomcat that acts as a bridge: it intercepts incoming HTTP requests and delegates them to the Spring-managed `FilterChainProxy` bean.
-
-### Q4: When does an application return `401 Unauthorized` versus `403 Forbidden`?
-> **Answer**: An application returns `401 Unauthorized` when the user has **not provided valid authentication credentials** (e.g. missing or expired token). It returns `403 Forbidden` when the user's identity is **verified and authenticated**, but they lack the required permissions or roles to access the requested resource.
-
-### Q5: Why is `SecurityContextHolder.clearContext()` essential in asynchronous or pooled-thread environments?
-> **Answer**: `SecurityContextHolder` stores authentication state in a `ThreadLocal`. In web servers using thread pools (or virtual thread dispatchers), threads are recycled. If you fail to clear the security context at the end of the request, the next unrelated client request handled by that recycled thread will inherit the previous user's security context, causing severe privilege escalation security breaches.
-
----
-
-## 12. Day 27 Wrap-Up & What's Next
-
-Congratulations! You just built the protective moat around your AI application.
-
-Here are the key lessons to remember:
-- **Authentication (`AuthN`) vs. Authorization (`AuthZ`)**: 401 means "Who are you?", while 403 means "You're not allowed in here."
-- **The Filter Chain guards the door**: Every request passes through a sequence of servlet filters before hitting your `@RestController`.
-- **Modern Spring Security 6 uses `@Bean SecurityFilterChain`**: We configure security with clean lambda methods instead of old, deprecated adapter classes.
-- **Always clear the `SecurityContext`**: In high-throughput virtual thread environments, clearing the context prevents credentials from accidentally leaking to the next request.
-
-### What's Coming Up Next?
-Now that we have the security checkpoint set up, how do users actually prove their identity? We don't want them sending their raw password on every single request.
-
-Tomorrow in **[Day 28: JWT Authentication from Scratch (jjwt, Claims, Signature Verification)](../Day_28_JWT_Authentication/Day_28_JWT_Authentication.md)**, we'll build a complete **JSON Web Token (JWT)** authentication system. You'll learn how to generate cryptographically signed digital passport tokens that users can attach to their requests to securely chat with your AI models!
-
+| Previous Day | Course Hub | Next Day |
+|:---|:---:|---:|
+| [Day 26: PostgreSQL pgvector — Your Vector Database](../../Phase_04_Spring_Data_JPA_Database/Day_26_PostgreSQL_pgvector_Vector_Database/Day_26_PostgreSQL_pgvector_Vector_Database.md) | [All 60 Days Overview](../../README.md) | [Day 28: JWT Authentication from Scratch](../Day_28_JWT_Authentication/Day_28_JWT_Authentication.md) |

@@ -7,169 +7,137 @@
 
 ---
 
-## Friendly Welcome: Protecting Your Company's Wallet
+## 1. Topic Overview
 
-Hey there, friend! Welcome to Day 31—the grand finale of **Phase 5: Spring Security**!
-
-Think about an exclusive VIP nightclub serving $500 vintage champagne. If the club had an open door with no bouncer and an all-you-can-drink free-for-all, a single rowdy party could drink the entire wine cellar dry in two hours, bankrupting the club before midnight!
-
-In Generative AI engineering, calling models like GPT-4o or Claude is just like that $500 vintage champagne: every single request costs real money on your company credit card. If a bot discovers an unthrottled endpoint or a developer accidentally writes an infinite loop in a script, your company could wake up to an **$80,000 cloud bill**! This attack even has an official name in cybersecurity: **Denial of Wallet (DoW)**.
-
-Today, we are going to build an impenetrable defense using **Token-Bucket Rate Limiting with Bucket4j**, lock down browser access with **CORS**, and install essential OWASP security headers so your AI platform stays fast, reliable, and financially safe!
+API security for Generative AI applications combines Token-Bucket rate limiting, Cross-Origin Resource Sharing (CORS) origin restrictions, payload size caps, and OWASP defense-in-depth headers to safeguard services from Denial-of-Wallet (DoW) attacks. In enterprise systems, where commercial LLM inference calls cost substantial cloud credits per request, robust throttling and security policies prevent financial exhaustion, stop cross-origin prompt theft, and insulate streaming connections from denial-of-service starvation.
 
 ---
 
-> 💡 **New Word Alert! Key Concepts for Today**
->
-> - **Rate Limiting**: Putting a speed limit on your API. For example: *"You are allowed at most 10 AI prompts per minute."*
-> - **Denial of Wallet (DoW)**: A scary cyber-attack where an attacker floods your pay-per-token AI endpoints with expensive requests, specifically designed to run up huge bills on your company's credit card until you run out of money!
-> - **Token Bucket Algorithm (Bucket4j)**: A brilliant rate-limiting model. Imagine a physical bucket that holds 10 tokens. Every request takes 1 token out. Tokens drip back into the bucket at a steady rate (e.g. 1 token per second). If the bucket is empty, requests are rejected with `429 Too Many Requests`!
-> - **HTTP 429 Too Many Requests**: The official HTTP status code that says: *"Slow down! You've exceeded your allowed rate limit."* It usually comes with a `Retry-After: 15` header telling the client how many seconds to wait.
-> - **CORS (Cross-Origin Resource Sharing)**: A browser security mechanism that stops malicious third-party websites from secretly sending requests to your API in the background using a user's browser.
-> - **OWASP Security Headers**: Essential HTTP response headers (like `Content-Security-Policy`, `X-Frame-Options`, and `X-Content-Type-Options: nosniff`) that protect your users from clickjacking and script injection attacks.
+## 2. Basic Foundations (True Zero)
+
+### What is Denial-of-Wallet (DoW) and Rate Limiting?
+In a standard REST API, an unthrottled request uses fractions of a microsecond of CPU time and costs virtually nothing. In an enterprise Generative AI API, an unthrottled endpoint invoking models like `gpt-4o`, `claude-3-5-sonnet`, or `gemini-1.5-pro` costs real money on your company credit card ($0.01 to $0.20 per prompt). 
+
+If an automated bot, an attacker, or a buggy frontend script executes an infinite loop firing 1,000 requests per minute, your company could face an **$86,000 bill in 24 hours**. In cybersecurity, this attack is termed **Denial of Wallet (DoW)**.
+
+**Rate Limiting** enforces traffic boundaries: each user, IP, or tenant is allocated a strictly metered quota (e.g., 10 prompts per minute). When the quota is exceeded, the server stops the request in 0.2 milliseconds with **HTTP 429 Too Many Requests**, protecting downstream LLM budgets.
+
+```
++-----------------------------------------------------------------------------------+
+|               THE VIP NIGHTCLUB & METERED BAR TAB ANALOGY                         |
+|                                                                                   |
+|  1. THE DOORMAN (CORS & IP Pre-Filter)                                            |
+|  - Checks where you came from. Only patrons arriving from reputable partner       |
+|    hotels (Whitelisted Origins) are permitted past the velvet rope.               |
+|  - If 50 people suddenly rush the door simultaneously from a suspicious alley,    |
+|    the doorman halts them: "Wait 60 seconds!" (HTTP 429 Too Many Requests).       |
+|                                                                                   |
+|  2. THE DRESS CODE & VIP PASS (Authentication)                                    |
+|  - Verifies your wristband before you are seated at an AI table.                  |
+|                                                                                   |
+|  3. THE METERED BAR TAB (Token-Bucket Rate Limiting)                              |
+|  - You cannot drink unlimited $500 vintage champagne. Your wristband holds 3     |
+|    drink tokens. Each pour consumes 1 token.                                      |
+|  - Tokens drip back into your account at a rate of 1 token every 20 seconds.      |
+|  - If your tokens reach 0, the bartender hands you a card: "Next pour at 10:15pm" |
+|    (Retry-After: 20s). The club never goes bankrupt from a single customer!       |
++-----------------------------------------------------------------------------------+
+```
+
+### Minimal Beginner-Friendly Working Code Example
+
+Below is a self-contained Java 21 implementation of the **Token Bucket Algorithm**, demonstrating refill rates, burst capacity, and throttling:
+
+```java
+public class BasicTokenBucketExample {
+
+    static class TokenBucket {
+        private final long capacity;
+        private final double refillTokensPerSecond;
+        private double availableTokens;
+        private long lastRefillNanos;
+
+        public TokenBucket(long capacity, double refillTokensPerSecond) {
+            this.capacity = capacity;
+            this.refillTokensPerSecond = refillTokensPerSecond;
+            this.availableTokens = capacity;
+            this.lastRefillNanos = System.nanoTime();
+        }
+
+        public synchronized boolean tryConsume(long tokens) {
+            refill();
+            if (availableTokens >= tokens) {
+                availableTokens -= tokens;
+                return true;
+            }
+            return false;
+        }
+
+        private void refill() {
+            long now = System.nanoTime();
+            double elapsedSeconds = (now - lastRefillNanos) / 1_000_000_000.0;
+            if (elapsedSeconds > 0) {
+                availableTokens = Math.min(capacity, availableTokens + (elapsedSeconds * refillTokensPerSecond));
+                lastRefillNanos = now;
+            }
+        }
+    }
+
+    public static void main(String[] args) throws InterruptedException {
+        // Bucket with max burst capacity of 3 tokens, refilling 1 token every second
+        TokenBucket bucket = new TokenBucket(3, 1.0);
+
+        System.out.println("--- Rapid Request Burst (Capacity: 3) ---");
+        for (int i = 1; i <= 5; i++) {
+            boolean allowed = bucket.tryConsume(1);
+            System.out.printf("Request #%d: %s%n", i, allowed ? "200 OK (Allowed)" : "429 Too Many Requests (THROTTLED!)");
+        }
+
+        System.out.println("\nWaiting 1.2 seconds for token refill...");
+        Thread.sleep(1200);
+
+        boolean retryAllowed = bucket.tryConsume(1);
+        System.out.printf("Request after wait: %s%n", retryAllowed ? "200 OK (Refill Success)" : "429 Too Many Requests");
+    }
+}
+```
+
+#### Line-by-Line Walkthrough:
+- **Lines 5–9**: `TokenBucket` tracks `capacity` (maximum burst allowance), `refillTokensPerSecond` (sustained generation rate), and `lastRefillNanos` for high-precision time calculations.
+- **Lines 17–24**: `tryConsume` atomically checks if sufficient tokens exist. If yes, it decrements the count and returns `true`. If not, it rejects the call without blocking.
+- **Lines 26–33**: `refill` calculates elapsed nanoseconds since the last check, adds newly generated tokens up to the maximum capacity, and resets the timestamp.
+- **Lines 39–44**: Simulates 5 back-to-back requests. The first 3 succeed (using up burst capacity), while requests 4 and 5 are throttled with `429 Too Many Requests`.
+- **Lines 46–50**: After waiting 1.2 seconds, a token has dripped into the bucket, allowing the next request to succeed cleanly.
 
 ---
 
-## What Will You Learn Today?
+## 3. Core Concept Walkthrough (Basic → Intermediate)
 
-Congratulations on reaching the final day of **Phase 5: Spring Security**! Over the past four days, you built authentication, JWT validation, role-based method guards, and enterprise OAuth2 resource server mechanics.
-
-However, deploying an AI application without **API Security and Rate Limiting** is like leaving a company credit card on a public sidewalk. In conventional CRUD applications, an unthrottled API endpoint consumes a few megabytes of RAM and CPU cycles. In a Generative AI application, an unthrottled endpoint calling GPT-4o, Claude 3.5 Sonnet, or Gemini 1.5 Pro will burn through a **$10,000 cloud budget in less than an hour**—an attack known as **Denial of Wallet (DoW)**.
-
-Today, you will master production API security for Generative AI applications using Spring Boot 3 (Spring Security 6) and Java 21:
-- The economics of AI endpoints: Why conventional rate limiting is insufficient and how to defend against **Denial of Wallet (DoW)** and **Prompt Injection DoS**.
-- The **Token Bucket algorithm** (the math behind Bucket4j) and why it is superior for handling bursty AI traffic.
-- Multi-dimensional rate limiting: Throttling by Client IP, User Tier, and actual **LLM token consumption**.
-- Returning compliant RFC 6585 headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, and `Retry-After` with HTTP `429 Too Many Requests`.
-- Hardening **Cross-Origin Resource Sharing (CORS)** for browser chat interfaces without opening security holes.
-- Implementing defense-in-depth **OWASP Security Headers** (`Content-Security-Policy`, `HSTS`, `X-Frame-Options`, `nosniff`).
-- Protecting streaming Server-Sent Events (SSE) connections from connection exhaustion (Slowloris attacks).
-
----
-
-## Real-World Analogy: Nightclub Doorman & The Metered Bar Tab
-
-Imagine an exclusive VIP lounge with an open bar serving $500 vintage champagne:
+### Rate Limiting Algorithms Compared
 
 ```
-+---------------------------------------------------------------------------------------------------+
-|                                  THE AI NIGHTCLUB DEFENSE MODEL                                   |
-|                                                                                                   |
-|  1. THE DOORMAN (CORS & IP Rate Limiting)                                                         |
-|  - Checks if you came from a reputable hotel (Whitelisted Origin).                                |
-|  - If 50 people suddenly rush the front door from the same suspicious alleyway (IP flood),         |
-|    the doorman tells them: "Wait outside for 60 seconds!" (HTTP 429 Too Many Requests).           |
-|                                                                                                   |
-|  2. THE DRESS CODE & ENTRY PASS (JWT / OAuth2 Authentication)                                     |
-|  - Confirms you have a valid VIP wristband before you sit at a booth.                             |
-|                                                                                                   |
-|  3. THE METERED BAR TAB (Token-Bucket Rate Limiter / Quota)                                       |
-|  - You cannot drink unlimited $500 champagne. Your wristband has 3 drink tokens per hour.        |
-|  - When your 3 tokens are gone, the bartender slides a card saying: "Next pour available at 10:15pm"|
-|    (Retry-After: 15s).                                                                            |
-|  - RESULT: The bar never goes bankrupt from a rogue customer drinking the entire cellar!         |
-+---------------------------------------------------------------------------------------------------+
-```
-
-In your Gen AI backend:
-- The **Lightweight Model / Free Tier** is like draft beer.
-- The **GPT-4o / Claude 3.5 Sonnet / 1M-context Gemini** model is the $500 vintage champagne.
-- Rate limiting ensures no single customer or rogue loop can bankrupt your business!
-
----
-
-## The Economics of AI APIs: Denial-of-Wallet (DoW) & Prompt Injection DoS
-
-Why is API security fundamentally different for Generative AI systems compared to traditional REST APIs?
-
-| Threat Dimension | Traditional Web API (e.g. CRUD User) | Generative AI API (e.g. LLM / RAG) |
-|:---|:---|:---|
-| **Cost Per Request** | $0.000001 (Negligible database CPU query). | **$0.01 – $0.20** per API call! |
-| **Execution Latency** | 5ms – 50ms. | **2,000ms – 30,000ms** (Streaming LLM inference). |
-| **Compute Consumption** | Instantaneous I/O bound. | GPU clusters running matrix multiplication. |
-| **Payload Vulnerability** | SQL Injection, XSS. | **Denial of Wallet**, Prompt Injection, Memory Exhaustion. |
-| **Attacker Objective** | Data exfiltration or server crash. | Financial exhaustion of the target company. |
-
-```
-                               DENIAL-OF-WALLET (DoW) ATTACK VECTOR
-                               
- Attacker (Automated Script)
-           │
-           │ Sends 1,000 requests/minute to: POST /api/v1/ai/generate
-           │ Payload: "Generate a 10,000 word philosophical treatise comparing..."
-           ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│ UNPROTECTED SPRING BOOT BACKEND                                        │
-│                                                                        │
-│ Forwards all 1,000 requests to OpenAI / Anthropic / Bedrock:           │
-│ 1,000 requests * 4,000 tokens * $0.015 / 1k tokens = $60 PER MINUTE!  │
-│                                                                        │
-│ 💥 After 1 hour: $3,600 bill!                                          │
-│ 💥 After 24 hours: $86,400 bill -> Startup Bankruptcy!                │
-└────────────────────────────────────────────────────────────────────────┘
-```
-
-With **Token-Bucket Rate Limiting (Day 31)** in place:
-1. The 4th request from the unauthorized IP is rejected with `429 Too Many Requests` in **0.2 milliseconds**.
-2. Zero requests hit OpenAI.
-3. Cost to your company: **$0.00**.
-
----
-
-## Rate Limiting Algorithms Deep Dive
-
-There are four primary rate limiting algorithms. Here is how they compare:
-
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                               RATE LIMITING ALGORITHMS                                  │
-├───────────────────────┬───────────────────────────────────┬─────────────────────────────┤
-│ Algorithm             │ How It Works                      │ Best For                    │
-├───────────────────────┼───────────────────────────────────┼─────────────────────────────┤
-│ 1. Token Bucket       │ Tokens refill at fixed rate into   │ Bursty traffic, AI APIs     │
-│    (Bucket4j / Redis) │ a bucket with max capacity.       │ (Industry Standard)         │
-├───────────────────────┼───────────────────────────────────┼─────────────────────────────┤
-│ 2. Leaky Bucket       │ Requests queue up and process     │ Smooth constant-rate        │
-│                       │ at a constant output drip rate.   │ message queues              │
-├───────────────────────┼───────────────────────────────────┼─────────────────────────────┤
-│ 3. Fixed Window       │ Resets counter at top of minute   │ Basic APIs; vulnerable to   │
-│                       │ (e.g. 100 requests per 12:00-12:01)│ boundary burst attacks      │
-├───────────────────────┼───────────────────────────────────┼─────────────────────────────┤
-│ 4. Sliding Window Log │ Tracks timestamp of every call.   │ Precise mathematical bounds,│
-│                       │ High memory overhead.             │ low traffic volumes         │
-└───────────────────────┴───────────────────────────────────┴─────────────────────────────┘
-```
-
-### The Token Bucket Algorithm in Action
-The **Token Bucket** algorithm is universally favored for AI applications because it naturally accommodates **bursts**:
-- An engineer writing code might run 3 AI prompt tests in 10 seconds (burst allowed), then read the results for 2 minutes (bucket refills).
-
-```
-                      THE TOKEN BUCKET MECHANISM
-                      
-   Refill Stream (e.g., 2 tokens added every second)
-          │
-          │  💧 💧 💧
-          ▼
-    ┌───────────┐
-    │  Capacity │  Max 10 Tokens (Burst Limit)
-    │ ═════════ │
-    │ 🟡 🟡 🟡  │  Available Tokens (Ready for immediate use)
-    │ 🟡 🟡 🟡  │
-    └─────┬─────┘
-          │
-          │ Request arrives -> Consumes 1 Token
-          ▼
-    ┌───────────┐
-    │  Decision │ ──► Tokens >= 1? ──► ✅ Allow request (Tokens--)
-    └───────────┘                    └──► ❌ Reject: HTTP 429 Too Many Requests!
++-------------------+-----------------------------------+---------------------------------------+
+| Algorithm         | Operating Mechanism               | Best Application                      |
++-------------------+-----------------------------------+---------------------------------------+
+| 1. Token Bucket   | Fixed-rate token drip into bucket | Bursty human traffic & AI prompts     |
+|    (Bucket4j)     | with maximum capacity limit.      | (Industry standard for Gen AI).       |
++-------------------+-----------------------------------+---------------------------------------+
+| 2. Leaky Bucket   | Requests queue up and process at  | Smoothing constant-rate message       |
+|                   | a strictly fixed output rate.     | queues and background database writes.|
++-------------------+-----------------------------------+---------------------------------------+
+| 3. Fixed Window   | Counter resets at top of window   | Simple APIs. Vulnerable to boundary   |
+|                   | (e.g. 100 requests per minute).   | burst attacks (2x limit at edges).    |
++-------------------+-----------------------------------+---------------------------------------+
+| 4. Sliding Window | Tracks timestamp of every call in | Ultra-precise limits on low-volume    |
+|    Log            | Redis/memory. High memory usage.  | financial transactions.               |
++-------------------+-----------------------------------+---------------------------------------+
 ```
 
 ---
 
-## Standard RFC 6585 Headers
+### Standard RFC 6585 Headers
 
-When building an enterprise API, you must never return a plain `429` without context. Your response must include the standard RFC 6585 and IETF rate limiting headers:
+When throttling a client, an enterprise REST API must communicate quota boundaries using standardized HTTP response headers:
 
 ```http
 HTTP/1.1 429 Too Many Requests
@@ -181,30 +149,28 @@ Retry-After: 15
 
 {
   "error": "Too Many Requests",
-  "message": "Rate limit exceeded. Try again in 15 seconds.",
+  "message": "Rate limit exceeded. Please retry after 15 seconds.",
   "retryAfterSeconds": 15
 }
 ```
 
-- `X-RateLimit-Limit`: Maximum tokens available in the bucket.
-- `X-RateLimit-Remaining`: Tokens currently remaining in the bucket.
-- `X-RateLimit-Reset`: Unix timestamp when the bucket will be completely full.
-- `Retry-After`: Number of seconds the client must wait before making another attempt.
+- **`X-RateLimit-Limit`**: Maximum tokens allowed in the measurement window.
+- **`X-RateLimit-Remaining`**: Number of available tokens left in the bucket.
+- **`X-RateLimit-Reset`**: Epoch timestamp when the bucket will be completely replenished.
+- **`Retry-After`**: Seconds the client must wait before retrying.
 
 ---
 
-## CORS (Cross-Origin Resource Sharing) Hardening
+### CORS (Cross-Origin Resource Sharing) Hardening
 
-Because modern AI chat interfaces (e.g., React, Next.js, Vue) typically run on a different domain or port (e.g., `https://chat.mycompany.com` or `http://localhost:3000`) than the Spring Boot API backend (`https://api.mycompany.com:8080`), web browsers enforce the **Same-Origin Policy (SOP)**.
-
-### The CORS Pre-flight (`OPTIONS`) Handshake:
+Because modern AI web clients (React, Next.js) run on different hostnames or ports (e.g., `https://chat.myenterprise.com`) than the backend API (`https://api.myenterprise.com:8080`), web browsers enforce the **Same-Origin Policy (SOP)**.
 
 ```
- Browser (chat.mycompany.com)                      Spring Boot (api.mycompany.com)
+ Browser (chat.myenterprise.com)                      Spring Boot (api.myenterprise.com)
             │                                                      │
             │ 1. Preflight Request:                                │
             │    OPTIONS /api/v1/ai/stream                         │
-            │    Origin: https://chat.mycompany.com                │
+            │    Origin: https://chat.myenterprise.com             │
             │    Access-Control-Request-Method: POST               │
             │    Access-Control-Request-Headers: Authorization     │
             ├─────────────────────────────────────────────────────>│
@@ -225,126 +191,139 @@ Because modern AI chat interfaces (e.g., React, Next.js, Vue) typically run on a
             │<─────────────────────────────────────────────────────┤
 ```
 
-### Critical CORS Vulnerabilities to Avoid:
-1. **Never use wildcard with credentials**: `allowedOrigins("*")` combined with `allowCredentials(true)` is rejected by modern browsers and leaks session cookies.
-2. **Preflight rejection**: If your Spring Security filter chain requires authentication for `OPTIONS` requests, browsers will fail before ever sending the actual POST request! Always permit `HttpMethod.OPTIONS` or use Spring's `CorsFilter`.
+#### Production Spring CORS Configuration:
+```java
+package com.example.genai.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import java.util.List;
+
+@Configuration
+public class CorsConfig {
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of("https://chat.myenterprise.com", "http://localhost:3000"));
+        config.setAllowedMethods(List.of("GET", "POST", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Workspace-Id"));
+        config.setExposedHeaders(List.of("X-RateLimit-Limit", "X-RateLimit-Remaining", "Retry-After"));
+        config.setAllowCredentials(true);
+        config.setMaxAge(3600L); // Cache preflight for 1 hour
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
+}
+```
 
 ---
 
-## Hardening Security Headers (OWASP Recommendations)
+### OWASP Defense-in-Depth Security Headers
 
-Modern web security requires defense-in-depth headers configured on every response:
+Configure response headers to shield frontend clients from clickjacking and injection attacks:
 
 ```java
 http.headers(headers -> headers
-    // 1. Prevent MIME-sniffing: Browser must respect the declared Content-Type
+    // 1. Prevent MIME-type sniffing
     .contentTypeOptions(Customizer.withDefaults()) // X-Content-Type-Options: nosniff
     
-    // 2. Prevent Clickjacking: Never allow your API or login pages inside an iframe
+    // 2. Prevent Clickjacking (disallow embedding in iframes)
     .frameOptions(frame -> frame.deny())           // X-Frame-Options: DENY
     
-    // 3. Enforce HTTPS: Instruct browsers to only communicate over TLS for 1 year
+    // 3. Enforce Strict HTTPS for 1 year
     .httpStrictTransportSecurity(hsts -> hsts
         .includeSubDomains(true)
         .maxAgeInSeconds(31536000)
     )
     
-    // 4. Content Security Policy (CSP): Restrict script, frame, and connect sources
+    // 4. Content Security Policy (CSP)
     .contentSecurityPolicy(csp -> csp
         .policyDirectives("default-src 'self'; frame-ancestors 'none'")
     )
 );
 ```
 
-### What about CSRF (Cross-Site Request Forgery)?
-> [!NOTE]
-> **Why we disable CSRF for REST APIs:**
-> In stateless REST APIs that authenticate exclusively using HTTP `Authorization: Bearer <JWT>` headers, **CSRF attacks are mathematically impossible**. CSRF relies on browsers automatically attaching session cookies. Browsers NEVER automatically attach custom `Authorization` headers!
-> Therefore:
-> ```java
-> http.csrf(csrf -> csrf.disable());
-> ```
-> is safe and standard practice for stateless APIs. (If your application uses session cookies, CSRF must remain enabled).
+---
+
+## 4. Prerequisite & Supporting Concepts
+
+### Prerequisite / Supporting Concept: Preflight Request Handling
+A common bug in Spring Security occurs when `OPTIONS` preflight requests are rejected with `401 Unauthorized` because the browser does not send Authorization headers on preflights.
+
+To prevent this:
+1. Register `CorsConfigurationSource` as shown above.
+2. In your `SecurityFilterChain`, call `.cors(cors -> cors.configurationSource(corsConfigurationSource()))`.
+3. Spring Security's `CorsFilter` executes at the very beginning of the filter chain, responding to `OPTIONS` before authentication filters execute.
+
+### Prerequisite / Supporting Concept: Slowloris & Streaming SSE Protection
+In streaming AI architectures using Server-Sent Events (`SseEmitter`), a client can open a connection and read at 1 byte per minute, keeping worker threads active indefinitely.
+
+Spring MVC supports explicit timeouts:
+```java
+SseEmitter emitter = new SseEmitter(30_000L); // 30-second connection timeout
+emitter.onTimeout(() -> {
+    emitter.complete();
+    // Log timeout cleanup
+});
+```
+
+### Prerequisite / Supporting Concept: Why CSRF is Disabled for Stateless APIs
+In stateless REST backends that authenticate via `Authorization: Bearer <JWT>`, browsers do not attach custom headers automatically. Because CSRF relies strictly on ambient browser credential transmission (cookies), disabling CSRF (`csrf.disable()`) is completely safe for stateless APIs.
 
 ---
 
-## Step-by-Step Production Code Walkthrough
+## 5. Advanced Depth (Intermediate → Advanced)
 
-Let's review the runnable companion code built for today's lesson in `Phase_05_Spring_Security/Day_31_Rate_Limiting_CORS_API_Security/code/`:
+### Token-Weighted Rate Limiting
 
-### 1. `TokenBucket.java`
-Implements the high-performance Token Bucket algorithm with nanosecond precision:
+Standard rate limiting charges 1 token per HTTP request. In Generative AI, a prompt requesting a 4,000-token financial audit consumes 40x more compute than a 100-token greeting.
+
+**Token-Weighted Metering** calculates estimated token load before consuming quota:
 
 ```java
-public synchronized boolean tryConsume(long tokens) {
-    refill();
-    if (availableTokens >= tokens) {
-        availableTokens -= tokens;
-        return true;
-    }
-    return false;
-}
+@Service
+public class AiTokenMeterService {
+    private final RateLimiterRegistry registry;
 
-private void refill() {
-    long now = System.nanoTime();
-    long elapsedNanos = now - lastRefillNanos;
-    if (elapsedNanos > 0) {
-        double newlyGenerated = elapsedNanos * refillTokensPerNano;
-        availableTokens = Math.min(capacity, availableTokens + newlyGenerated);
-        lastRefillNanos = now;
+    public AiTokenMeterService(RateLimiterRegistry registry) {
+        this.registry = registry;
+    }
+
+    public boolean tryConsumeAiTokens(String userId, String prompt) {
+        // Approximate token count: ~4 characters per token
+        long estimatedTokens = Math.max(1, (long) Math.ceil(prompt.length() / 4.0));
+        TokenBucket bucket = registry.resolveBucket("user:" + userId);
+        return bucket.tryConsume(estimatedTokens);
     }
 }
 ```
 
-### 2. `CorsPolicyValidator.java`
-Validates origins and generates standard CORS preflight headers:
+---
 
-```java
-public CorsValidationResult validateAndBuildHeaders(String origin, String method, String requestHeaders) {
-    if (origin == null || origin.isBlank()) {
-        return new CorsValidationResult(true, null, Map.of());
-    }
+### Hands-On Simulation Code Walkthrough
 
-    if (!allowedOrigins.contains("*") && !allowedOrigins.contains(origin)) {
-        return new CorsValidationResult(false, "CORS origin '" + origin + "' is not whitelisted", Map.of());
-    }
+The companion code repository demonstrates this architecture:
+- `TokenBucket.java`: High-precision nanosecond token bucket rate limiter.
+- `CorsPolicyValidator.java`: Validates origins and generates CORS response headers.
+- `AiSecurityGateway.java`: Integrated gateway checking CORS, OWASP headers, payload size caps (> 64KB rejection), and rate limiting.
+- `ApiSecurityDemo.java`: 7-scenario verification test suite validating CORS allowances, rogue origin blocks, preflight handshakes, burst capacity exhaustion, token refills, and payload size guards.
 
-    Map<String, String> headers = new HashMap<>();
-    headers.put("Access-Control-Allow-Origin", allowedOrigins.contains("*") ? "*" : origin);
-    headers.put("Access-Control-Allow-Methods", String.join(", ", allowedMethods));
-    headers.put("Access-Control-Allow-Headers", String.join(", ", allowedHeaders));
-    headers.put("Access-Control-Max-Age", "3600");
-    return new CorsValidationResult(true, null, headers);
-}
-```
-
-### 3. `AiSecurityGateway.java`
-Integrates CORS checking, OWASP headers, payload size limits (DoS defense), and token-bucket throttling:
-
-```java
-boolean consumed = bucket.tryConsume(1);
-if (!consumed) {
-    long retryAfterSeconds = bucket.getSecondsUntilNextToken();
-    responseHeaders.put("Retry-After", String.valueOf(retryAfterSeconds));
-    responseHeaders.put("X-RateLimit-Remaining", "0");
-    return new HttpResponse(
-            429,
-            "{\"error\":\"Too Many Requests\",\"message\":\"Rate limit exceeded. Please retry in " + retryAfterSeconds + "s.\"}",
-            responseHeaders
-    );
-}
-```
-
-### 4. Running the Verification Suite
-Compile and execute the simulation:
-
-```bash
+```powershell
+# Compile Day 31 code
 javac -d out Phase_05_Spring_Security/Day_31_Rate_Limiting_CORS_API_Security/code/*.java
+
+# Run ApiSecurityDemo
 java -cp out com.genai.security.apisec.ApiSecurityDemo
 ```
 
-Output:
-```text
+#### Verified Execution Output:
+```
 ================================================================================
   DAY 31: API SECURITY, RATE LIMITING & CORS DEFENSE DEMONSTRATION             
 ================================================================================
@@ -354,16 +333,16 @@ Output:
   CORS Origin: https://chat.myenterprise.com
   CSP Header:  default-src 'self'
   Rate Remaining: 2
-  ✅ TEST 1 PASSED!
+  [OK] TEST 1 PASSED!
 
 [TEST 2] Testing Blocked CORS Request from Rogue Origin...
   Status Code: 403 (CORS Error: CORS origin 'https://evil-hacker.com' is not whitelisted)
-  ✅ TEST 2 PASSED: Rogue CORS request blocked!
+  [OK] TEST 2 PASSED: Rogue CORS request blocked!
 
 [TEST 3] Testing CORS Preflight OPTIONS Request...
   Status Code: 204
   Allowed Methods: POST, GET, OPTIONS
-  ✅ TEST 3 PASSED: Preflight handled cleanly with 204 No Content.
+  [OK] TEST 3 PASSED: Preflight handled cleanly with 204 No Content.
 
 [TEST 4 & 5] Simulating Rapid AI Inference Requests (Burst Capacity = 3)...
   Request #1 -> Status: 200 | Remaining: 2 | Retry-After: 0s
@@ -374,11 +353,11 @@ Output:
 
 [TEST 6] Waiting 600ms for Token Bucket to Refill...
   Retry after wait -> Status: 200 | Remaining: 0
-  ✅ TEST 6 PASSED: Request succeeded after token refill.
+  [OK] TEST 6 PASSED: Request succeeded after token refill.
 
 [TEST 7] Testing Oversized Prompt Payload DoS Guard (>64KB)...
   Status Code: 413 (Payload Too Large: Maximum prompt size is 64KB)
-  ✅ TEST 7 PASSED: Giant prompt rejected before reaching JSON parser.
+  [OK] TEST 7 PASSED: Giant prompt rejected before reaching JSON parser.
 
 ================================================================================
   ALL API SECURITY, RATE LIMITING & CORS TESTS PASSED!                         
@@ -387,28 +366,48 @@ Output:
 
 ---
 
-## Why It Matters for Gen AI Applications
+## 6. Quick Recap
 
-| Attack / Risk Vector | Without Day 31 Defenses | With Day 31 Defenses |
-|:---|:---|:---|
-| **Denial of Wallet (DoW)** | Attacker bombards endpoints with loops, incurring $10,000+ bills from OpenAI / Anthropic. | Bucket4j halts callers after burst capacity; requests fail with HTTP 429 before invoking LLMs. |
-| **Cross-Site Prompt Stealing** | Malicious websites read AI responses via unrestricted browser CORS. | Strict origin whitelisting ensures only your trusted frontend domain receives chat completions. |
-| **Prompt Injection Payload DoS** | Attacker posts 50MB junk text files into the prompt parser, crashing JVM heap with OutOfMemoryError. | Payload filter checks `Content-Length` and rejects oversized prompts with `413 Payload Too Large`. |
-| **Slowloris Connection Exhaustion** | Attackers hold hundreds of streaming SSE connections open without reading tokens, tying up Tomcat threads. | Asynchronous timeouts automatically disconnect idle clients after 15 seconds of inactivity. |
+| Concept | Description | Enterprise Rule / Best Practice |
+| :--- | :--- | :--- |
+| **Denial of Wallet (DoW)** | Financial exhaustion via expensive LLM calls| Defend using Token-Bucket rate limiting at the perimeter. |
+| **Token Bucket** | Bursty traffic handling with steady refill | Preferred rate limiting algorithm for AI chat APIs. |
+| **HTTP 429** | Too Many Requests status code | Always return with RFC 6585 `Retry-After` header. |
+| **CORS** | Browser Same-Origin Policy negotiation | Whitelist specific origins; never use wildcard `*` with credentials. |
+| **Preflight (`OPTIONS`)** | Initial browser handshake | Must be handled by `CorsFilter` before authentication checks. |
+| **OWASP Headers** | HSTS, CSP, X-Frame-Options, nosniff | Configured globally on `SecurityFilterChain` response headers. |
+| **Payload Guards** | Enforcing `Content-Length` caps | Reject prompts > 64KB with `413 Payload Too Large`. |
 
 ---
 
-## Hands-On Exercises (With Complete Solutions)
+## 7. Self-Check Questions & Practice Exercises
 
-### Exercise 1: Token-Weighted Rate Limiting
-**Problem Statement:**  
-In conventional rate limiting, each HTTP request costs `1` token. In Generative AI, a request asking for a 4,000-token summary is 40x more expensive than a request asking for a 100-word definition.  
-Write a method `calculateTokenCost(String prompt)` that estimates token consumption (assume roughly 1 token per 4 characters), and adjust the rate limiter to deduct that estimated weight from the user's bucket.
+### Conceptual & Architectural Questions
 
-<details>
-<summary>👉 View Solution</summary>
+#### Q1: What is a "Denial of Wallet" (DoW) attack in the context of Generative AI?
+**Answer**: A Denial of Wallet attack specifically targets the pay-per-token or pay-per-inference billing model of commercial AI providers (OpenAI, Anthropic, Bedrock). Attackers flood unthrottled endpoints with high-volume, maximum-context requests to run up massive cloud bills, financially exhausting the targeted organization.
+
+#### Q2: Why is the Token Bucket algorithm preferred over the Fixed Window algorithm for AI chat APIs?
+**Answer**: Human interaction with AI chat applications is inherently bursty: an engineer may submit 3 prompt iterations in 15 seconds, followed by several minutes of reading. The Token Bucket algorithm allows burst consumption up to its maximum capacity while refilling at a steady, sustainable rate, avoiding the unfair boundary burst vulnerabilities of Fixed Window counters.
+
+#### Q3: What HTTP status code should your backend return when a user exhausts their rate limit?
+**Answer**: **HTTP 429 Too Many Requests** (defined in RFC 6585), accompanied by a `Retry-After` header indicating how many seconds to wait before retrying.
+
+#### Q4: Which HTTP header informs the client how many seconds they must wait before making another request after hitting a rate limit?
+**Answer**: The **`Retry-After`** header (e.g., `Retry-After: 15`).
+
+#### Q5: Why is CSRF protection usually disabled (`http.csrf(csrf -> csrf.disable())`) in stateless REST backends using Bearer JWTs?
+**Answer**: CSRF attacks exploit ambient browser credential transmission, where browsers automatically attach stored session cookies to cross-origin requests. Because modern REST backends require explicit `Authorization: Bearer <token>` headers—which browsers never automatically attach—cross-origin requests cannot forge identity, making CSRF attacks impossible.
+
+---
+
+### Hands-On Practice Exercises
+
+#### Exercise 1: Token-Weighted Rate Limiting
+**Task**: Write a service method `tryConsumeAiTokens(String userId, String prompt)` that estimates token load (~4 characters per token) and consumes that weight from the user's bucket.
 
 ```java
+// Solution:
 public class AiTokenMeterService {
 
     private final RateLimiterRegistry registry;
@@ -424,29 +423,12 @@ public class AiTokenMeterService {
     }
 }
 ```
-*Explanation:* Instead of treating all HTTP requests as equal, token-weighted rate limiting meters the actual computational and financial weight of the prompt before forwarding it to the LLM provider.
-</details>
 
----
-
-### Exercise 2: Spring Boot `CorsConfigurationSource` Bean
-**Problem Statement:**  
-Configure a Spring Security `CorsConfigurationSource` bean that allows `https://chat.enterprise.com` and `http://localhost:3000` to execute `GET`, `POST`, and `DELETE` requests, allows headers `Authorization` and `Content-Type`, exposes `X-RateLimit-Remaining` to the browser, and caches preflight decisions for 1 hour.
-
-<details>
-<summary>👉 View Solution</summary>
+#### Exercise 2: Spring Boot `CorsConfigurationSource` Bean
+**Task**: Configure a `CorsConfigurationSource` bean permitting `https://chat.enterprise.com` and `http://localhost:3000` to execute `GET`, `POST`, `DELETE`, exposing rate limit headers to the browser.
 
 ```java
-package com.genai.security.config;
-
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
-import java.util.List;
-
+// Solution:
 @Configuration
 public class CorsConfig {
 
@@ -458,7 +440,7 @@ public class CorsConfig {
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Workspace-Id"));
         config.setExposedHeaders(List.of("X-RateLimit-Limit", "X-RateLimit-Remaining", "Retry-After"));
         config.setAllowCredentials(true);
-        config.setMaxAge(3600L); // Cache preflight for 1 hour
+        config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
@@ -466,18 +448,12 @@ public class CorsConfig {
     }
 }
 ```
-</details>
 
----
-
-### Exercise 3: Server-Sent Events (SSE) Streaming Connection Timeout Guard
-**Problem Statement:**  
-When an AI endpoint streams tokens to a frontend via `SseEmitter`, a slow client can hang the connection indefinitely. Write a Spring MVC controller endpoint with an explicit 30-second timeout that closes the emitter and cleans up resources if the client stalls.
-
-<details>
-<summary>👉 View Solution</summary>
+#### Exercise 3: Server-Sent Events (SSE) Streaming Connection Timeout Guard
+**Task**: Write a controller endpoint `/api/v1/ai/stream` with a 30-second timeout that closes the emitter and cleans up resources if the client stalls.
 
 ```java
+// Solution:
 @RestController
 @RequestMapping("/api/v1/ai")
 public class StreamingAiController {
@@ -490,7 +466,6 @@ public class StreamingAiController {
 
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamChatResponse(@RequestParam String prompt) {
-        // Configure 30,000ms (30 second) timeout
         SseEmitter emitter = new SseEmitter(30_000L);
 
         emitter.onTimeout(() -> {
@@ -503,7 +478,6 @@ public class StreamingAiController {
             System.err.println("SSE Stream error: " + ex.getMessage());
         });
 
-        // Launch async worker thread to stream tokens
         Thread.startVirtualThread(() -> {
             try {
                 streamingService.streamTokens(prompt, token -> {
@@ -519,87 +493,9 @@ public class StreamingAiController {
     }
 }
 ```
-</details>
 
 ---
 
-## 5-Question Self-Check Quiz
-
-#### 1. What is a "Denial of Wallet" (DoW) attack in the context of Generative AI?
-- A) Stealing a user's credit card credentials via an SQL injection flaw.
-- B) Flooding an AI application with expensive prompt requests that exhaust its cloud or LLM API billing quota without crashing the server.
-- C) Disabling cryptocurrency wallets on the server.
-- D) A ransomware virus targeting enterprise payroll databases.
-
-#### 2. Why is the Token Bucket algorithm preferred over the Fixed Window algorithm for AI chat APIs?
-- A) Fixed Window requires double the memory of Token Bucket.
-- B) Token Bucket gracefully handles bursty interactive traffic while enforcing an average rate over time, preventing sudden boundary bursts.
-- C) Token Bucket only works on Windows OS.
-- D) Fixed Window does not support multithreading.
-
-#### 3. What HTTP status code should your backend return when a user exhausts their rate limit?
-- A) `401 Unauthorized`
-- B) `403 Forbidden`
-- C) `429 Too Many Requests`
-- D) `503 Service Unavailable`
-
-#### 4. Which HTTP header informs the client how many seconds they must wait before making another request after hitting a rate limit?
-- A) `X-Wait-Time`
-- B) `Retry-After`
-- C) `RateLimit-Delay`
-- D) `Backoff-Seconds`
-
-#### 5. Why is CSRF protection usually disabled (`http.csrf(csrf -> csrf.disable())`) in stateless REST backends using Bearer JWTs?
-- A) Because CSRF is an obsolete security vulnerability that no longer exists in modern browsers.
-- B) Because browsers do not automatically send custom `Authorization: Bearer <token>` headers on cross-site requests, making CSRF mathematically impossible for stateless token APIs.
-- C) Because Spring Boot 3 no longer supports CSRF.
-- D) Because CSRF slows down JSON parsing by 50%.
-
----
-
-### Quiz Answers & Explanations
-
-1. **B is correct**: Denial of Wallet targets the variable pay-per-token economics of commercial LLM APIs, intentionally driving massive API bills to financially ruin the service provider.
-2. **B is correct**: The Token Bucket algorithm allows burst capacity up to the bucket's maximum size, which aligns with human typing and testing patterns, while refilling steadily at a constant rate.
-3. **C is correct**: RFC 6585 defines `429 Too Many Requests` specifically for rate limiting and throttling.
-4. **B is correct**: The standard `Retry-After` header indicates how many seconds (or a date) until the client can retry.
-5. **B is correct**: CSRF exploits automatic browser credential attachment (cookies, basic auth). When authentication requires an explicit `Authorization: Bearer` header, third-party sites cannot forge requests.
-
----
-
-## Phase 5 Retrospective & What's Next!
-
-🎉 **PHASE 5 IS OFFICIALLY 100% COMPLETE!**
-
-Give yourself a huge round of applause! You have conquered one of the most vital engineering phases in enterprise software: **Security**.
-
-Look at the fortress you built:
-- **Day 27**: You mastered the Spring Security Filter Chain and modern stateless architecture.
-- **Day 28**: You forged custom JWT digital passports with tamper-proof HMAC signatures.
-- **Day 29**: You locked the cockpit door with `@PreAuthorize`, SpEL, and role hierarchies.
-- **Day 30**: You integrated Google/GitHub SSO and asymmetric RS256 token verification via JWKS.
-- **Day 31**: You defended your company against Denial-of-Wallet attacks with Token-Bucket rate limiting and hardened CORS.
-
-Your application is now **fortified like an enterprise Swiss bank vault**.
-
----
-
-### 🚀 Entering Phase 6: Spring AI — The Core Framework (Days 32–42)
-
-Now that our Java foundations, Spring Boot core, REST APIs, PostgreSQL databases, and security perimeter are rock-solid, **it is finally time to build real AI!**
-
-Starting tomorrow, you will start programming Generative AI directly in Java using the official **Spring AI** framework:
-- **Day 32**: Introduction to Spring AI — Architecture, Model Abstractions, and Why Java is Dominating Enterprise AI.
-- **Day 33**: `ChatClient` — The Fluent Conversational API for Prompts, System Directives, and Dynamic Context.
-- **Day 34**: Prompt Engineering in Java — Dynamic Templates, Message Roles, and Variable Substitutions.
-- **Day 35**: Structured Output Converters — Forcing LLMs to Return Valid Java Records, Beans, and Enums without Hallucinations.
-- **Day 36**: Streaming Responses — The ChatGPT "typewriter" effect using Flux and SSE.
-- **Day 37**: Embedding Models — Turning Text into High-Dimensional Vectors.
-- **Day 38**: Vector Stores & Semantic Memory — Querying `pgvector` from Java.
-- **Day 39**: Retrieval-Augmented Generation (RAG) — Grounding LLMs with Proprietary Documents.
-- **Day 40**: Advanced RAG — Query Transformation and Re-Ranking.
-- **Day 41**: Tool Calling — Allowing LLMs to autonomously execute your Java code.
-- **Day 42**: Multimodal AI — Processing Images, Audio, and Vision.
-
-👉 **Proceed to [Day 32: Introduction to Spring AI — The Big Picture](../../Phase_06_Spring_AI/Day_32_Introduction_to_Spring_AI/Day_32_Introduction_to_Spring_AI.md) to begin Phase 6!**
-
+| Previous Day | Course Hub | Next Day |
+|:---|:---:|---:|
+| [◀ Day 30: OAuth2 & Social Login](../Day_30_OAuth2_Social_Login/Day_30_OAuth2_Social_Login.md) | [All 60 Days Overview](../../README.md) | [Day 32: Introduction to Spring AI ▶](../../Phase_06_Spring_AI/Day_32_Introduction_to_Spring_AI/Day_32_Introduction_to_Spring_AI.md) |

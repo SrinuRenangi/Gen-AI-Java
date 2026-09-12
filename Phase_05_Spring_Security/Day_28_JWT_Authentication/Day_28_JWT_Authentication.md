@@ -10,109 +10,108 @@
 
 ---
 
-## Friendly Welcome: The Digital Passport for Your API
+## 1. Topic Overview
 
-Hey there, friend! Welcome to Day 28.
-
-Imagine you go to a giant amusement park. At the front entrance, you show your ID, pay for admission, and the clerk snaps a waterproof VIP wristband onto your wrist with an official holographic wax seal.
-
-Now, every time you want to ride a roller coaster or buy a funnel cake, does the ride operator have to make a phone call to the front gate to ask: *"Hey, did customer #1234 pay for entry?"*
-
-Of course not! If they did that for every visitor, the park would grind to a halt. Instead, the operator simply glances at your wristband, sees the holographic seal is unbroken and hasn't expired, and waves you right onto the coaster!
-
-In modern web and AI engineering, that holographic wristband is a **JSON Web Token (JWT)**. Instead of forcing your server to store millions of sessions in memory or query PostgreSQL on every single prompt, the client brings its own tamper-proof digital passport with every request!
+JSON Web Tokens (JWT, RFC 7519) provide an open standard for securely transmitting cryptographically verifiable, self-contained claims between distributed clients and backend services. In Generative AI systems, stateless JWT authentication enables server clusters and asynchronous AI agent pipelines to verify caller identities, multi-tenant boundaries, and token usage budgets in under 0.05 milliseconds without querying centralized session databases.
 
 ---
 
-> 💡 **New Word Alert! Key Concepts for Today**
->
-> - **JSON Web Token (JWT)**: A compact string composed of three parts separated by dots (`header.payload.signature`) that carries verified user identity data inside an HTTP header (`Authorization: Bearer <token>`).
-> - **Base64Url Encoding**: A standard way to convert binary data into plain, URL-safe ASCII letters and numbers. *(Crucial reminder: Base64 is NOT encryption! Anyone can paste a JWT into [jwt.io](https://jwt.io) and read the text. Never put passwords or confidential secrets inside a token!)*
-> - **Claims**: Individual key-value attributes stored inside the token payload, such as `sub` (subject / user ID), `role` (`ROLE_USER`), `exp` (expiration timestamp), and custom fields like `tenantId`.
-> - **HMAC-SHA256 Signature**: The cryptographic wax seal. The server signs the header and payload using a secret key. If anyone tries to change `"role": "USER"` to `"role": "ADMIN"`, the signature immediately invalidates and Spring rejects the request.
-> - **Access Token vs. Refresh Token**:
->   - **Access Token**: Short-lived (e.g. 15 minutes), used on every API call.
->   - **Refresh Token**: Long-lived (e.g. 7 days), securely stored; when the access token expires, your frontend secretly exchanges the refresh token for a brand-new access token without interrupting the user.
+## 2. Basic Foundations (True Zero)
 
----
+### What is a JSON Web Token (JWT)?
+In traditional web applications, the server stores a session ID in its memory (RAM) or in an external Redis cache, sending a cookie back to the client. On every request, the server queries Redis to verify the session.
 
-## Table of Contents
-
-1. [Why This Day Matters for a 3-Year Enterprise Gen AI Engineer](#1-why-this-day-matters-for-a-3-year-enterprise-gen-ai-engineer)
-2. [Real-World Analogy: The Wax-Sealed Royal Passport & Embassy Courier](#2-real-world-analogy-the-wax-sealed-royal-passport--embassy-courier)
-3. [The Anatomy of a JSON Web Token (RFC 7519)](#3-the-anatomy-of-a-json-web-token-rfc-7519)
-   - [Header](#header)
-   - [Payload (Standard & Custom Claims)](#payload-standard--custom-claims)
-   - [Cryptographic Signature (HS256 vs RS256)](#cryptographic-signature-hs256-vs-rs256)
-4. [The Access Token vs Refresh Token Architecture](#4-the-access-token-vs-refresh-token-architecture)
-   - [Why Short-Lived Access Tokens (15 Minutes)?](#why-short-lived-access-tokens-15-minutes)
-   - [Refresh Token Rotation (RTR) & Breach Detection](#refresh-token-rotation-rtr--breach-detection)
-5. [Integrating JWT with Spring Security: `JwtAuthenticationFilter`](#5-integrating-jwt-with-spring-security-jwtauthenticationfilter)
-6. [Security Warning: LocalStorage vs HTTP-Only Cookies](#6-security-warning-localstorage-vs-http-only-cookies)
-7. [Hands-On Code Walkthrough](#7-hands-on-code-walkthrough)
-8. [Step-by-Step Compilation & Execution](#8-step-by-step-compilation--execution)
-9. [Hands-On Exercises (With Complete Solutions)](#9-hands-on-exercises-with-complete-solutions)
-10. [Self-Check Quiz](#10-self-check-quiz)
-11. [Day 28 Wrap-Up & What's Next](#11-day-28-wrap-up--whats-next)
-
----
-
-## 1. Why This Day Matters for a 3-Year Enterprise Gen AI Engineer
-
-In modern generative AI platforms, your Spring Boot backend serves three distinct clients:
-1. **Frontend Web & Mobile Apps**: React/Vue chat dashboards streaming tokens via SSE.
-2. **Autonomous AI Agents & Pipelines**: Python/LangChain workers executing multi-step retrieval and evaluation loops.
-3. **Enterprise B2B Partner Integrations**: External corporate systems calling your AI completions.
-
-### Why Traditional Stateful Sessions Fail:
-- **Session State Overhead**: If 20,000 active users maintain concurrent chat sessions, storing session state in memory consumes gigabytes of heap, while externalizing to Redis introduces network round-trip latency on every single request.
-- **Server-Sent Events (SSE) Streaming**: SSE connections hold open HTTP connections for minutes; cookie-based session expiration frequently interrupts long-running reasoning model generations.
-- **Microservice Portability**: A request to `/api/v1/chat` might be routed by a Kubernetes load balancer to Pod A, while the subsequent call to `/api/v1/documents/embed` is routed to Pod B.
-
-**JSON Web Tokens (JWT)** solve this by making the token **self-contained**:
-- The token itself carries the user's `userId`, `tenantId`, `roles`, and `tokenQuota`.
-- Any pod in your cluster verifies the cryptographic signature locally in **0.05 milliseconds** without querying PostgreSQL or Redis.
-
----
-
-## 2. Real-World Analogy: The Wax-Sealed Royal Passport & Embassy Courier
+A **JSON Web Token** flips this model: the token is **stateless and self-contained**. The server cryptographically signs a digital passport containing user data (user ID, tenant, permissions) and hands it to the client. On subsequent requests, the client attaches the token inside an HTTP header (`Authorization: Bearer <token>`). Any server instance can verify the signature using its secret key without making a database query.
 
 ```
-THE STATEFUL SESSION MODEL (CHECKING THE CENTRAL CITADEL REGISTRY):
-[ Traveler arrives at remote mountain fortress ]
-Guard: "Wait here. I must send a messenger on horseback 500 miles back 
-       to the Royal Citadel to verify if your name is written in the King's ledger."
-Outcome: 3-day delay, citadel gates overcrowded with messengers.
-
-THE STATELESS JWT MODEL (THE WAX-SEALED ROYAL PASSPORT):
-[ Traveler arrives at remote mountain fortress ]
-Traveler presents parchment: "I am Duke Alice of House Acme. Permitted to carry 500k tokens."
-Guard inspects the King's red wax seal on the document with a magnifying glass:
-"The royal seal is unbroken and matches the King's signet ring! Enter immediately."
-Outcome: Zero delay. Verification happens locally at the gate in 2 seconds!
++-----------------------------------------------------------------------------------+
+|               THE AMUSEMENT PARK VIP WRISTBAND ANALOGY                            |
+|                                                                                   |
+| Imagine entering a massive amusement park:                                        |
+|                                                                                   |
+| THE STATEFUL SESSION MODEL:                                                       |
+| Every time you want to ride a roller coaster, the operator must call the front    |
+| entrance gate over a radio: "Hey, did visitor #4592 pay for admission?"          |
+| Result: Long lines, radio congestion, and total gridlock if the radio tower dies. |
+|                                                                                   |
+| THE STATELESS JWT WRISTBAND MODEL:                                                |
+| At the front gate, you pay once and receive a tamper-proof wristband stamped with |
+| an official holographic wax seal stating: "Alice - VIP FastPass - Exp: 6:00 PM".  |
+|                                                                                   |
+| At every ride, the operator simply glances at the holographic seal. If it is     |
+| intact and unexpired, you are waved through immediately in 1 second!              |
+| If someone tries to alter "Standard" to "VIP", the seal breaks and access fails!   |
++-----------------------------------------------------------------------------------+
 ```
 
-If an impostor attempts to forge the passport by crossing out "Baron" and handwriting "King", **the wax seal breaks**. The frontier guard rejects the document instantly without ever consulting the central castle.
+### Minimal Beginner-Friendly Working Code Example
+
+Below is a self-contained Java 21 demonstration of how an HMAC-SHA256 cryptographic signature is computed and verified:
+
+```java
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+
+public class BasicJwtSignatureExample {
+
+    private static final String SECRET_KEY = "super-secret-key-that-is-at-least-256-bits-long!";
+
+    public static String sign(String data, String secret) throws Exception {
+        Mac mac = Mac.getInstance("HmacSHA256");
+        mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+        byte[] hash = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+    }
+
+    public static void main(String[] args) throws Exception {
+        // 1. Header & Payload JSON strings
+        String headerJson = "{\"alg\":\"HS256\",\"typ\":\"JWT\"}";
+        String payloadJson = "{\"sub\":\"usr_alice\",\"role\":\"USER\"}";
+
+        // 2. Base64Url encode header and payload
+        String encHeader = Base64.getUrlEncoder().withoutPadding().encodeToString(headerJson.getBytes(StandardCharsets.UTF_8));
+        String encPayload = Base64.getUrlEncoder().withoutPadding().encodeToString(payloadJson.getBytes(StandardCharsets.UTF_8));
+        String dataToSign = encHeader + "." + encPayload;
+
+        // 3. Generate Cryptographic Signature
+        String signature = sign(dataToSign, SECRET_KEY);
+        String compactJwt = dataToSign + "." + signature;
+
+        System.out.println("Generated Compact JWT:\n" + compactJwt);
+
+        // 4. Verification Check
+        String[] parts = compactJwt.split("\\.");
+        String expectedSig = sign(parts[0] + "." + parts[1], SECRET_KEY);
+        boolean isValid = expectedSig.equals(parts[2]);
+
+        System.out.println("\nVerification with Secret Key: " + (isValid ? "VALID" : "INVALID"));
+
+        // 5. Tamper Attack Simulation: Hacker modifies payload
+        String tamperedPayload = Base64.getUrlEncoder().withoutPadding().encodeToString("{\"sub\":\"usr_alice\",\"role\":\"ADMIN\"}".getBytes(StandardCharsets.UTF_8));
+        String tamperedData = parts[0] + "." + tamperedPayload;
+        boolean isTamperValid = sign(tamperedData, SECRET_KEY).equals(parts[2]);
+
+        System.out.println("Tamper Detection (Altered to ADMIN): " + (isTamperValid ? "BREACH!" : "TAMPER DETECTED & BLOCKED!"));
+    }
+}
+```
+
+#### Line-by-Line Walkthrough:
+- **Lines 8–14**: `sign` initializes Java's `HmacSHA256` engine using a shared secret key, producing a binary digest encoded to URL-safe Base64 without trailing padding (`=`).
+- **Lines 18–24**: Demonstrates the composition of standard JWT components: Header + `.` + Payload.
+- **Lines 27–30**: Combines the encoded header, payload, and HMAC signature into the canonical three-part format (`header.payload.signature`).
+- **Lines 35–38**: Verifies the token by recalculating the HMAC over the header and payload, comparing it to the provided signature in constant time.
+- **Lines 41–45**: Simulates an attacker modifying their role to `"ADMIN"`. Because the attacker does not have the secret key, their modified payload produces a mismatched signature and is rejected.
 
 ---
 
-## 🧭 The Mid-Level Java Developer Bridge: How JWT Authentication Actually Works
+## 3. Core Concept Walkthrough (Basic → Intermediate)
 
-If you've built standard web apps with `HttpSession` and cookies, switching to stateless REST APIs with JWTs requires a simple mental shift:
+### The Anatomy of a JSON Web Token (RFC 7519)
 
-| Authentication Style | Traditional `HttpSession` | Stateless JSON Web Token (JWT) | Plain English Advantage |
-| :--- | :--- | :--- | :--- |
-| **Where State Lives** | In the server's RAM (memory). | Inside the client's HTTP header (`Authorization: Bearer <jwt>`). | The server is 100% stateless; it stores zero session memory. |
-| **Scaling to 10 Servers** | ❌ Fails unless you set up Sticky Sessions or a Redis session cluster. | ✅ Works effortlessly! Any server that knows the secret key can verify the token. | True cloud horizontal scalability across Kubernetes pods. |
-| **Is JWT Encrypted?** | N/A | **NO!** Base64 is just encoding, not encryption! Anyone can read the payload on jwt.io. | **Never put passwords or API keys in a JWT payload!** It is tamper-proof, NOT secret. |
-| **The Signature** | N/A | A cryptographic hash: `HMACSHA256(Header + Payload, SECRET_KEY)`. | The wax seal: if a hacker edits `"role": "USER"` to `"ADMIN"`, the signature doesn't match and Spring rejects it. |
-| **Spring Integration** | Default cookie session manager. | A custom `OncePerRequestFilter` that inspects the Bearer header and sets `SecurityContextHolder`. | Clean, decoupled filter that protects all REST endpoints in your microservice. |
-
----
-
-## 3. The Anatomy of a JSON Web Token (RFC 7519)
-
-A compact JWT string consists of **three Base64Url-encoded parts separated by periods (`.`)**:
+A compact JWT is formed by three Base64Url-encoded strings separated by periods:
 
 ```
 eyJhbGciOiJIUzI1NiJ9 . eyJzdWIiOiJ1c3JfYWxpY2UiLCJyb2xlcyI6WyJST0xFX1VTRVIiXX0 . 0dtmybZJkbzNU4f9nqN-OlZp6JJdeBi6bC3vFwFqxjI
@@ -120,18 +119,19 @@ eyJhbGciOiJIUzI1NiJ9 . eyJzdWIiOiJ1c3JfYWxpY2UiLCJyb2xlcyI6WyJST0xFX1VTRVIiXX0 .
        1. HEADER                              2. PAYLOAD                                3. SIGNATURE
 ```
 
-### 1. The Header
-Specifies the signature algorithm and token type:
-```json
-{
-  "alg": "HS256",
-  "typ": "JWT"
-}
+```
++-----------+--------------------+-----------------------------------------------------------------------+
+| Component | Contents           | Plain-English Purpose                                                 |
++-----------+--------------------+-----------------------------------------------------------------------+
+| Header    | alg, typ           | Declares the signing algorithm (HS256, RS256) and token type ("JWT"). |
++-----------+--------------------+-----------------------------------------------------------------------+
+| Payload   | Claims (sub, exp)  | Key-value statements regarding user identity, tenant, and roles.     |
++-----------+--------------------+-----------------------------------------------------------------------+
+| Signature | HMAC or RSA hash   | Cryptographic seal verifying the token was not tampered with.         |
++-----------+--------------------+-----------------------------------------------------------------------+
 ```
 
-### 2. The Payload (Claims)
-The payload contains the **claims**—statements about an entity (typically, the user) and additional metadata:
-
+#### Standard vs. Custom AI Claims:
 ```json
 {
   "sub": "usr_alice_123",
@@ -142,39 +142,16 @@ The payload contains the **claims**—statements about an entity (typically, the
   "exp": 1788956627
 }
 ```
-
-- **Registered Claims (RFC 7519 standard)**:
-  - `sub` (Subject): The unique user ID.
-  - `iat` (Issued At): Epoch timestamp when generated.
-  - `exp` (Expiration Time): Epoch timestamp when token becomes invalid.
-- **Custom AI Claims**:
-  - `tenantId`: Used by database queries to enforce multi-tenant isolation.
-  - `tokenBudget`: Max tokens the client is allowed to consume.
-  - `roles`: Granted security permissions.
-
-> **CRITICAL SECURITY NOTE**: The payload is **Base64Url-encoded, NOT encrypted!** Anyone who intercepts the token can decode and read the payload using `jwt.io` or `atob()`. **Never store secrets, passwords, or API keys inside a JWT payload!**
+- **`sub` (Subject)**: The unique ID of the user.
+- **`iat` (Issued At) / `exp` (Expiration)**: Standard RFC timestamps enforcing short validity windows.
+- **`tenantId`**: Enforces multi-tenant data isolation in RAG vector queries.
+- **`tokenBudget`**: Enforces LLM token usage caps before invoking downstream inference.
 
 ---
 
-### 3. The Cryptographic Signature
+### Dual-Token Architecture: Access Token vs. Refresh Token
 
-The signature guarantees that the token has not been altered:
-
-$$\text{Signature} = \text{HMAC-SHA256}(\text{base64Url}(\text{Header}) + "." + \text{base64Url}(\text{Payload}), \text{SecretKey})$$
-
-- If an attacker tampers with a single character in the payload (e.g. changing `"tokenBudget": 500` to `500000`), the calculated signature will not match the token's signature, and Spring Security will reject it immediately.
-
-#### Symmetric (HS256) vs Asymmetric (RS256 / ES256)
-- **HS256 (HMAC-SHA256)**: Single shared secret key used for both signing and verification. Ideal for monolithic Spring Boot apps or internal microservices within a trusted VPC.
-- **RS256 (RSA-SHA256)**: Private key signs the token (Auth Server); Public key verifies the token (Resource Servers). Ideal when frontend or third-party gateways verify tokens without knowing the private signing key.
-
----
-
-## 4. The Access Token vs Refresh Token Architecture
-
-Because JWTs are stateless, **a signed token cannot be revoked before its expiration date** without maintaining a centralized blacklist database (which defeats the purpose of statelessness).
-
-To solve this, enterprise AI platforms use the **Dual-Token Pattern**:
+Because stateless JWTs cannot be selectively invalidated without stateful blacklists, enterprise architectures implement the **Dual-Token Pattern**:
 
 ```mermaid
 sequenceDiagram
@@ -201,18 +178,32 @@ sequenceDiagram
     Auth-->>Client: Returns NEW Access Token (15m) + NEW Rotated Refresh Token
 ```
 
-### Why This Design is Secure
-1. If an attacker intercepts the **Access Token**, it becomes completely useless after **15 minutes**.
-2. The **Refresh Token** is stored securely (e.g. HTTP-Only, Secure, SameSite Cookie).
-3. **Refresh Token Rotation (RTR)**: Every time a refresh token is used to obtain a new access token, the old refresh token is invalidated in the database and a new one is issued. If an attacker tries to reuse an old refresh token, the server detects a breach and revokes all tokens for that user immediately!
+1. **Access Token (Short-Lived — 15 minutes)**: Attached to every HTTP request. If intercepted, the attacker's window of opportunity is minimal.
+2. **Refresh Token (Long-Lived — 7 days)**: Stored securely in an HTTP-Only cookie. Used solely to request new access tokens.
+3. **Refresh Token Rotation (RTR)**: Each time a refresh token is used, the server deletes it and generates a new one. If an attacker attempts to replay an old refresh token, the server flags a breach and revokes all active tokens for that user.
 
 ---
 
-## 5. Integrating JWT with Spring Security: `JwtAuthenticationFilter`
+### Spring Security Integration: `JwtAuthenticationFilter`
 
-In production, you register a custom filter that intercepts incoming HTTP requests:
+In production, you register a custom filter extending `OncePerRequestFilter` to validate tokens on every incoming request:
 
 ```java
+package com.example.genai.security;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+import java.io.IOException;
+
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -234,7 +225,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String username = tokenProvider.extractUsername(jwt);
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
-            // Create Spring Security Authentication token
             var authToken = new UsernamePasswordAuthenticationToken(
                 userDetails,
                 null,
@@ -242,7 +232,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             );
             authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-            // Attach to current thread's SecurityContext
             SecurityContextHolder.getContext().setAuthentication(authToken);
         }
 
@@ -261,49 +250,79 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 ---
 
-## 6. Security Warning: LocalStorage vs HTTP-Only Cookies
+## 4. Prerequisite & Supporting Concepts
 
-Where should client applications store JWT tokens?
+### Prerequisite / Supporting Concept: Base64Url Encoding vs. Encryption
+A frequent misconception is assuming that Base64 encoding hides sensitive data. Base64 is merely a serialization format converting binary bytes to URL-safe ASCII characters. 
 
-| Storage Option | Vulnerable to XSS? | Vulnerable to CSRF? | Senior Recommendation |
-| :--- | :---: | :---: | :--- |
-| **`localStorage`** | ❌ **YES!** Any injected JavaScript can execute `localStorage.getItem('token')` and exfiltrate your token. | ✅ Immune | Avoid for high-value AI applications. |
-| **`HTTP-Only Cookie`** | ✅ **Immune!** JavaScript running in the browser cannot read HTTP-Only cookies. | ❌ Requires CSRF mitigation or `SameSite=Strict` | **Recommended for Web Dashboards**. |
-| **In-Memory Variable** | ✅ Immune (disappears on page refresh; refreshed via silent refresh) | ✅ Immune | **Enterprise Gold Standard**. |
+Anyone who intercepts a JWT can decode the payload on [jwt.io](https://jwt.io) or using standard CLI tools:
+```bash
+echo "eyJzdWIiOiJ1c3JfYWxpY2UifQ" | base64 --decode
+# Output: {"sub":"usr_alice"}
+```
+**Golden Rule**: Never place passwords, credit card numbers, or proprietary encryption keys inside a JWT payload.
+
+### Prerequisite / Supporting Concept: Token Storage Security
+Where the client stores the JWT dictates its vulnerability to attacks:
+
+```
++-------------------+-----------------------+-----------------------+---------------------------------------+
+| Storage Location  | Vulnerable to XSS?    | Vulnerable to CSRF?   | Production Recommendation             |
++-------------------+-----------------------+-----------------------+---------------------------------------+
+| `localStorage`    | YES (Critical hazard!)| Immune                | Avoid for high-value AI applications. |
++-------------------+-----------------------+-----------------------+---------------------------------------+
+| HTTP-Only Cookie  | Immune (JS blocked)   | Yes (Requires SameSite| Recommended for browser dashboards.   |
+|                   |                       | or CSRF tokens)       |                                       |
++-------------------+-----------------------+-----------------------+---------------------------------------+
+| In-Memory (State) | Immune                | Immune                | Enterprise standard for Single Page   |
+|                   |                       |                       | Applications (SPA) + Silent Refresh.  |
++-------------------+-----------------------+-----------------------+---------------------------------------+
+```
 
 ---
 
-## 7. Hands-On Code Walkthrough
+## 5. Advanced Depth (Intermediate → Advanced)
 
-In this day's companion code (`Phase_05_Spring_Security/Day_28_JWT_Authentication/code/`), we built a pure Java 21 cryptographic token engine without external dependencies:
+### Common Pitfalls & Antipatterns
 
-1. **`JwtClaims.java`**: Record modeling subject, tenantId, roles, tokenBudget, and timestamps.
-2. **`JwtTokenService.java`**:
-   - `generateToken(claims)`: Formats JSON header and payload, signs with HMAC-SHA256 (`javax.crypto.Mac`), and returns `header.payload.signature`.
-   - `validateAndParseClaims(token)`: Verifies signature integrity, validates expiration, and extracts claims.
-3. **`JwtDemo.java`**: Executable driver demonstrating:
-   - Scenario 1: Generating a signed JWT.
-   - Scenario 2: Validating an authentic token and decoding claims.
-   - Scenario 3: Simulating a tampering attack (modifying payload breaks signature).
-   - Scenario 4: Rejecting expired tokens.
+#### Pitfall 1: Weak Signing Keys (< 256 bits)
+```
++-----------------------------------------------------------------------------------+
+| BAD PRACTICE: Insecure Short Secret Keys                                          |
+|                                                                                   |
+| String secret = "my-secret"; // Insecure! Under 256 bits.                         |
+| // Vulnerable to offline dictionary attacks using tools like hashcat!             |
++-----------------------------------------------------------------------------------+
+| GOOD PRACTICE: Cryptographically Secure 256-Bit Key                               |
+|                                                                                   |
+| SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));      |
+| // JJWT enforces minimum 32-byte (256-bit) entropy at runtime!                    |
++-----------------------------------------------------------------------------------+
+```
+
+#### Pitfall 2: Stateful Token Revocation Blacklists
+When an engineer wants immediate token revocation upon user logout, they often store revoked tokens in Redis. While functional, checking Redis on every incoming request converts a stateless architecture back into a stateful one, defeating JWT's primary scalability benefit.
+
+Instead, keep Access Tokens strictly short-lived (5–15 minutes) and execute revocation exclusively on the database-backed **Refresh Tokens**.
 
 ---
 
-## 8. Step-by-Step Compilation & Execution
+### Hands-On Simulation Code Walkthrough
+
+The companion code repository demonstrates this architecture:
+- `JwtClaims.java`: Record modeling subject, tenantId, roles, tokenBudget, and timestamps.
+- `JwtTokenService.java`: Pure Java 21 cryptographic token engine generating and validating HMAC-SHA256 tokens.
+- `JwtDemo.java`: Executable test harness verifying signing, successful decoding, tamper detection, and expiration rejection.
 
 ```powershell
-# 1. Navigate to course workspace
-cd "c:\Users\sriva\OneDrive\Desktop\GEN AI COURSE\JAVA"
-
-# 2. Compile Day 28 code
+# Compile Day 28 code
 javac Phase_05_Spring_Security/Day_28_JWT_Authentication/code/*.java
 
-# 3. Run JwtDemo
+# Run JwtDemo
 java -cp Phase_05_Spring_Security/Day_28_JWT_Authentication code.JwtDemo
 ```
 
-### Verified Output
-
+#### Verified Execution Output:
 ```
 ================================================================================
  DAY 28: JWT AUTHENTICATION FROM SCRATCH — CREATION, VALIDATION & INTEGRITY     
@@ -341,13 +360,48 @@ java -cp Phase_05_Spring_Security/Day_28_JWT_Authentication code.JwtDemo
 
 ---
 
-## 9. Hands-On Exercises (With Complete Solutions)
+## 6. Quick Recap
 
-### Exercise 1: JJWT-based Token Provider Component
+| Concept | Description | Enterprise Rule / Best Practice |
+| :--- | :--- | :--- |
+| **JWT (RFC 7519)** | Compact, URL-safe token format | Three dot-separated parts: `Header.Payload.Signature`. |
+| **Base64Url** | ASCII encoding format | NOT encryption. Never store sensitive passwords or secrets in payload. |
+| **Signature** | HMAC-SHA256 / RSA cryptographic hash | Guarantees tamper-evidence. Tampered payloads invalidate the hash. |
+| **Access Token** | Short-lived bearer token (15 mins) | Carried on every request in `Authorization: Bearer <token>`. |
+| **Refresh Token** | Long-lived rotation token (7 days) | Stored securely to issue new access tokens via silent refresh. |
+| **`JwtAuthenticationFilter`**| Servlet filter verifying bearer tokens | Placed before `UsernamePasswordAuthenticationFilter`. |
+
+---
+
+## 7. Self-Check Questions & Practice Exercises
+
+### Conceptual & Architectural Questions
+
+#### Q1: Can an attacker decrypt a JWT token if they intercept it over HTTP?
+**Answer**: Standard JWT tokens are **encoded**, not encrypted (unless using JWE - JSON Web Encryption). Anyone who intercepts a standard JWT can decode the payload using Base64Url decoding and view all claims. The security of JWT lies in **tamper-evidence (integrity)**: the attacker cannot alter any claims without invalidating the cryptographic signature.
+
+#### Q2: Why is the secret key for HMAC-SHA256 required to be at least 256 bits (32 bytes)?
+**Answer**: SHA-256 produces a 256-bit hash. If the signing key contains less than 256 bits of entropy, it is vulnerable to offline brute-force and dictionary attacks (e.g., using GPUs and rainbow tables). Once the key is cracked, an attacker can forge legitimate tokens with arbitrary administrative privileges.
+
+#### Q3: Why should access tokens have a short lifespan (e.g., 15 minutes)?
+**Answer**: Because JWTs are stateless, they cannot be easily revoked before expiration without maintaining stateful server blacklists. Keeping access tokens short-lived ensures that if a token is intercepted or leaked, the attacker's window of opportunity is strictly minimized.
+
+#### Q4: What happens if an attacker attempts to elevate their role from `ROLE_USER` to `ROLE_ADMIN` inside a JWT?
+**Answer**: When the server receives the token, it recalculates the HMAC-SHA256 signature using its private secret key over the modified header and payload. Because the payload changed, the calculated signature will not match the signature appended to the token. Spring Security throws a signature verification exception and rejects the request with `401 Unauthorized`.
+
+#### Q5: In which Spring Security filter order should `JwtAuthenticationFilter` be placed?
+**Answer**: It should be added **before** `UsernamePasswordAuthenticationFilter`:
+`.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)`
+
+---
+
+### Hands-On Practice Exercises
+
+#### Exercise 1: JJWT-based Token Provider Component
 **Task**: Implement `JwtTokenProvider` using modern JJWT (v0.12+) with strong cryptographic key generation (`Jwts.SIG.HS256.key()`).
 
-#### Solution:
 ```java
+// Solution:
 @Component
 public class JwtTokenProvider {
 
@@ -382,13 +436,11 @@ public class JwtTokenProvider {
 }
 ```
 
----
-
-### Exercise 2: Refresh Token Entity with Rotation & Revocation
+#### Exercise 2: Refresh Token Entity with Rotation & Revocation
 **Task**: Design the JPA entity `RefreshToken` with `tokenHash`, `userId`, `revoked`, and `expiresAt` to support Refresh Token Rotation.
 
-#### Solution:
 ```java
+// Solution:
 @Entity
 @Table(name = "refresh_tokens", indexes = @Index(name = "idx_token_hash", columnList = "token_hash", unique = true))
 public class RefreshToken {
@@ -419,13 +471,11 @@ public class RefreshToken {
 }
 ```
 
----
+#### Exercise 3: Dynamic Tenant Extraction from Security Context
+**Task**: Write a helper method that extracts `tenantId` from the current JWT authentication token for multi-tenant RAG queries.
 
-### Exercise 3: Dynamic Tenant Extraction in Security Context
-**Task**: Write a helper method that extracts `tenantId` from the current JWT authentication token for RAG queries.
-
-#### Solution:
 ```java
+// Solution:
 public class SecurityUtils {
 
     public static String getCurrentTenantId() {
@@ -440,41 +490,6 @@ public class SecurityUtils {
 
 ---
 
-## 10. Self-Check Quiz
-
-### Q1: Can an attacker decrypt a JWT token if they intercept it over HTTP?
-> **Answer**: JWT tokens are **encoded**, not encrypted (unless using JWE - JSON Web Encryption). Anyone who intercepts a standard JWT can decode the payload using Base64Url decoding and view all claims. The security of JWT lies in **tamper-evidence (integrity)**: the attacker cannot modify any claim without invalidating the cryptographic signature.
-
-### Q2: Why is the secret key for HMAC-SHA256 required to be at least 256 bits (32 bytes)?
-> **Answer**: The SHA-256 algorithm produces a 256-bit hash. If the signing key is shorter than 256 bits, it is vulnerable to brute-force and dictionary attacks where an attacker can compute possible keys offline until a signature matches, allowing them to forge valid tokens.
-
-### Q3: Why should access tokens have a short lifespan (e.g. 15 minutes)?
-> **Answer**: Because JWTs are stateless, they cannot be easily revoked before they expire without adding stateful server blacklists. Keeping access tokens short-lived ensures that if a token is intercepted or leaked, the attacker's window of access is strictly limited. The legitimate client uses a refresh token to seamlessly obtain new access tokens.
-
-### Q4: What happens if an attacker attempts to elevate their role from `ROLE_USER` to `ROLE_ADMIN` inside a JWT?
-> **Answer**: When the server receives the token, it recalculates the HMAC-SHA256 signature using the secret key over the modified header and payload. Because the payload changed, the calculated signature will not match the signature appended to the token. Spring Security throws a signature verification exception and rejects the request with `401 Unauthorized`.
-
-### Q5: In which Spring Security filter order should `JwtAuthenticationFilter` be placed?
-> **Answer**: It should be added **before** `UsernamePasswordAuthenticationFilter`:
-> `.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)`
-
----
-
-## 11. Day 28 Wrap-Up & What's Next
-
-What an empowering day! You just built the industry-standard stateless authentication mechanism used by Google, Netflix, and OpenAI.
-
-Here are the key principles to remember:
-- **Stateless means scalable**: The server never stores session state in RAM; every Kubernetes pod can verify the incoming JWT locally in 0.05 milliseconds.
-- **Base64 is NOT encryption**: Anyone can read the payload; never store passwords, API secrets, or credit cards inside a JWT.
-- **The Signature guarantees integrity**: If anyone tampers with a single character in the payload, the HMAC-SHA256 signature breaks and Spring Security blocks the request.
-- **Short-lived access tokens (15m)**: Keep access tokens short-lived and use refresh tokens to rotate them securely.
-
-### What's Coming Up Next?
-Now that we can verify *who* the user is, how do we control *what* they are allowed to do?
-- Can a standard user invoke our expensive GPT-4o model, or only free local models?
-- Can a customer edit another customer's prompt template?
-- How do we protect individual Java service methods with annotations like `@PreAuthorize`?
-
-Tomorrow in **[Day 29: Role-Based Access Control (RBAC) & Method-Level Security (`@PreAuthorize`, `@Secured`, SpEL)](../Day_29_RBAC_Method_Level_Security/Day_29_RBAC_Method_Level_Security.md)**, we'll master fine-grained permissions and method-level guards!
-
+| Previous Day | Course Hub | Next Day |
+|:---|:---:|---:|
+| [Day 27: Security Fundamentals & Architecture](../Day_27_Security_Fundamentals_Architecture/Day_27_Security_Fundamentals_Architecture.md) | [All 60 Days Overview](../../README.md) | [Day 29: RBAC & Method-Level Security](../Day_29_RBAC_Method_Level_Security/Day_29_RBAC_Method_Level_Security.md) |
