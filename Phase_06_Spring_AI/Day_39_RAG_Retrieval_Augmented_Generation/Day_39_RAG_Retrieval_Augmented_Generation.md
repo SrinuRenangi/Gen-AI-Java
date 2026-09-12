@@ -1,117 +1,79 @@
 # Day 39: RAG — Retrieval-Augmented Generation
-## The 5-Stage RAG Pipeline, QuestionAnswerAdvisor, Context Stuffing & Anti-Hallucination Guardrails
 
-| Previous Day | Course Hub | Next Day |
-|:---|:---:|---:|
-| [◀ Day 38: Vector Stores](../Day_38_Vector_Stores_Semantic_Memory/Day_38_Vector_Stores_Semantic_Memory.md) | [All 60 Days Overview](../../README.md) | [Day 40: Advanced RAG — Query Transformation & Re-Ranking ▶](../Day_40_Advanced_RAG_Query_ReRanking/Day_40_Advanced_RAG_Query_ReRanking.md) |
+[← Previous: Day 38 - Vector Stores](../Day_38_Vector_Stores_Semantic_Memory/Day_38_Vector_Stores_Semantic_Memory.md) | [Next: Day 40 - Advanced RAG →](../Day_40_Advanced_RAG_Query_ReRanking/Day_40_Advanced_RAG_Query_ReRanking.md)
 
 ---
 
-## What Will You Learn Today?
-
-Hey friend! Welcome to Day 39. Today is the day where everything we've worked on comes together to build the single most valuable system in modern enterprise AI: **Retrieval-Augmented Generation (RAG)**!
-
-If you ask a raw, out-of-the-box Large Language Model: *"What was our company's Q3 net revenue?"* or *"What is our enterprise VPN setup guide?"*, the model will do one of two things:
-1. Apologize and say it doesn't know because it was only trained on public internet data from the past.
-2. Even worse: Confidently make up believable-sounding, totally fake numbers and IP addresses! In software engineering, this is known as an **AI Hallucination**.
-
-To solve this, modern systems use **RAG**. 
-
-If the acronym "RAG" sounds like complicated machine learning plumbing, take a breath. In plain English, RAG is simply turning a scary closed-book exam into an **open-book exam for your AI**!
-
-Today, you and I will master **RAG** in Java 21 and Spring AI:
-- **The Core Idea of RAG**: Why giving the AI an open book beats spending millions of dollars on "fine-tuning" models.
-- **The 5-Stage RAG Pipeline**: Ingestion, Chunking, Embedding, Vector Storage, and Grounded Generation.
-- **Spring AI's `QuestionAnswerAdvisor`**: How Spring AI lets you add complete, production-grade RAG to `ChatClient` with just a single line of Java!
-- **Engineering Anti-Hallucination Guardrails**: Teaching the AI to say *"I don't know based on the provided documents"* instead of making things up.
-- **Building a Complete End-to-End RAG Microservice**: Ingesting real documents, storing them in PostgreSQL `pgvector`, and letting users ask questions grounded in real facts!
+## 1. Topic Overview
+Retrieval-Augmented Generation (RAG) is an architectural pattern that retrieves relevant, authoritative facts from private enterprise vector stores and injects them as dynamic context into a Large Language Model's prompt. This enables LLMs to answer domain-specific questions with 100% factual grounding, audit-grade citations, zero hallucinated claims, and without requiring costly model fine-tuning.
 
 ---
 
-> 💡 **New Word Alert: RAG Terms Demystified**
->
-> 1. **RAG (Retrieval-Augmented Generation)**: Giving the AI an open book! Instead of asking the AI to guess the answer from memory, your server first *retrieves* the exact relevant pages from your database, *augments* the prompt with those pages, and lets the AI *generate* the answer using those verified facts.
-> 2. **Hallucination**: When an AI doesn't know an answer, but instead of saying "I don't know," it invents a totally fake "fact" or number that sounds deceptively real. RAG eliminates hallucinations by giving the AI the real facts to read!
-> 3. **Fine-Tuning vs. RAG**:
->    - *Fine-Tuning*: Spending thousands of dollars and weeks of time retraining an AI model on your company's data. If a policy changes tomorrow, your model is outdated again.
->    - *RAG*: Giving the AI a live search engine to your documents. When a document changes, you update your database in 1 second, and the AI immediately knows the new information for free!
-> 4. **Context Window**: The maximum amount of text an AI can read at one time in a single prompt. Think of it like the size of the AI's desk—you can only place a few pages on the desk at once.
-> 5. **QuestionAnswerAdvisor**: Spring AI's brilliant built-in advisor that does the entire RAG flow automatically inside `ChatClient` with a single line of Java!
+## 2. Basic Foundations (True Zero)
 
----
+### What is Retrieval-Augmented Generation (RAG)?
+When you ask a standard commercial LLM (like GPT-4o or Llama 3) a question about your company's proprietary systems or private HR policies, it will either:
+1. State that it does not know because the data was never part of its public training set.
+2. Make up a convincing, completely false answer (an **AI Hallucination**).
 
-## Real-World Analogy: Open-Book Exam vs. Closed-Book Exam
+RAG solves this by converting a "closed-book exam" into an **"open-book exam"**:
+- When a user asks a question, your application first queries your vector database to find the exact pages or paragraphs containing the facts.
+- It places those retrieved excerpts inside the prompt.
+- It instructs the LLM: *"Answer the user's question strictly using only the excerpts provided below, and cite your sources."*
 
-![Spring AI Retrieval-Augmented Generation Architecture](assets/day39_rag_pipeline.jpg)
+### Relatable Physical Analogy: The Open-Book Research Assistant
+Imagine sitting for a high-stakes medical licensing exam:
+- **Closed-Book (Vanilla LLM)**: You must answer from memory based on what you studied three years ago. If asked about a new drug approved last week or precise dosage formulas, you risk guessing or misremembering.
+- **Open-Book with an Assistant (RAG Pipeline)**: Whenever an obscure case comes up, an assistant immediately pulls the latest 2026 medical journal, places the exact 3 relevant clinical trial pages on your desk, and says: *"Base your diagnosis solely on these paragraphs."* You read the verified text, synthesize the conclusion, and write: *"Prescribe Drug X, 50mg [Source: NEJM 2026, Page 412]."*
 
-Imagine taking a doctoral-level medical board exam:
+### Minimal Beginner-Friendly Working Code
+Spring AI makes RAG effortless with its built-in `QuestionAnswerAdvisor`:
 
-```
-+---------------------------------------------------------------------------------------------------+
-|                                  THE OPEN-BOOK VS. CLOSED-BOOK PARADIGM                           |
-|                                                                                                   |
-|  SCENARIO 1: Closed-Book Exam (Vanilla LLM / Model Fine-Tuning)                                   |
-|  - The doctor must rely entirely on what they memorized 2 years ago during medical school.        |
-|  - If asked about a new drug approved yesterday, or rare dosage interactions, they might guess    |
-|    or mix up symptoms from memory.                                                                |
-|  - Result: High risk of hallucination and medical malpractice!                                    |
-|                                                                                                   |
-|  SCENARIO 2: Open-Book Exam with an Instant Research Assistant (RAG Pipeline)                     |
-|  - When a difficult symptom is presented, an assistant immediately opens the latest 2026 medical  |
-|    encyclopedia, pulls the exact 3 relevant clinical trial pages, and lays them on the desk.      |
-|  - The doctor reads the verified pages, synthesizes the facts, and prescribes the exact drug      |
-|    citing the textbook page: [SOURCE: Page 412, NEJM 2026].                                      |
-|  - Result: 100% factual accuracy, verifiable auditability, zero guessing!                         |
-+---------------------------------------------------------------------------------------------------+
-```
+```java
+package com.genai.springai.rag;
 
-- **Fine-Tuning** is like sending an employee to school for 6 months: expensive, slow, and their knowledge is frozen the day they graduate.
-- **RAG** is giving that employee an instant search engine to your company's live knowledge base: updated in real time, 100% verifiable, and zero cloud training costs!
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
+import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Component;
 
----
+@Component
+public class SimpleRagRunner implements CommandLineRunner {
 
-## 🧭 The Plain English Bridge: How RAG Maps to Standard Java Architecture
+    private final ChatClient chatClient;
 
-If RAG sounds like an obscure AI machine learning acronym, here is how it maps directly to classic Java enterprise web services:
+    public SimpleRagRunner(ChatClient.Builder builder, VectorStore vectorStore) {
+        // Wire QuestionAnswerAdvisor directly into the ChatClient
+        this.chatClient = builder
+            .defaultAdvisors(new QuestionAnswerAdvisor(vectorStore, SearchRequest.builder().topK(3).build()))
+            .build();
+    }
 
-| RAG Term | Classic Java Web Architecture Equivalent | Plain English Meaning |
-| :--- | :--- | :--- |
-| **Ingestion Pipeline** | Batch ETL job (Spring Batch) reading CSVs/PDFs into a database. | Slurping documents, splitting them into paragraphs, and saving them. |
-| **Chunking** | Splitting a large text file into smaller substrings (e.g. 500 characters). | Breaking a 100-page manual into bite-sized paragraphs so search stays accurate. |
-| **Vector Store** | A PostgreSQL database table with a special column (`vector(1536)`). | A database table optimized for similarity queries instead of `id = ?`. |
-| **Retrieval** | A SQL query: `SELECT * FROM chunks ORDER BY similarity DESC LIMIT 3`. | Finding the 3 most relevant paragraphs to the user's question. |
-| **Augmentation (Context Stuffing)**| Creating a prompt string: `String prompt = "Context: " + docs + "\nQuestion: " + userQ;` | Gluing the found paragraphs into the prompt so the LLM has the answers right in front of it. |
-| **`QuestionAnswerAdvisor`** | A Spring HTTP Filter or AOP interceptor (`@Around`). | Automatically intercepts your `ChatClient` call, runs vector search, injects context, and passes it to the LLM. |
+    @Override
+    public void run(String... args) {
+        // The QuestionAnswerAdvisor automatically intercepts this question,
+        // performs similarity search against vectorStore, and injects context into the prompt!
+        String answer = chatClient.prompt()
+            .user("What is our company's P0 outage SLA response time?")
+            .call()
+            .content();
 
----
-
-## The 3 Fundamental Flaws of Vanilla LLMs Solved by RAG
-
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                              THE 3 LLM FLAWS AND HOW RAG SOLVES THEM                            │
-├───────────────────────┬─────────────────────────────────┬───────────────────────────────────────┤
-│ The LLM Flaw          │ Without RAG                     │ With Spring AI RAG Pipeline           │
-├───────────────────────┼─────────────────────────────────┼───────────────────────────────────────┤
-│ 1. Hallucinations     │ Fabricates convincing false     │ Constrained strictly to retrieved     │
-│                       │ facts, APIs, and policies.      │ factual context; cites sources.       │
-├───────────────────────┼─────────────────────────────────┼───────────────────────────────────────┤
-│ 2. Knowledge Cutoff   │ Blind to any events or data     │ Queries live, up-to-the-minute vector │
-│                       │ created after pretraining date. │ stores updated milliseconds ago.      │
-├───────────────────────┼─────────────────────────────────┼───────────────────────────────────────┤
-│ 3. Proprietary Data   │ Cannot access your internal     │ Securely stores enterprise wikis and  │
-│    Privacy & Security │ PDFs, Jira tickets, or DBs.     │ code in PostgreSQL pgvector; only     │
-│                       │                                 │ relevant snippets sent to LLM at run. │
-└───────────────────────┴─────────────────────────────────┴───────────────────────────────────────┘
+        System.out.println("Grounded Answer:\n" + answer);
+    }
+}
 ```
 
+### Line-by-Line Walkthrough
+1. **`public SimpleRagRunner(ChatClient.Builder builder, VectorStore vectorStore)`**: Injects the fluent `ChatClient.Builder` and the configured `VectorStore` (backed by PostgreSQL `pgvector`, Redis, or Milvus).
+2. **`new QuestionAnswerAdvisor(vectorStore, SearchRequest.builder().topK(3).build())`**: Instantiates Spring AI's built-in RAG advisor. For every incoming user message, this advisor executes a vector search, retrieves the top 3 closest chunks, and injects them into the prompt.
+3. **`builder.defaultAdvisors(...)`**: Binds the advisor to the client instance, guaranteeing every query through this client is automatically grounded in enterprise knowledge.
+4. **`chatClient.prompt().user("...").call().content()`**: Sends the prompt. The user does not need to manually write retrieval or augmentation boilerplate—the advisor handles the entire RAG pipeline transparently.
+
 ---
 
-## The 5-Phase End-to-End RAG Architecture
-
-A production RAG system consists of two distinct data pipelines:
-1. **The Ingestion Pipeline (Offline / Background Batch)**
-2. **The Retrieval & Generation Pipeline (Online / Real-time User Request)**
+## 3. Core Concept Walkthrough (Basic → Intermediate)
 
 ```
 ====================================================================================================
@@ -164,125 +126,41 @@ A production RAG system consists of two distinct data pipelines:
                    response under 15 minutes. [SOURCE: DOC-SLA-01]"
 ```
 
----
+### The 5 Stages of the RAG Pipeline
+1. **Document Ingestion**: Reading unstructured sources (PDFs, Markdown, Word docs, web pages) into Spring AI `Document` objects.
+2. **Text Chunking**: Splitting large documents into smaller semantic fragments (e.g., 500 tokens) with sliding window overlap (e.g., 50 tokens) to ensure ideas spanning chunk borders retain context.
+3. **Embedding Generation**: Passing each text chunk to `EmbeddingModel.embed()` to produce high-dimensional coordinates.
+4. **Vector Storage**: Inserting document text, metadata, and coordinates into a vector database (e.g., PostgreSQL `pgvector`).
+5. **Retrieval & Grounded Generation**: When a user asks a question, calculating cosine similarity, retrieving the top $K$ chunks, inserting them into a prompt envelope, and instructing the LLM to synthesize the final verified answer.
 
-## Spring AI's `QuestionAnswerAdvisor`: Instant RAG in One Line
-
-Spring AI eliminates hundreds of lines of retrieval boilerplate with the built-in **`QuestionAnswerAdvisor`**.
-
-When you attach `QuestionAnswerAdvisor` to a `ChatClient`, it automatically:
-1. Intercepts the user prompt.
-2. Queries the provided `VectorStore` using the user's text as the search query.
-3. Formats the retrieved documents into context.
-4. Appends the context to the system prompt.
-5. Dispatches the call to the model!
+### Ingesting Real Documents (PDFs & Token Splitters)
+Spring AI provides first-class readers for common enterprise file formats:
 
 ```java
-package com.genai.springai.config;
+package com.genai.springai.rag;
 
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
-import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.reader.ExtractedTextFormatter;
+import org.springframework.ai.reader.pdf.PagePdfDocumentReader;
+import org.springframework.ai.reader.pdf.config.PdfDocumentReaderConfig;
+import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.Resource;
+import org.springframework.stereotype.Service;
 
-@Configuration
-public class RagConfiguration {
+import java.util.List;
 
-    @Bean
-    public ChatClient ragChatClient(ChatClient.Builder builder, VectorStore vectorStore) {
-        // Configure QuestionAnswerAdvisor with custom similarity threshold and top-K
-        SearchRequest searchRequest = SearchRequest.builder()
-            .topK(4)
-            .similarityThreshold(0.70)
-            .build();
-
-        return builder
-            .defaultAdvisors(new QuestionAnswerAdvisor(vectorStore, searchRequest))
-            .build();
-    }
-}
-```
-
-Now, any controller injecting this `ragChatClient` has instant, fully grounded enterprise RAG capabilities:
-
-```java
-@RestController
-@RequestMapping("/api/v1/ai")
-public class CorporateKnowledgeController {
-
-    private final ChatClient ragChatClient;
-
-    public CorporateKnowledgeController(ChatClient ragChatClient) {
-        this.ragChatClient = ragChatClient;
-    }
-
-    @GetMapping("/ask")
-    public String askCorporateQuestion(@RequestParam String question) {
-        // QuestionAnswerAdvisor automatically retrieves context from pgvector!
-        return ragChatClient.prompt()
-            .user(question)
-            .call()
-            .content();
-    }
-}
-```
-
----
-
-## Anti-Hallucination Guardrails & Source Attribution
-
-The biggest danger in enterprise RAG is a **confident hallucination when the context is empty or ambiguous**.
-
-If a customer asks: *"Does your enterprise software support quantum teleportation?"* and your knowledge base has zero documents mentioning it, a vanilla LLM might say: *"Yes, we offer quantum teleportation in our Enterprise Pro plan."*
-
-To eliminate this, you must apply **strict negative constraints** in the system prompt:
-
-```xml
-<system_directive>
-You are an authoritative enterprise knowledge assistant. Answer the user's question
-using ONLY the factual information provided inside the <context> block below.
-
-STRICT RULES:
-1. Cite the document ID for every factual claim using [SOURCE: docId].
-2. If the answer cannot be found in the provided <context>, respond EXACTLY with:
-   "I do not have sufficient information in the knowledge base to answer this question."
-3. Do NOT extrapolate, speculate, or utilize outside world knowledge not contained in <context>.
-4. If different documents in <context> conflict, explicitly highlight the discrepancy.
-</system_directive>
-```
-
-When this prompt is used:
-- If relevant documents exist, the model provides an authoritative answer with verifiable citation markers `[SOURCE: DOC-SLA-01]`.
-- If no relevant documents exist, the model immediately and safely refuses to guess!
-
----
-
-## Ingesting Real Documents: PDFs, Markdown & Word
-
-Spring AI provides dedicated document readers in `org.springframework.ai.reader.*`:
-
-### 1. Ingesting PDF Files (`PagePdfDocumentReader`)
-```xml
-<dependency>
-    <groupId>org.springframework.ai</groupId>
-    <artifactId>spring-ai-pdf-document-reader</artifactId>
-</dependency>
-```
-
-```java
 @Service
-public class PdfIngestionService {
+public class EnterpriseDocumentIngestionService {
 
     private final VectorStore vectorStore;
 
-    public PdfIngestionService(VectorStore vectorStore) {
+    public EnterpriseDocumentIngestionService(VectorStore vectorStore) {
         this.vectorStore = vectorStore;
     }
 
     public void ingestPdf(Resource pdfResource) {
-        // 1. Read PDF pages
+        // 1. Read PDF pages using Spring AI's PagePdfDocumentReader
         PdfDocumentReaderConfig config = PdfDocumentReaderConfig.builder()
             .withPageExtractedTextFormatter(new ExtractedTextFormatter.Builder()
                 .withNumberOfTopPagesToSkipBeforeHeaderExtraction(0)
@@ -290,159 +168,224 @@ public class PdfIngestionService {
             .build();
 
         PagePdfDocumentReader reader = new PagePdfDocumentReader(pdfResource, config);
-        List<Document> rawPages = reader.read();
+        List<Document> pages = reader.read();
 
         // 2. Split pages into 500-token chunks with 50-token overlap
         TokenTextSplitter splitter = new TokenTextSplitter(500, 50, 5, 1000, true);
-        List<Document> chunks = splitter.split(rawPages);
+        List<Document> chunks = splitter.split(pages);
 
-        // 3. Batch insert into pgvector
+        // 3. Batch persist into vector store (pgvector)
         vectorStore.add(chunks);
-        System.out.println("Ingested " + chunks.size() + " chunks from PDF: " + pdfResource.getFilename());
+        System.out.println("Ingested " + chunks.size() + " chunks from: " + pdfResource.getFilename());
     }
 }
 ```
 
 ---
 
-## Step-by-Step Production Code Walkthrough
+## 4. Prerequisite & Supporting Concepts
 
-Let's review the companion code written for today's lesson in `Phase_06_Spring_AI/Day_39_RAG_Retrieval_Augmented_Generation/code/`:
+### Prerequisite / Supporting Concept: Context Stuffing & Context Windows
+Every LLM has a finite **context window** (the maximum number of tokens it can process in a single request).
+- "Context Stuffing" refers to taking retrieved documents and pasting them directly into the prompt string.
+- If you retrieve too many documents (e.g., `topK = 50`), you risk:
+  1. Exceeding token limits, triggering request errors.
+  2. The **"Lost in the Middle" phenomenon**: research shows LLMs pay closest attention to the beginning and end of long prompts, frequently ignoring facts buried in the middle.
+  3. Inflating API latency and cost.
+- **Rule of Thumb**: Set `topK` to between 3 and 5 chunks of 300–500 tokens for optimal reasoning.
 
-### 1. `TokenTextSplitter.java`
-Splits raw documents into overlapping windows while attaching parent metadata:
+### Prerequisite / Supporting Concept: Fine-Tuning vs. RAG
+
+| Architectural Dimension | Model Fine-Tuning | Retrieval-Augmented Generation (RAG) |
+|:---|:---|:---|
+| **Data Freshness** | Stale; frozen at training time. Updating requires retraining. | Real-time; update a database row and the AI knows it immediately. |
+| **Hallucination Rate** | Moderate to High; model generates from statistical memory. | Near Zero; model is constrained to retrieved text context. |
+| **Auditability & Citations** | Black box; cannot prove why the model said something. | 100% auditable; every claim cites `[SOURCE: docId]`. |
+| **Implementation Cost** | High ($1,000s–$100,000s in GPU clusters and ML talent). | Low; uses standard Java, Spring Boot, and PostgreSQL. |
+| **Access Control & RBAC** | Impossible; all data baked into universal model weights. | Trivial; metadata filters enforce user tenant and role boundaries. |
+
+---
+
+## 5. Advanced Depth (Intermediate → Advanced)
+
+### Anti-Hallucination Guardrails & Source Attribution
+The single greatest operational hazard in enterprise GenAI is a confident hallucination when the database contains no relevant documents.
+
+To enforce strict adherence, design a robust XML prompt envelope with **explicit negative constraints**:
 
 ```java
-for (int i = 0; i < text.length(); i += step) {
-    int end = Math.min(i + defaultChunkSize, text.length());
-    String chunkContent = text.substring(i, end);
+package com.genai.springai.rag;
 
-    Map<String, Object> chunkMeta = new HashMap<>(doc.metadata());
-    chunkMeta.put("parentDocId", doc.id());
-    chunkMeta.put("chunkStart", i);
-    chunkMeta.put("chunkEnd", end);
+import org.springframework.ai.document.Document;
 
-    result.add(new Document(doc.id() + "-chunk-" + (i / step), chunkContent, chunkMeta));
-    if (end == text.length()) break;
-}
-```
+import java.util.List;
 
-### 2. `RagContextAugmenter.java`
-Builds the XML envelope with document IDs and refusal rules:
+public final class RagContextAugmenter {
 
-```java
-public static String buildAugmentedPrompt(String userQuestion, List<Document> retrievedContext) {
-    StringBuilder sb = new StringBuilder();
-    sb.append("<system_directive>\nAnswer strictly using ONLY <context>...\n</system_directive>\n\n");
-    sb.append("<context>\n");
-    if (retrievedContext.isEmpty()) {
-        sb.append("  [NO RELEVANT DOCUMENTS FOUND IN KNOWLEDGE BASE]\n");
-    } else {
-        for (Document doc : retrievedContext) {
-            sb.append("  <document id=\"").append(doc.id()).append("\">\n    ")
-              .append(doc.content().trim()).append("\n  </document>\n\n");
+    private RagContextAugmenter() {}
+
+    public static String buildAugmentedPrompt(String userQuestion, List<Document> retrievedDocs) {
+        StringBuilder sb = new StringBuilder();
+        
+        sb.append("""
+            <system_directive>
+            You are an authoritative enterprise knowledge assistant. Answer the user's question
+            using ONLY the factual information provided inside the <context> block below.
+
+            STRICT RULES:
+            1. Cite the document ID for every factual claim using [SOURCE: docId].
+            2. If the answer cannot be found in <context>, respond EXACTLY with:
+               "I do not have sufficient information in the knowledge base to answer this question."
+            3. Do NOT extrapolate, speculate, or utilize outside world knowledge not contained in <context>.
+            4. If different documents in <context> conflict, explicitly highlight the discrepancy.
+            </system_directive>
+
+            <context>
+            """);
+
+        if (retrievedDocs == null || retrievedDocs.isEmpty()) {
+            sb.append("  [NO RELEVANT DOCUMENTS FOUND IN KNOWLEDGE BASE]\n");
+        } else {
+            for (Document doc : retrievedDocs) {
+                sb.append("  <document id=\"").append(doc.getId()).append("\">\n")
+                  .append("    ").append(doc.getText().trim()).append("\n")
+                  .append("  </document>\n");
+            }
         }
+
+        sb.append("</context>\n\n<question>\n")
+          .append(userQuestion)
+          .append("\n</question>");
+
+        return sb.toString();
     }
-    sb.append("</context>\n\n<question>\n").append(userQuestion).append("\n</question>");
-    return sb.toString();
 }
 ```
 
-### 3. `RagPipelineService.java`
-Orchestrates the entire flow from vector search to response generation:
+### Complete End-to-End Orchestration Service
+Here is how you orchestrate retrieval, prompt augmentation, and generation into a clean production service:
 
 ```java
-public RagAnswer answerQuestion(String question, int topK, double threshold) {
-    SearchRequest request = SearchRequest.builder()
+package com.genai.springai.rag;
+
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+public class EnterpriseRagService {
+
+    public record RagAnswer(String text, List<Document> citedSources) {}
+
+    private final ChatClient chatClient;
+    private final VectorStore vectorStore;
+
+    public EnterpriseRagService(ChatClient.Builder builder, VectorStore vectorStore) {
+        this.chatClient = builder.build();
+        this.vectorStore = vectorStore;
+    }
+
+    public RagAnswer answerQuestion(String question, int topK, double threshold) {
+        // 1. Retrieve top matching documents above similarity threshold
+        SearchRequest request = SearchRequest.builder()
             .query(question)
             .topK(topK)
             .similarityThreshold(threshold)
             .build();
 
-    List<Document> retrievedSources = vectorStore.similaritySearch(request);
-    String augmentedPrompt = RagContextAugmenter.buildAugmentedPrompt(question, retrievedSources);
-    String rawAnswer = chatClient.prompt().user(augmentedPrompt).call().content();
+        List<Document> retrievedDocs = vectorStore.similaritySearch(request);
 
-    return new RagAnswer(rawAnswer, retrievedSources);
+        // 2. Build anti-hallucination XML prompt envelope
+        String augmentedPrompt = RagContextAugmenter.buildAugmentedPrompt(question, retrievedDocs);
+
+        // 3. Call LLM with grounded prompt
+        String answer = chatClient.prompt()
+            .user(augmentedPrompt)
+            .call()
+            .content();
+
+        return new RagAnswer(answer, retrievedDocs);
+    }
 }
 ```
 
-### 4. Running the Complete Verification Suite
-Compile and execute:
+### Common Anti-Patterns & Production Traps
 
-```bash
-javac -d out Phase_06_Spring_AI/Day_32_Introduction_to_Spring_AI/code/*.java Phase_06_Spring_AI/Day_33_ChatClient_Fluent_Conversational_API/code/*.java Phase_06_Spring_AI/Day_37_Embedding_Models_Text_to_Vectors/code/*.java Phase_06_Spring_AI/Day_38_Vector_Stores_Semantic_Memory/code/*.java Phase_06_Spring_AI/Day_39_RAG_Retrieval_Augmented_Generation/code/*.java
-java -cp out com.genai.springai.rag.RagDemo
-```
-
-Output:
-```text
-================================================================================
-  DAY 39: RETRIEVAL-AUGMENTED GENERATION (RAG) PIPELINE DEMONSTRATION           
-================================================================================
-
-[TEST 1] Ingesting & Chunking Proprietary Corporate Documents...
-  ✅ Ingested and indexed document chunks into PostgreSQL pgvector.
-
-[TEST 2] Asking Grounded Question: "What is the SLA uptime and P0 response time?"
---- Retrieved Sources (2) ---
-  * Source [DOC-SLA-01-chunk-1]: ancial credit compensation applies if monthly uptime falls below 99.9%....
-  * Source [DOC-BENEFITS-01-chunk-0]: Acme Corporation Health & Welfare Benefits: Annual open enrollment begins o...
-
---- Generated Grounded Answer ---
-[Ollama - Llama 3.2 (Local Engine)] Processed query: '<system_directive>
-You are an authoritative enterprise knowledge assistant. Answer the user's question
-using ONLY the factual information provided inside the <context> block below.
-RULES:
-1. Cite the document ID for every claim using [SOURCE: docId].
-2. If the answer cannot be found in <context>, respond EXACTLY with:
-   "I do not have sufficient information in the knowledge base to answer this question."
-3. Do NOT make up facts or extrapolate beyond the provided text.
-</system_directive>
-
-<context>
-  <document id="DOC-SLA-01-chunk-1">
-    ancial credit compensation applies if monthly uptime falls below 99.9%.
-  </document>
-  <document id="DOC-BENEFITS-01-chunk-0">
-    Acme Corporation Health & Welfare Benefits: Annual open enrollment begins on November 1st and closes on November 15th at midnight EST. Employees must submit election changes through the internal Workday portal. Dependents can be added during this window without qualifying life event documentation.
-  </document>
-</context>
-
-<question>
-What is the SLA uptime and P0 response time?
-</question>'
-
-[TEST 3] Asking Ungrounded Question: "How do I bake french croissants?"
---- Retrieved Sources (0) ---
---- Generated Guardrail Response ---
-[Ollama - Llama 3.2 (Local Engine)] Processed query: '<system_directive>
-...
-RULES:
-...
-2. If the answer cannot be found in <context>, respond EXACTLY with:
-   "I do not have sufficient information in the knowledge base to answer this question."
-</system_directive>
-
-<context>
-  [NO RELEVANT DOCUMENTS FOUND IN KNOWLEDGE BASE]
-</context>
-
-<question>
-How do I bake french croissants?
-</question>'
-
-================================================================================
-  RAG RETRIEVAL & ANTI-HALLUCINATION GUARDRAILS VALIDATED SUCCESSFULLY!        
-================================================================================
-```
+| Anti-Pattern | Why It Fails in Production | Correct Architectural Solution |
+|:---|:---|:---|
+| **No Similarity Threshold** | When a user asks an out-of-domain question ("What is the capital of Mars?"), `similaritySearch` returns the closest 3 documents regardless of relevance score (e.g. 0.12 similarity), confusing the LLM. | Always configure `.similarityThreshold(0.70)` to prune weak matches before prompting. |
+| **Naive String Truncation** | Splitting text on arbitrary character lengths cuts words and sentences in half, losing semantic meaning. | Use `TokenTextSplitter` with token-aware sliding window overlap. |
+| **Ignoring Chunk Metadata** | Storing text without document IDs, titles, or source URLs prevents audit citation extraction in client UI. | Attach `sourceUrl`, `parentDocId`, and `pageNumber` to every chunk's metadata map. |
 
 ---
 
-## Hands-On Exercises (With Complete Solutions)
+## 6. Quick Recap
+- **RAG (Retrieval-Augmented Generation)** grounds LLM responses in verified enterprise data by retrieving relevant chunks and injecting them into the prompt.
+- RAG eliminates **hallucinations**, bypasses static **knowledge cutoff dates**, and preserves **data privacy** without costly model retraining.
+- The **5-Stage Pipeline**: Read documents $\rightarrow$ split into overlapping token chunks $\rightarrow$ generate embeddings $\rightarrow$ store in vector database $\rightarrow$ retrieve & generate.
+- Spring AI's **`QuestionAnswerAdvisor`** encapsulates the entire RAG retrieval-and-stuffing lifecycle into a single line of Java configuration.
+- Always enforce **strict negative prompt guardrails** requiring citations and instructing the LLM to admit when information is missing.
 
-### Exercise 1: Multi-Document Citation Extractor
-**Problem Statement:**  
+---
+
+## 7. Self-Check Questions & Practice Exercises
+
+### 5-Question Self-Check Quiz
+
+#### Question 1
+What does the acronym RAG stand for in Artificial Intelligence?
+- A) Relational Access Gateway
+- B) Retrieval-Augmented Generation
+- C) Recursive Algorithm Generator
+- D) Random Array Grouping
+
+#### Question 2
+Why is RAG generally preferred over Model Fine-Tuning for enterprise documentation and internal policies?
+- A) Fine-tuning is free, while RAG requires millions of dollars in GPU cloud spend.
+- B) RAG grounds the model with real-time, verified documents without expensive GPU training, keeps confidential data inside your database, and provides audit citations for every fact.
+- C) Fine-tuning only works on macOS.
+- D) RAG eliminates the need for Java.
+
+#### Question 3
+What is the role of Spring AI's `QuestionAnswerAdvisor`?
+- A) It deletes inactive user accounts from the database.
+- B) It automatically intercepts `ChatClient` prompts, queries the configured `VectorStore`, injects retrieved document snippets into the prompt context, and forwards the grounded request to the LLM.
+- C) It converts SQL databases to MongoDB.
+- D) It formats Java source code.
+
+#### Question 4
+How does an Anti-Hallucination Guardrail in a RAG prompt ensure user trust?
+- A) By encrypting the network response.
+- B) By explicitly instructing the model to reply *"I do not have sufficient information"* if the answer is absent from the provided `<context>`, preventing the model from inventing plausible lies.
+- C) By forcing the model to speak Latin.
+- D) By disabling temperature.
+
+#### Question 5
+In a RAG pipeline, why is text chunking with overlap (e.g. 500 tokens with 50-token overlap) necessary?
+- A) To make document files larger on disk.
+- B) To fit within the embedding model's context window and ensure sentences cut across boundary edges maintain contextual and semantic continuity.
+- C) Overlap is an anti-pattern and should never be used.
+- D) It enables multithreading in Python.
+
+---
+
+### Quiz Answers & Explanations
+1. **B**: RAG stands for Retrieval-Augmented Generation.
+2. **B**: RAG separates reasoning capabilities (the foundation model) from dynamic knowledge retrieval (PostgreSQL `pgvector`), allowing instant updates without retraining.
+3. **B**: `QuestionAnswerAdvisor` encapsulates the full online retrieval-and-stuffing pipeline into a reusable Spring AI advisor.
+4. **B**: Strict negative refusal instructions force the model to admit lack of knowledge rather than hallucinating false facts.
+5. **B**: Sliding window overlap ensures that ideas or sentences split across chunk boundaries do not lose their semantic context during embedding.
+
+---
+
+### Hands-On Practice Exercises
+
+#### Exercise 1: Multi-Document Citation Extractor
+**Problem Statement**:  
 When an LLM responds to a RAG query, it embeds `[SOURCE: docId]` markers in its text.  
 Write a Java utility `CitationExtractor.extractCitations(String responseText)` that uses regular expressions to find all unique cited document IDs and returns them as a `Set<String>`.
 
@@ -478,39 +421,9 @@ public final class CitationExtractor {
 ```
 </details>
 
----
-
-### Exercise 2: RAG Response DTO with Verification Confidence
-**Problem Statement:**  
-Create a record `GroundedResponse(String answer, Set<String> citations, boolean isRefusal, int contextDocsRetrieved)`.  
-Write a method in your RAG controller that checks if the answer contains the refusal phrase *"I do not have sufficient information"*, sets `isRefusal = true`, and returns the DTO to the client.
-
-<details>
-<summary>👉 View Solution</summary>
-
-```java
-public record GroundedResponse(
-    String answer,
-    Set<String> citations,
-    boolean isRefusal,
-    int contextDocsRetrieved
-) {}
-
-public GroundedResponse evaluateGroundedResponse(RagPipelineService.RagAnswer rawRag) {
-    String text = rawRag.answer();
-    boolean isRefusal = text.contains("I do not have sufficient information");
-    Set<String> citations = CitationExtractor.extractCitations(text);
-
-    return new GroundedResponse(text, citations, isRefusal, rawRag.citedSources().size());
-}
-```
-</details>
-
----
-
-### Exercise 3: Dynamic Threshold Fallback Advisor
-**Problem Statement:**  
-Write a custom Spring AI Advisor `AdaptiveThresholdRagAdvisor` that first attempts retrieval with a strict threshold (`similarityThreshold = 0.80`). If zero documents are retrieved, it automatically relaxes the threshold to `0.65` and tries one more time before proceeding to prompt generation.
+#### Exercise 2: Adaptive Threshold Fallback Advisor
+**Problem Statement**:  
+Write a custom Spring AI Advisor `AdaptiveThresholdRagAdvisor` that first attempts retrieval with a strict similarity threshold (`0.80`). If zero documents are retrieved, it automatically relaxes the threshold to `0.65` and tries one more time before proceeding to prompt generation.
 
 <details>
 <summary>👉 View Solution</summary>
@@ -549,7 +462,7 @@ public class AdaptiveThresholdRagAdvisor implements CallAroundAdvisor {
             );
         }
 
-        // 3. Inject context into request
+        // 3. Inject context into prompt
         String augmented = RagContextAugmenter.buildAugmentedPrompt(query, docs);
         AdvisedRequest augmentedRequest = AdvisedRequest.from(request)
             .withUserText(augmented)
@@ -573,59 +486,4 @@ public class AdaptiveThresholdRagAdvisor implements CallAroundAdvisor {
 
 ---
 
-## 5-Question Self-Check Quiz
-
-#### 1. What does the acronym RAG stand for in Artificial Intelligence?
-- A) Relational Access Gateway
-- B) Retrieval-Augmented Generation
-- C) Recursive Algorithm Generator
-- D) Random Array Grouping
-
-#### 2. Why is RAG generally preferred over Model Fine-Tuning for enterprise documentation and internal facts?
-- A) Fine-tuning is free, while RAG costs $100 per query.
-- B) RAG grounds the model with real-time, verified documents without expensive GPU training, keeps confidential data inside your database, and provides audit citations for every fact.
-- C) Fine-tuning only works on Apple MacBooks.
-- D) RAG eliminates the need for Java.
-
-#### 3. What is the role of Spring AI's `QuestionAnswerAdvisor`?
-- A) It deletes inactive user accounts.
-- B) It automatically intercepts `ChatClient` prompts, queries the configured `VectorStore`, injects retrieved document snippets into the prompt context, and forwards the grounded request to the LLM.
-- C) It converts SQL databases to MongoDB.
-- D) It compiles C++ code.
-
-#### 4. How does an Anti-Hallucination Guardrail in a RAG prompt ensure user trust?
-- A) By encrypting the response.
-- B) By explicitly instructing the model to reply *"I do not have sufficient information"* if the answer is absent from the provided `<context>`, preventing the model from inventing plausible lies.
-- C) By forcing the model to speak Latin.
-- D) By disabling temperature.
-
-#### 5. In a RAG pipeline, why is text chunking with overlap (e.g. 500 chars chunk, 50 chars overlap) necessary?
-- A) To make the file size larger.
-- B) To fit within the embedding model's context window and ensure sentences cut across boundary edges maintain contextual and semantic continuity.
-- C) Overlap is an anti-pattern and should never be used.
-- D) It enables multithreading in Python.
-
----
-
-### Quiz Answers & Explanations
-
-1. **B is correct**: RAG stands for Retrieval-Augmented Generation.
-2. **B is correct**: RAG separates static reasoning capabilities (the foundation model) from dynamic knowledge retrieval (PostgreSQL pgvector), allowing instant updates without retraining.
-3. **B is correct**: `QuestionAnswerAdvisor` encapsulates the full online retrieval-and-stuffing pipeline into a reusable Spring AI advisor.
-4. **B is correct**: Strict negative refusal instructions force the model to admit lack of knowledge rather than hallucinating false facts.
-5. **B is correct**: Sliding window overlap ensures that ideas or sentences split across chunk boundaries do not lose their semantic context during embedding.
-
----
-
-## Day 39 Summary & Next Steps
-
-Give yourself a standing ovation! Today was one of the biggest milestones in your journey to becoming an enterprise AI engineer:
-1. **Conquered RAG**: You turned a confusing buzzword into a simple, elegant idea: giving the AI an open-book exam using your company's real data.
-2. **Eliminated Hallucinations**: You built strict prompt guardrails so the AI never makes up fake answers.
-3. **Mastered the 5-Stage Pipeline**: Reading, chunking, embedding, vector storage, and grounded generation.
-4. **Spring AI Magic**: You saw how `QuestionAnswerAdvisor` turns dozens of lines of manual search and prompt-stuffing into a clean, single line of Java!
-
-You can now build enterprise question-answering systems that answer questions based on real PDFs, HR policies, and database documents.
-
-👉 **Tomorrow in Day 40: Advanced RAG — Query Transformation & Re-Ranking** — What happens when a user types a messy, vague, or misspelled question? Tomorrow, we'll learn how to clean up user queries and re-rank search results like Google does so our RAG system never misses the mark! See you tomorrow! 🎯
-
+[← Previous: Day 38 - Vector Stores](../Day_38_Vector_Stores_Semantic_Memory/Day_38_Vector_Stores_Semantic_Memory.md) | [Next: Day 40 - Advanced RAG →](../Day_40_Advanced_RAG_Query_ReRanking/Day_40_Advanced_RAG_Query_ReRanking.md)

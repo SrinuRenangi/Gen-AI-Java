@@ -1,98 +1,226 @@
 # Day 40: Advanced RAG — Query Transformation & Re-Ranking
-## Hypothetical Document Embeddings (HyDE), Multi-Query Expansion, Reciprocal Rank Fusion & Cross-Encoders
 
-| Previous Day | Course Hub | Next Day |
-|:---|:---:|---:|
-| [◀ Day 39: RAG — Retrieval-Augmented Generation](../Day_39_RAG_Retrieval_Augmented_Generation/Day_39_RAG_Retrieval_Augmented_Generation.md) | [All 60 Days Overview](../../README.md) | [Day 41: Tool Calling — LLMs That Execute Java Methods ▶](../Day_41_Tool_Calling_LLMs_Execute_Java/Day_41_Tool_Calling_LLMs_Execute_Java.md) |
+[← Previous: Day 39 - RAG Pipeline](../Day_39_RAG_Retrieval_Augmented_Generation/Day_39_RAG_Retrieval_Augmented_Generation.md) | [Next: Day 41 - Tool Calling →](../Day_41_Tool_Calling_LLMs_Execute_Java/Day_41_Tool_Calling_LLMs_Execute_Java.md)
 
 ---
 
-## What Will You Learn Today?
-
-Hey friend! Welcome to Day 40. Yesterday, we built our very first working RAG pipeline. Today, we're going to take that pipeline from a "neat weekend project" to a **rock-solid, Google-grade search engine**!
-
-Here's a hard truth that every senior engineer learns in production: **real human users do not ask perfect questions**.
-- A user won't type: *"What is the step-by-step procedure for configuring 504 gateway timeout thresholds in Nginx?"*
-- Instead, they type: *"how fix 504?"* or *"server stuck"*.
-
-If your RAG pipeline only works when users ask perfectly phrased, academic questions, your users will get frustrated and conclude that "the AI is dumb." In fact, standard "naive" RAG systems fail to find the right document up to 40% of the time!
-
-Today, you and I will master **Advanced RAG** to solve these real-world challenges:
-- **Solving Query-Document Mismatches (HyDE)**: A genius technique where we ask a fast AI to write a 2-sentence fake answer first, and then search our database using that answer!
-- **Multi-Query Expansion**: Generating 3 different ways to ask the user's question and searching all 3 simultaneously using Java 21 Virtual Threads.
-- **Reciprocal Rank Fusion (RRF)**: Merging multiple search result lists into one clean, fair leaderboard.
-- **The "Lost in the Middle" Fix**: Why AI models forget facts placed in the middle of long prompts and how to organize our context so the AI never misses key facts.
-- **Two-Stage Re-Ranking**: Combining fast vector search (getting the top 25 candidates) with a precision Cross-Encoder (placing the #1 best match right at the top).
+## 1. Topic Overview
+Advanced RAG enhances standard semantic retrieval pipelines with query transformation techniques (such as Hypothetical Document Embeddings and Multi-Query Expansion) and two-stage cross-encoder re-ranking algorithms. In enterprise production, these patterns overcome real-world user search query imperfections, bridge query-document semantic asymmetry, and achieve up to 99% retrieval precision.
 
 ---
 
-> 💡 **New Word Alert: Advanced RAG Terms Demystified**
->
-> 1. **Query Transformation**: Rewriting or polishing a user's messy question before searching (e.g., turning "vpn error 800" into a complete search query about Windows VPN configuration).
-> 2. **HyDE (Hypothetical Document Embeddings)**: A clever trick! Instead of searching with a 4-word question, we ask the AI to invent a 2-sentence hypothetical answer, and we search using *that*. Because answers look like answers, our vector database finds the true document with incredible accuracy!
-> 3. **Lost in the Middle**: A proven psychological quirk of both humans and AI models—when given 10 pages of text, they remember the beginning and the end, but easily overlook details buried in the middle. We fix this by putting the most crucial documents at the very top and bottom!
-> 4. **Re-Ranking (Cross-Encoder)**: Think of this like a two-round interview. Round 1 (Fast Vector Search) quickly filters 100,000 resumes down to the top 20 candidates. Round 2 (Cross-Encoder Re-Ranking) interviews those 20 deeply to choose the undisputed #1 winner!
-> 5. **Reciprocal Rank Fusion (RRF)**: A fair voting formula that combines results from multiple searches so the best overall documents rise to the top.
+## 2. Basic Foundations (True Zero)
 
----
+### The Production Reality: Naive RAG Fails Real Users
+In basic RAG, we assume users ask well-formed, complete questions: *"What are the operational procedures for configuring Nginx 504 gateway timeout thresholds?"*
 
-## 🧭 The Plain English Bridge: Advanced RAG Demystified
+In real life, users type: *"how fix 504?"* or *"server stuck"*.
+- A 3-word query vector looks completely different geometrically from a 400-word declarative engineering document.
+- Standard cosine similarity often ranks irrelevant documents higher simply because they contain repeated keywords.
+- Standard naive RAG fails to retrieve the correct document up to 40% of the time in production!
 
-| Advanced RAG Technique | What Problem It Solves | Everyday Human Analogy |
-| :--- | :--- | :--- |
-| **HyDE** | The user asked a 3-word question, but the manual is a 500-word paragraph. | A sketch artist drawing a suspect's face from a vague description so police can search photos. |
-| **Multi-Query** | The user used slang or incomplete phrasing. | Searching Google for "car won't turn over", "engine clicking", and "dead battery symptoms" all at once. |
-| **Two-Stage Re-Ranking** | Vector search is super fast but sometimes mixes up nuance. | An HR recruiter skimming 500 resumes in 10 minutes, then hiring managers spending 30 minutes reading the top 5. |
-| **Context Re-Ordering** | LLMs ignore the middle of long text blocks ("Lost in the Middle"). | Putting your most impressive accomplishments at the very top and bottom of your resume where eyes land first. |
+### Relatable Physical Analogy: The Detective, The Sketch Artist & The Forensic Expert
+Imagine investigating a jewelry store theft:
+- **Naive Search (Standard RAG)**: A witness says: *"I saw a tall guy in a dark coat."* The detective types "tall guy dark coat" into the police database. Result: 20,000 irrelevant matches; the thief is never found.
+- **Advanced Search (HyDE + Multi-Query + Re-Ranking)**:
+  1. **The Sketch Artist (HyDE)**: An artist creates a detailed visual composite portrait based on the description. Police search mugshots using the portrait—because faces match faces!
+  2. **Multi-Angle Search (Multi-Query)**: Detectives simultaneously check getaway vehicle registrations, pawn shops, and security footage.
+  3. **The Forensic Expert (Cross-Encoder Re-Ranking)**: Out of 20 potential suspects, a forensic expert examines fingerprints and DNA side-by-side, identifying the true culprit at #1 with 99.9% certainty.
 
----
+### Minimal Beginner-Friendly Working Code: Multi-Query Generation
+Here is how to transform a vague user question into multiple search perspectives in Spring AI:
 
-## Real-World Analogy: The Detective, The Sketch Artist & The Forensic Expert
+```java
+package com.genai.springai.advancedrag;
 
-Imagine investigating a high-profile art museum theft:
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.stereotype.Component;
 
-```
-+---------------------------------------------------------------------------------------------------+
-|                                  THE MULTI-STAGE INVESTIGATION                                    |
-|                                                                                                   |
-|  SCENARIO 1: Naive Investigation (Naive RAG)                                                      |
-|  - A witness says: "I saw a tall guy in a dark coat running near the museum."                     |
-|  - The detective searches the city criminal database with the exact text: "tall guy dark coat".   |
-|  - Result: Zero hits or 10,000 irrelevant matches. The criminal is never found!                  |
-|                                                                                                   |
-|  SCENARIO 2: Advanced Investigation (HyDE + Multi-Query + Cross-Encoder)                          |
-|  - 1. The Sketch Artist (HyDE):                                                                   |
-|     Based on the vague description, an artist renders a detailed composite face portrait.         |
-|     Instead of searching with words, the police run facial recognition using the rendered face!   |
-|  - 2. Multi-Angle Inquiry (Multi-Query Expansion):                                                |
-|     Detectives search 3 angles simultaneously: stolen vehicle registrations, fencing rings, and   |
-|     museum security logs.                                                                         |
-|  - 3. The Forensic Expert (Cross-Encoder Re-Ranking):                                             |
-|     From 50 initial suspects, a forensic expert examines fingerprints side-by-side with crime     |
-|     scene glass, ranking the true culprit at #1 with 99.9% certainty!                             |
-+---------------------------------------------------------------------------------------------------+
+import java.util.List;
+
+@Component
+public class SimpleQueryExpanderRunner implements CommandLineRunner {
+
+    private final ChatClient chatClient;
+
+    public SimpleQueryExpanderRunner(ChatClient.Builder builder) {
+        this.chatClient = builder.build();
+    }
+
+    @Override
+    public void run(String... args) {
+        String rawUserQuery = "how fix 504?";
+
+        // Ask the LLM to expand the query into 3 distinct, professional search variations
+        List<String> expandedQueries = chatClient.prompt()
+            .system("""
+                You are an enterprise search query optimizer. Given a user search term,
+                generate 3 distinct, detailed search query variations covering synonyms,
+                root causes, and technical specifications.
+                """)
+            .user(rawUserQuery)
+            .call()
+            .entity(new ParameterizedTypeReference<List<String>>() {});
+
+        System.out.println("Original Query: " + rawUserQuery);
+        System.out.println("Expanded Variations for Parallel Vector Search:");
+        expandedQueries.forEach(q -> System.out.println(" -> " + q));
+    }
+}
 ```
 
+### Line-by-Line Walkthrough
+1. **`private final ChatClient chatClient;`**: Injects the fluent Spring AI conversational client.
+2. **`chatClient.prompt().system(...)`**: Sets system instructions directing the model to act as a search query optimizer.
+3. **`new ParameterizedTypeReference<List<String>>() {}`**: Spring AI automatically prompts the model with a JSON schema and converts the response into a strongly-typed Java `List<String>`.
+4. **`expandedQueries.forEach(...)`**: Outputs 3 enriched, professional query strings (e.g., "HTTP 504 Gateway Timeout root causes", "Nginx proxy read timeout configuration", "Downstream microservice response latency") ready for parallel retrieval.
+
 ---
 
-## Why Naive RAG Fails in Enterprise Production
-
-### 1. The Query-Document Asymmetry Problem
-When an embedding model calculates a vector, it projects the textual structure into geometric space:
-- **User Query**: 5 words, informal, question format (*"Why is my Kafka consumer lagging?"*).
-- **Knowledge Base Chunk**: 400 words, formal, declarative format (*"Configuring `max.poll.interval.ms` and partition rebalancing in high-throughput consumers..."*).
-
-Because the question vector looks fundamentally different from the answer vector, standard cosine similarity often ranks irrelevant documents higher simply because they contain the word *"Kafka"*.
-
-### 2. The "Lost in the Middle" Phenomenon
-Research by Stanford University proved that Large Language Models exhibit a strong **U-shaped attention curve**:
+## 3. Core Concept Walkthrough (Basic → Intermediate)
 
 ```
-                         THE "LOST IN THE MIDDLE" ATTENTION BIAS
-                         
- Attention / Recall %
++-------------------------------------------------------------------------------+
+|                       ADVANCED RAG PIPELINE WORKFLOW                          |
++-------------------------------------------------------------------------------+
+|                                                                               |
+|  Raw User Query: "how fix 504?"                                               |
+|         |                                                                     |
+|         +-----------------------+-----------------------+                     |
+|         |                       |                       |                     |
+|         v                       v                       v                     |
+|    [ HyDE Engine ]     [ Multi-Query Expander ]  [ Direct Query ]             |
+|   Generates 2-sentence    Rewrites into 3-5      Raw user string              |
+|   hypothetical passage     distinct queries                                   |
+|         |                       |                       |                     |
+|         v                       v                       v                     |
+|  [ Vector Search ]       [ Vector Search ]       [ Vector Search ]            |
+|    (HNSW pgvector)        (HNSW pgvector)         (HNSW pgvector)             |
+|         \                       |                      /                      |
+|          +----------------------+---------------------+                       |
+|                                 |                                             |
+|                                 v                                             |
+|                   [ Reciprocal Rank Fusion (RRF) ]                            |
+|                 Combines & deduplicates candidates                            |
+|                                 |                                             |
+|                                 v (Top 25 Candidates)                         |
+|                 [ Cross-Encoder Deep Re-Ranking ]                             |
+|               Full transformer attention reranking                            |
+|                                 |                                             |
+|                                 v (Top 3 Precision Docs)                      |
+|               [ Context Re-Ordering (U-Curve Fix) ]                           |
+|               Best docs placed at extreme top & bottom                        |
+|                                 |                                             |
+|                                 v                                             |
+|                 [ Grounded Answer Generation ]                                |
++-------------------------------------------------------------------------------+
+```
+
+### Technique 1: Hypothetical Document Embeddings (HyDE)
+HyDE bridges **Query-Document Asymmetry**:
+- Instead of embedding the user's brief question, we instruct a lightweight LLM (such as Llama 3.2 or GPT-4o-mini) to generate a hypothetical answer passage.
+- We then embed that hypothetical answer into vector space!
+- Even if the hypothetical text contains small inaccuracies, its semantic tone, vocabulary, and paragraph structure match real documentation far better than a 3-word question, boosting cosine similarity dramatically.
+
+```java
+package com.genai.springai.advancedrag;
+
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.stereotype.Service;
+
+@Service
+public class HydeService {
+
+    private final ChatClient chatClient;
+
+    public HydeService(ChatClient.Builder builder) {
+        this.chatClient = builder.build();
+    }
+
+    public String generateHypotheticalPassage(String userQuery) {
+        return chatClient.prompt()
+            .system("You are a technical knowledge synthesizer. Write a concise 2-sentence factual passage directly answering the user query. Do not include conversational remarks.")
+            .user(userQuery)
+            .call()
+            .content();
+    }
+}
+```
+
+### Technique 2: Reciprocal Rank Fusion (RRF)
+When multiple queries run in parallel, each produces its own ranked document list. How do you merge them into a single fair leaderboard without score calibration issues?
+
+Use the mathematical **Reciprocal Rank Fusion (RRF)** formula:
+
+$$RRF\_Score(d) = \sum_{m \in M} \frac{1}{k + rank(d, m)}$$
+
+- $M$ is the set of search queries.
+- $rank(d, m)$ is the 1-indexed position of document $d$ in the result list for query $m$.
+- $k$ is a constant (standard default: $k = 60$) that prevents high-ranking documents from totally dominating.
+
+```java
+package com.genai.springai.advancedrag;
+
+import com.genai.springai.vectorstore.Document;
+
+import java.util.*;
+
+public final class ReciprocalRankFusion {
+
+    private static final int DEFAULT_K = 60;
+
+    public record RankedDocument(Document document, double rrfScore) {}
+
+    private ReciprocalRankFusion() {}
+
+    public static List<RankedDocument> fuse(List<List<Document>> rankedLists, int topK) {
+        Map<String, Document> docLookup = new HashMap<>();
+        Map<String, Double> scoreMap = new HashMap<>();
+
+        for (List<Document> list : rankedLists) {
+            for (int rank = 0; rank < list.size(); rank++) {
+                Document doc = list.get(rank);
+                docLookup.put(doc.getId(), doc);
+
+                double currentScore = scoreMap.getOrDefault(doc.getId(), 0.0);
+                double contribution = 1.0 / (DEFAULT_K + (rank + 1));
+                scoreMap.put(doc.getId(), currentScore + contribution);
+            }
+        }
+
+        return scoreMap.entrySet().stream()
+                .map(e -> new RankedDocument(docLookup.get(e.getKey()), e.getValue()))
+                .sorted(Comparator.comparingDouble(RankedDocument::rrfScore).reversed())
+                .limit(topK)
+                .toList();
+    }
+}
+```
+
+### Technique 3: Two-Stage Retrieval (Bi-Encoder + Cross-Encoder)
+1. **Stage 1 (Bi-Encoder / Vector Store)**:
+   - Queries and documents are embedded separately into vectors.
+   - Calculates fast dot products via HNSW index in PostgreSQL `pgvector` (< 5ms).
+   - Retrieves a wide candidate net of the top 25 chunks.
+2. **Stage 2 (Cross-Encoder Re-Ranking)**:
+   - Feeds `[Query + Document]` together through a deep cross-attention transformer.
+   - Every word in the query attends to every word in the document, catching exact logical nuances.
+   - Re-ranks the 25 candidates and selects the top 3–5 highest-precision chunks.
+
+---
+
+## 4. Prerequisite & Supporting Concepts
+
+### Prerequisite / Supporting Concept: The "Lost in the Middle" Attention Bias
+Empirical research demonstrates that LLMs exhibit a pronounced **U-shaped attention curve**:
+- When given 10 retrieved chunks in a prompt, the LLM pays high attention to chunks 1 and 2 (at the beginning) and chunks 9 and 10 (at the end).
+- Chunks placed in the middle (positions 4–7) suffer up to a **50% drop in recall accuracy**!
+
+```
+ Attention %
       100% │  ██                                                    ██
-           │  ██                                                    ██
            │  ██                                                    ██
        50% │  ██                                                    ██
            │  ████        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░        ██████
@@ -102,298 +230,28 @@ Research by Stanford University proved that Large Language Models exhibit a stro
              (Top)                    (Middle)                    (Bottom)
 ```
 
-If the exact paragraph needed to answer the user's question is placed at position 5 or 6 among 10 documents, the LLM will often **completely miss it** and claim it does not know the answer!
+### Prerequisite / Supporting Concept: Context Re-Ordering Algorithm
+To counteract this bias, we sort documents so the highest-scoring items sit at the **extremes**:
+- Position 1: Rank #1 (Top)
+- Position Last: Rank #2 (Bottom)
+- Position 2: Rank #3
+- Position (Last - 1): Rank #4
+- Middle: Lowest ranked candidates
 
 ---
 
-## Advanced Technique 1: Hypothetical Document Embeddings (HyDE)
+## 5. Advanced Depth (Intermediate → Advanced)
 
-**HyDE** was created by researchers to completely eliminate Query-Document Asymmetry.
-
-### How HyDE Works:
-Instead of embedding the user's question, we ask a fast, lightweight LLM to **hallucinate a hypothetical answer** to the question first. We then embed the hypothetical answer!
-
-```
-                               HYDE EXECUTION WORKFLOW
-                               
- User Query: "how to fix 504?"
-          │
-          ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│ Fast LLM (Llama 3.2 / GPT-4o-mini)                                     │
-│ Prompt: "Write a short passage that answers: 'how to fix 504?'"        │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                                    ▼ Returns Hypothetical Answer:
- "In distributed systems, HTTP 504 Gateway Timeout occurs when reverse
-  proxies fail to receive timely responses. Resolution involves increasing
-  proxy read timeouts in Nginx or optimizing downstream slow SQL queries..."
-                                    │
-                                    ▼
-┌───────────────────────────────────┴────────────────────────────────────┐
-│ EmbeddingModel (nomic-embed-text)                                      │
-│ Generates vector for the HYPOTHETICAL ANSWER, NOT the short query!     │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                                    ▼
-┌───────────────────────────────────┴────────────────────────────────────┐
-│ PostgreSQL pgvector Search                                             │
-│ Vector(Hypothetical Answer) <=> Vector(Real Enterprise Documentation)  │
-│                                                                        │
-│ ✅ COSINE SIMILARITY SPIKES FROM 0.42 TO 0.88!                         │
-│ Retrieves the exact real documentation because answers look like answers!│
-└────────────────────────────────────────────────────────────────────────┘
-```
-
-Even if the hypothetical passage contains small factual inaccuracies, its **semantic tone, vocabulary, and paragraph structure** match real documentation infinitely better than a 4-word question!
-
----
-
-## Advanced Technique 2: Multi-Query Expansion & Reciprocal Rank Fusion (RRF)
-
-A single user query only represents one narrow perspective.  
-**Multi-Query Expansion** asks the LLM to rewrite the user's prompt into 3 to 5 distinct queries capturing synonyms, technical terms, and root causes:
-
-```
- User Query: "how to fix 504?"
-          │
-          ├── Query 1: "how to fix 504?"
-          ├── Query 2: "Root causes and troubleshooting steps for HTTP 504 gateway timeout"
-          └── Query 3: "Configuring reverse proxy timeouts in Nginx and AWS ALB"
-```
-
-Each query is dispatched in parallel using Java 21 **Virtual Threads** against `PgVectorStore`.
-
-### Merging Multiple Rankings with Reciprocal Rank Fusion (RRF)
-Different queries produce different ranked lists. How do you merge them into a single list without score calibration issues?
-
-You use the mathematical **Reciprocal Rank Fusion (RRF)** algorithm:
-
-$$RRF\_Score(d) = \sum_{m \in M} \frac{1}{k + rank(d, m)}$$
-
-where:
-- $M$ is the set of all search queries.
-- $rank(d, m)$ is the position of document $d$ in the result list for query $m$ (1-indexed).
-- $k$ is a smoothing constant (standard: $k = 60$).
-
-```
- Document     Rank in Q1    Rank in Q2    Rank in Q3    RRF Calculation              Total Score
-──────────────────────────────────────────────────────────────────────────────────────────────────
- DOC-NET-01   #1            #1            #2            1/(60+1) + 1/(60+1) + 1/(60+2) = 0.0489 (WINNER!)
- DOC-DB-01    #3            #4            #1            1/(60+3) + 1/(60+4) + 1/(60+1) = 0.0478
- DOC-NET-02   #2            -             -             1/(60+2) + 0 + 0               = 0.0161
-```
-
-Documents that appear consistently near the top across multiple diverse queries receive the highest cumulative RRF score!
-
----
-
-## Advanced Technique 3: Two-Stage Retrieval with Cross-Encoder Re-Ranking
-
-To achieve 99%+ precision, production enterprise AI systems use a **Two-Stage Retrieval Pipeline**:
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│ STAGE 1: Fast Candidate Retrieval (Bi-Encoder / Vector Store)          │
-│ - Uses HNSW index in PostgreSQL pgvector.                              │
-│ - Speed: ~3ms.                                                         │
-│ - Evaluates query and documents independently (shallow dot product).   │
-│ - Output: Retrieves top 25 candidate chunks.                           │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                                    ▼ (Top 25 Candidates)
-┌────────────────────────────────────────────────────────────────────────┐
-│ STAGE 2: Deep Cross-Encoder Re-Ranking (Cross-Attention Model)         │
-│ - Model: Cohere Rerank, BGE-Reranker, or Hugging Face cross-encoder.   │
-│ - Passes [Query, Document] TOGETHER through full transformer attention.│
-│ - Evaluates exact semantic, logical, and term-level alignment.         │
-│ - Output: Sorts top 25 candidates and picks the absolute best 3!       │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│ Context Placement (Solving "Lost in the Middle")                       │
-│ - Highest scoring document placed at POSITION #1 (Top of prompt).      │
-│ - 2nd highest placed at POSITION #2.                                   │
-└────────────────────────────────────────────────────────────────────────┘
-```
-
-```
-                              BI-ENCODER VS. CROSS-ENCODER
-                              
-  BI-ENCODER (Embedding Model):
-  Query    ──► [Encoder] ──► Vector(Q) ──┐
-                                         ├──► Dot Product (Fast, but shallow)
-  Document ──► [Encoder] ──► Vector(D) ──┘
-  
-  CROSS-ENCODER (Re-Ranking Model):
-  [Query + Document] ──► [Deep Cross-Attention Transformer] ──► Score (0.0 to 1.0)
-                         (Every query word attends to every document word!)
-```
-
----
-
-## Step-by-Step Production Code Walkthrough
-
-Let's inspect the companion code written for today's lesson in `Phase_06_Spring_AI/Day_40_Advanced_RAG_Query_ReRanking/code/`:
-
-### 1. `HydeQueryTransformer.java`
-Generates hypothetical answer passages to bridge Query-Document Asymmetry:
-
-```java
-public String transform(String rawUserQuery) {
-    return "Hypothetical passage answering '" + rawUserQuery + "': "
-            + "In enterprise distributed architectures, gateway timeout 504 errors typically occur "
-            + "when downstream microservices take longer than the reverse proxy timeout threshold. "
-            + "Resolution requires tuning proxy connection timeouts and optimizing downstream database queries.";
-}
-```
-
-### 2. `ReciprocalRankFusion.java`
-Implements the standard RRF formula to combine multiple ranked lists:
-
-```java
-public static List<RankedDocument> fuse(List<List<Document>> rankedLists, int topK) {
-    Map<String, Document> docLookup = new HashMap<>();
-    Map<String, Double> scoreMap = new HashMap<>();
-
-    for (List<Document> list : rankedLists) {
-        for (int rank = 0; rank < list.size(); rank++) {
-            Document doc = list.get(rank);
-            docLookup.put(doc.id(), doc);
-
-            double currentScore = scoreMap.getOrDefault(doc.id(), 0.0);
-            double contribution = 1.0 / (DEFAULT_K + (rank + 1));
-            scoreMap.put(doc.id(), currentScore + contribution);
-        }
-    }
-
-    return scoreMap.entrySet().stream()
-            .map(e -> new RankedDocument(docLookup.get(e.getKey()), e.getValue()))
-            .sorted(Comparator.comparingDouble(RankedDocument::rrfScore).reversed())
-            .limit(topK)
-            .toList();
-}
-```
-
-### 3. `CrossEncoderReranker.java`
-Performs second-stage candidate re-ranking:
-
-```java
-public List<RerankedDocument> rerank(String query, List<Document> candidateDocuments, int topK) {
-    String queryLower = query.toLowerCase();
-
-    return candidateDocuments.stream()
-            .map(doc -> {
-                double score = computeCrossAttentionScore(queryLower, doc.content().toLowerCase());
-                return new RerankedDocument(doc, score);
-            })
-            .sorted(Comparator.comparingDouble(RerankedDocument::crossAttentionScore).reversed())
-            .limit(topK)
-            .toList();
-}
-```
-
-### 4. Running the Verification Suite
-Compile and execute:
-
-```bash
-javac -d out Phase_06_Spring_AI/Day_37_Embedding_Models_Text_to_Vectors/code/*.java Phase_06_Spring_AI/Day_38_Vector_Stores_Semantic_Memory/code/*.java Phase_06_Spring_AI/Day_40_Advanced_RAG_Query_ReRanking/code/*.java
-java -cp out com.genai.springai.advancedrag.AdvancedRagDemo
-```
-
-Output:
-```text
-================================================================================
-  DAY 40: ADVANCED RAG — HYDE, MULTI-QUERY & CROSS-ENCODER RE-RANKING           
-================================================================================
-
-[TEST 1] Hypothetical Document Embeddings (HyDE) Transformation...
-  Raw User Query: "how to fix 504?"
-  Generated HyDE Passage:
-  "Hypothetical passage answering 'how to fix 504?': In enterprise distributed architectures, gateway timeout 504 errors typically occur when downstream microservices take longer than the reverse proxy timeout threshold. Resolution requires tuning proxy connection timeouts and optimizing downstream database queries."
-
-  --- HyDE Retrieved Documents ---
-  * [DOC-DB-01]: PostgreSQL connection pooling timeouts occur when HikariCP m...
-  * [DOC-NET-01]: HTTP 504 Gateway Timeout indicates an edge reverse proxy (su...
-
-[TEST 2] Multi-Query Expansion & Reciprocal Rank Fusion (RRF)...
-  Expanded into 3 parallel queries:
-    - "how to fix 504?"
-    - "Root causes and troubleshooting steps for how to fix 504?"
-    - "Configuring timeouts and architectural fixes for how to fix 504?"
-
-  --- Fused Rankings via RRF Algorithm ---
-  #1 [RRF Score: 0.0328] [DOC-NET-01]: HTTP 504 Gateway Timeout indicates an edge reverse proxy (su...
-  #2 [RRF Score: 0.0320] [DOC-DB-01]: PostgreSQL connection pooling timeouts occur when HikariCP m...
-  #3 [RRF Score: 0.0164] [DOC-NET-02]: HTTP 502 Bad Gateway indicates the upstream service crashed ...
-
-[TEST 3] Second-Stage Cross-Encoder Deep Attention Re-Ranking...
-  --- Final Re-Ranked Top Results ---
-  #1 [Cross-Score: 0.4500] [DOC-NET-01]: HTTP 504 Gateway Timeout indicates an edge reverse proxy (such as Ngin...
-  #2 [Cross-Score: 0.4500] [DOC-DB-01]: PostgreSQL connection pooling timeouts occur when HikariCP maximumPool...
-
-================================================================================
-  ADVANCED RAG PIPELINE VALIDATED SUCCESSFULLY! HIGH RECALL & PRECISION.        
-================================================================================
-```
-
----
-
-## Hands-On Exercises (With Complete Solutions)
-
-### Exercise 1: HyDE Prompt Transformation in Spring AI
-**Problem Statement:**  
-Write a Spring `@Service` method `String generateHypotheticalPassage(ChatClient fastClient, String rawQuery)` that uses a lightweight model to draft a 2-sentence hypothetical answer for use in vector search.
-
-<details>
-<summary>👉 View Solution</summary>
-
-```java
-@Service
-public class HydeGenerationService {
-
-    private final ChatClient fastClient;
-
-    public HydeGenerationService(ChatClient.Builder builder) {
-        this.fastClient = builder
-            .defaultSystem("You are an expert technical passage writer. Write a factual, dense paragraph answering the query.")
-            .build();
-    }
-
-    public String generateHypotheticalPassage(String userQuery) {
-        return fastClient.prompt()
-            .user(u -> u.text("""
-                Write a concise 2-sentence factual paragraph that directly answers the question:
-                "{query}"
-                Do not include conversational preamble. Output only the informative passage.
-            """).param("query", userQuery))
-            .call()
-            .content();
-    }
-}
-```
-</details>
-
----
-
-### Exercise 2: Lost-in-the-Middle Context Re-orderer
-**Problem Statement:**  
-Write a Java utility `ContextReorderer.reorderForAttention(List<Document> documents)` that takes a ranked list of documents and re-orders them so that the highest-ranked documents are placed at the **extremes** (the very top and the very bottom of the list) to counteract the U-shaped attention curve:
-- Position 1: Best doc (Rank #1)
-- Position Last: 2nd best doc (Rank #2)
-- Position 2: 3rd best doc (Rank #3)
-- Position (Last - 1): 4th best doc (Rank #4)
-- Middle: Lowest ranked docs
-
-<details>
-<summary>👉 View Solution</summary>
+### Context Reorderer Implementation
+Here is the clean Java 21 implementation of the extreme-edge context distributor:
 
 ```java
 package com.genai.springai.advancedrag;
 
 import com.genai.springai.vectorstore.Document;
-import java.util.*;
+
+import java.util.Arrays;
+import java.util.List;
 
 public final class ContextReorderer {
 
@@ -422,19 +280,188 @@ public final class ContextReorderer {
     }
 }
 ```
-*Explanation:* Distributing high-value documents to the edges ensures that the transformer's self-attention mechanism captures the most critical facts during inference.
-</details>
+
+### Parallel Multi-Query Ingestion with Virtual Threads
+Using Java 21 Virtual Threads, executing 3–5 multi-query searches concurrently adds virtually zero latency overhead compared to a single query:
+
+```java
+package com.genai.springai.advancedrag;
+
+import com.genai.springai.vectorstore.Document;
+import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
+@Service
+public class ParallelMultiQueryRetriever {
+
+    private final VectorStore vectorStore;
+
+    public ParallelMultiQueryRetriever(VectorStore vectorStore) {
+        this.vectorStore = vectorStore;
+    }
+
+    public List<Document> retrieveWithFusion(List<String> queries, int topK) 
+            throws InterruptedException, ExecutionException {
+        
+        List<Future<List<Document>>> futures = new ArrayList<>();
+
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            for (String query : queries) {
+                futures.add(executor.submit(() -> vectorStore.similaritySearch(
+                    SearchRequest.builder().query(query).topK(topK).build()
+                )));
+            }
+        } // Executor awaits completion of all virtual thread searches
+
+        List<List<Document>> allRankedLists = new ArrayList<>();
+        for (Future<List<Document>> future : futures) {
+            allRankedLists.add(future.get());
+        }
+
+        return ReciprocalRankFusion.fuse(allRankedLists, topK).stream()
+                .map(ReciprocalRankFusion.RankedDocument::document)
+                .toList();
+    }
+}
+```
+
+### Common Anti-Patterns & Production Traps
+
+| Anti-Pattern | Why It Fails in Production | Correct Architectural Solution |
+|:---|:---|:---|
+| **Applying Cross-Encoder to 10,000 Chunks** | Cross-attention has $O(N^2)$ computational complexity; running it across thousands of documents causes seconds of latency and server lockups. | **Two-Stage Funnel**: Use fast Bi-Encoder vector search for the top 20–25 candidates, then apply the Cross-Encoder only to those candidates. |
+| **Summing Raw Cosine Scores Across Queries** | Different query embeddings produce non-comparable similarity score distributions; adding them directly distorts rankings. | Use **Reciprocal Rank Fusion (RRF)**, which relies on relative positional ranks rather than raw uncalibrated float scores. |
+| **Pasting Retrieved Documents in Default Order** | Documents placed in the middle of long prompts are frequently overlooked by LLM attention mechanisms. | Reorder context chunks using `ContextReorderer` to place top candidates at the start and end of the context envelope. |
 
 ---
 
-### Exercise 3: Parallel Multi-Query Runner using Virtual Threads
-**Problem Statement:**  
+## 6. Quick Recap
+- **Query-Document Asymmetry** occurs because short user queries look fundamentally different in vector space from long, declarative knowledge documents.
+- **HyDE** generates a hypothetical answer to the query first, embedding the answer to align with real knowledge base passages.
+- **Multi-Query Expansion** explores multiple angles of a user query in parallel using Java 21 Virtual Threads.
+- **Reciprocal Rank Fusion (RRF)** combines independent ranked lists fairly based on rank positions: $1 / (60 + \text{rank})$.
+- **Two-Stage Retrieval** pairs fast Bi-Encoder vector search (top 25 candidates) with deep Cross-Encoder re-ranking (top 3 winners).
+- Counteract the **"Lost in the Middle"** attention bias by placing top-scoring documents at the very top and bottom of the context window.
+
+---
+
+## 7. Self-Check Questions & Practice Exercises
+
+### 5-Question Self-Check Quiz
+
+#### Question 1
+What is the "Query-Document Asymmetry" problem in standard RAG?
+- A) Database queries take longer than network file downloads.
+- B) User questions are short, informal, and sparse, while knowledge base documents are long, dense, and declarative, causing vector cosine similarity between them to be suboptimal.
+- C) Documents are stored in JSON, while queries are formatted in SQL.
+- D) Queries can only be executed on weekdays.
+
+#### Question 2
+How does Hypothetical Document Embeddings (HyDE) solve Query-Document Asymmetry?
+- A) By translating the query into French before searching.
+- B) By using an LLM to generate a hypothetical answer passage, and embedding the dense hypothetical answer instead of the sparse question.
+- C) By encrypting the query vector with AES-256.
+- D) By disabling vector search in the database.
+
+#### Question 3
+What does the Reciprocal Rank Fusion (RRF) algorithm accomplish?
+- A) It deletes duplicate records in PostgreSQL.
+- B) It merges multiple independently ranked document lists (from multi-query searches) into a single unified ranking based on document positions rather than raw uncalibrated scores.
+- C) It trains a new transformer model.
+- D) It formats dates for HTTP responses.
+
+#### Question 4
+What is the primary operational difference between a Bi-Encoder and a Cross-Encoder?
+- A) Cross-Encoders are 100x faster than Bi-Encoders.
+- B) Bi-Encoders compute query and document vectors independently ($O(1)$ indexed lookup); Cross-Encoders evaluate the query and document simultaneously with deep cross-attention, offering superior accuracy at the cost of higher latency.
+- C) Bi-Encoders only run on Windows.
+- D) There is no difference.
+
+#### Question 5
+What causes the "Lost in the Middle" phenomenon in Large Language Models?
+- A) Network packet drops during HTTP streaming.
+- B) Transformer self-attention mechanisms assign higher attention weights to tokens at the beginning and end of long prompts, frequently overlooking facts placed in the center of the context.
+- C) Database deadlocks in PostgreSQL.
+- D) OutOfMemoryError in the JVM heap.
+
+---
+
+### Quiz Answers & Explanations
+1. **B**: Short questions and dense technical paragraphs reside in different regions of high-dimensional vector space.
+2. **B**: Embedding an answer passage ensures vector proximity to real answers in the knowledge base.
+3. **B**: RRF combines rankings without needing to normalize arbitrary cosine score distributions across different queries.
+4. **B**: Bi-Encoders enable fast million-scale vector retrieval; Cross-Encoders provide deep pairwise semantic re-ranking for the top 20 candidates.
+5. **B**: Transformer attention exhibits a U-shaped curve, making intelligent context placement critical.
+
+---
+
+### Hands-On Practice Exercises
+
+#### Exercise 1: HyDE Prompt Transformation in Spring AI
+**Problem Statement**:  
+Write a Spring `@Service` method `String generateHypotheticalPassage(ChatClient fastClient, String rawQuery)` that uses a lightweight model to draft a 2-sentence hypothetical answer for use in vector search.
+
+<details>
+<summary>👉 View Solution</summary>
+
+```java
+package com.genai.springai.advancedrag;
+
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.stereotype.Service;
+
+@Service
+public class HydeGenerationService {
+
+    private final ChatClient fastClient;
+
+    public HydeGenerationService(ChatClient.Builder builder) {
+        this.fastClient = builder
+            .defaultSystem("You are an expert technical passage writer. Write a factual, dense paragraph answering the query.")
+            .build();
+    }
+
+    public String generateHypotheticalPassage(String userQuery) {
+        return fastClient.prompt()
+            .user(u -> u.text("""
+                Write a concise 2-sentence factual paragraph that directly answers the question:
+                "{query}"
+                Do not include conversational preamble. Output only the informative passage.
+            """).param("query", userQuery))
+            .call()
+            .content();
+    }
+}
+```
+</details>
+
+#### Exercise 2: Parallel Multi-Query Runner using Virtual Threads
+**Problem Statement**:  
 Given a `List<String> queries` and a `VectorStore`, execute all searches concurrently using Java 21's `Executors.newVirtualThreadPerTaskExecutor()` and fuse the results with `ReciprocalRankFusion`.
 
 <details>
 <summary>👉 View Solution</summary>
 
 ```java
+package com.genai.springai.advancedrag;
+
+import com.genai.springai.vectorstore.Document;
+import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
 @Service
 public class ParallelMultiQuerySearcher {
 
@@ -449,7 +476,9 @@ public class ParallelMultiQuerySearcher {
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             for (String query : queries) {
-                futures.add(executor.submit(() -> vectorStore.similaritySearch(query)));
+                futures.add(executor.submit(() -> vectorStore.similaritySearch(
+                    SearchRequest.builder().query(query).topK(topK).build()
+                )));
             }
         }
 
@@ -468,60 +497,4 @@ public class ParallelMultiQuerySearcher {
 
 ---
 
-## 5-Question Self-Check Quiz
-
-#### 1. What is the "Query-Document Asymmetry" problem in standard RAG?
-- A) Database queries take longer than file downloads.
-- B) User questions are short, informal, and sparse, while knowledge base documents are long, dense, and declarative, causing vector cosine similarity between them to be suboptimal.
-- C) Documents are stored as JSON, while queries are in SQL.
-- D) Queries only work on weekdays.
-
-#### 2. How does Hypothetical Document Embeddings (HyDE) solve Query-Document Asymmetry?
-- A) By translating the query into French.
-- B) By using an LLM to generate a hypothetical answer passage, and embedding the dense hypothetical answer instead of the sparse question.
-- C) By encrypting the query vector.
-- D) By disabling vector search.
-
-#### 3. What does the Reciprocal Rank Fusion (RRF) algorithm accomplish?
-- A) It deletes duplicate files in PostgreSQL.
-- B) It merges multiple independently ranked document lists (from multi-query searches) into a single unified ranking based on document positions rather than raw uncalibrated scores.
-- C) It trains a new neural network.
-- D) It formats dates.
-
-#### 4. What is the key performance difference between a Bi-Encoder (Stage 1) and a Cross-Encoder (Stage 2)?
-- A) Cross-Encoders are 100x faster than Bi-Encoders.
-- B) Bi-Encoders compute query and document vectors independently ($O(1)$ indexed lookup); Cross-Encoders evaluate the query and document simultaneously with deep cross-attention, offering superior accuracy at the cost of higher latency.
-- C) Bi-Encoders only run on Windows.
-- D) There is no difference.
-
-#### 5. What causes the "Lost in the Middle" phenomenon in Large Language Models?
-- A) Network packet loss during HTTP transmission.
-- B) Transformer self-attention mechanisms naturally assign higher attention weights to tokens at the beginning and end of long prompts, frequently overlooking facts placed in the center of the context.
-- C) Database deadlocks in PostgreSQL.
-- D) OutOfMemoryError in Tomcat.
-
----
-
-### Quiz Answers & Explanations
-
-1. **B is correct**: Short questions and dense technical paragraphs reside in different regions of high-dimensional vector space.
-2. **B is correct**: Embedding an answer passage ensures vector proximity to real answers in the knowledge base.
-3. **B is correct**: RRF combines rankings without needing to normalize arbitrary cosine score distributions across different queries.
-4. **B is correct**: Bi-Encoders enable fast million-scale vector retrieval; Cross-Encoders provide deep pairwise semantic re-ranking for the top 20 candidates.
-5. **B is correct**: Transformer attention exhibits a U-shaped curve, making intelligent context placement critical.
-
----
-
-## Day 40 Summary & Next Steps
-
-You've just leveled up from basic AI hobbyist to real-world search engineer! Look at the advanced techniques you've mastered today:
-1. **HyDE**: You solved the query-document mismatch by searching with hypothetical AI-generated answers.
-2. **Multi-Query Virtual Threads**: You expanded vague questions into multiple search angles in parallel without blocking threads.
-3. **Reciprocal Rank Fusion**: You combined separate search rankings into a single, clean, balanced leaderboard.
-4. **Beat the Middle**: You organized prompt context intelligently so the AI never misses critical facts hidden in long documents.
-5. **Two-Stage Precision**: You combined lightning-fast candidate retrieval with surgical re-ranking accuracy.
-
-Your RAG applications can now handle real, messy, imperfect human questions without breaking a sweat.
-
-👉 **Tomorrow in Day 41: Tool Calling — LLMs That Execute Java Methods** — Up until now, our AI has only been talking and reading. Tomorrow, we give the AI **hands**! We will teach LLMs how to call your real Java methods, query live databases, and trigger business actions autonomously! See you tomorrow! 🤖🛠️
-
+[← Previous: Day 39 - RAG Pipeline](../Day_39_RAG_Retrieval_Augmented_Generation/Day_39_RAG_Retrieval_Augmented_Generation.md) | [Next: Day 41 - Tool Calling →](../Day_41_Tool_Calling_LLMs_Execute_Java/Day_41_Tool_Calling_LLMs_Execute_Java.md)

@@ -7,141 +7,183 @@
 
 ---
 
-## What Will You Learn Today?
+## 1. Topic Overview
 
-Hey friend! Welcome back to Day 33 of our journey. Yesterday, you took your very first steps with Spring AI, got Ollama running, and made your first AI call. That was a huge leap!
-
-Today, we're going to make talking to AI feel completely effortless, clean, and elegant in Java. 
-
-While calling the low-level `chatModel.call(...)` works, it can feel clunky if you have to do it dozens of times. You have to manually concatenate strings, package up message lists, and unpack nested response objects. 
-
-To solve this, Spring AI introduced **`ChatClient`**: a modern, fluent conversational API inspired by Spring's popular `RestClient`. It allows you to write conversational AI code that reads almost like a plain English sentence!
-
-Today, you and I will master:
-- **The Fluent `ChatClient.Builder`**: Setting up default system instructions (the "ground rules" for your AI) and reusable configurations.
-- **Dynamic Prompt Templates**: Safely replacing placeholders like `{customerName}` without messy, error-prone `+` string concatenation.
-- **Extracting What You Need**: Getting back plain text with `.content()`, rich statistics with `.chatResponse()`, or strongly-typed Java Records with `.entity(...)`.
-- **The Advisor Pattern**: How to add automatic interceptors that run *before* or *after* an AI call (just like a filter or security guard).
-- **Building a Real PII Sanitizer**: Writing a custom advisor that automatically blots out credit card numbers and Social Security numbers so sensitive data never leaks to an outside AI model!
+Spring AI's `ChatClient` provides an ergonomic, fluent builder API inspired by `RestClient` to compose conversational prompts, bind template parameters, configure default system directives, and intercept calls via modular Advisors. In enterprise Generative AI systems, `ChatClient` abstracts low-level model drivers into readable, type-safe workflows while supporting cross-cutting interceptors for PII sanitization, conversational memory, and token telemetry.
 
 ---
 
-> 💡 **New Word Alert: Conversational Concepts Demystified**
->
-> Here are a few terms you'll see today that sound fancy but are actually super straightforward:
->
-> 1. **Fluent API (or Builder Pattern)**: A style of writing code where method calls are chained together with dots (`.`), reading like a sentence:
->    ```java
->    chatClient.prompt()
->              .system("Be polite")
->              .user("Hello!")
->              .call()
->              .content();
->    ```
-> 2. **Prompt Template**: A sentence with blank spaces or placeholders (like `{name}`) where real values are plugged in later. Think of it like a "Mad Libs" game or a mail-merge document.
-> 3. **Advisor (Interceptor)**: Think of an advisor like an airport security scanner. Before your prompt flies out to the AI model, the advisor can inspect it, log it, or sanitize private data. When the AI replies, the advisor inspects the answer before giving it back to your code.
-> 4. **PII (Personally Identifiable Information)**: Confidential personal information—like credit card numbers, passwords, or home addresses. In real enterprise jobs, sending raw customer credit card numbers to a cloud AI can get a company fined millions of dollars.
-> 5. **Chat Memory**: By default, LLMs have no memory of the past—they forget everything the millisecond they finish answering. An advisor with "Chat Memory" remembers the conversation history and passes previous messages back and forth so the AI remembers your name!
+## 2. Basic Foundations (True Zero)
 
----
+### What is `ChatClient`?
+Calling the low-level `ChatModel.call(Prompt)` SPI requires manual instantiation of `Prompt`, packaging of `Message` lists, and unpacking of nested `ChatResponse` structures. 
 
-## Real-World Analogy: The Executive Assistant & The Briefing Dossier
-
-![Spring AI ChatClient Fluent Conversational Architecture](assets/day33_chatclient_architecture.jpg)
-
-Imagine a Fortune 500 CEO preparing for high-stakes business meetings:
-
-```
-+---------------------------------------------------------------------------------------------------+
-|                                  THE EXECUTIVE ASSISTANT MODEL                                    |
-|                                                                                                   |
-|  WITHOUT AN ASSISTANT (Raw ChatModel):                                                            |
-|  - The CEO must personally photocopy documents, look up phone numbers, type transcripts, and      |
-|    translate foreign emails.                                                                      |
-|  - High cognitive load, repetitive manual tasks, error-prone.                                     |
-|                                                                                                   |
-|  WITH A DEDICATED EXECUTIVE ASSISTANT (Spring AI ChatClient):                                     |
-|  - Standing Orders (.defaultSystem): "Always address me respectfully and keep summaries to 1 page."|
-|  - The Briefing Dossier (.prompt().user(u -> u.text("Summarize {company}").param(...))):           |
-|    The assistant takes standard templates and automatically fills in client-specific variables.   |
-|  - Security & Compliance Advisor (Custom Advisor Interceptor):                                   |
-|    Before handing any dossier to the CEO, the security team blackouts confidential bank account   |
-|    numbers and trade secrets (PII Redaction).                                                     |
-|  - Executive Output (.call().entity(Report.class)):                                               |
-|    The assistant doesn't just hand over messy raw notes; they format everything into an organized  |
-|    executive binder matching a precise table of contents!                                         |
-+---------------------------------------------------------------------------------------------------+
-```
-
----
-
-## 🧭 The Plain English Bridge: From `RestClient` to `ChatClient`
-
-If you have ever called a REST API in Spring Boot using `RestClient` or `WebClient`, **you already know how `ChatClient` works!** It uses the exact same builder pattern:
-
-| In Spring Web (`RestClient`) | In Spring AI (`ChatClient`) | Plain English Meaning |
-| :--- | :--- | :--- |
-| `restClient.get()` | `chatClient.prompt()` | Start building the request. |
-| `.uri("/users/{id}", 42)` | `.user(u -> u.text("Hello {name}").param("name", "Alice"))` | Substitute parameters safely into templates without messy string concatenation. |
-| `ClientHttpRequestInterceptor` | `RequestResponseAdvisor` | Intercept the request before it leaves your JVM (e.g. to log it or redact sensitive PII). |
-| `.retrieve().body(User.class)` | `.call().entity(UserRecord.class)` | Ask the AI to parse the response straight into a Java Record DTO! |
-| `.retrieve().body(String.class)` | `.call().content()` | Extract the raw text string response. |
-
----
-
-## The Evolution: `ChatModel` (SPI) vs. `ChatClient` (API)
-
-It is crucial to understand the architectural distinction between these two components:
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│ APPLICATION CODE (Controllers, Services, Use Cases)                    │
-│                                                                        │
-│   chatClient.prompt()                                                  │
-│       .system("You are a financial advisor")                          │
-│       .user(u -> u.text("Analyze {stock}").param("stock", "GOOGL"))    │
-│       .advisors(new LoggingAdvisor(), new PiiRedactionAdvisor())       │
-│       .call()                                                          │
-│       .content();                                                      │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                       (Fluent API Delegation)
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│ CHATCLIENT ENGINE                                                      │
-│ - Renders prompt templates                                             │
-│ - Executes Advisor 'before()' chain                                    │
-│ - Assembles immutable Prompt(List<Message>, ChatOptions)               │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                        (Low-level SPI Invocation)
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│ CHATMODEL IMPLEMENTATION (OllamaChatModel / OpenAiChatModel)           │
-│ - Dispatches HTTP REST / gRPC call to LLM Engine                       │
-│ - Unpacks raw JSON completion into ChatResponse                        │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                        (Returns ChatResponse)
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│ CHATCLIENT RESPONSE PROCESSOR                                          │
-│ - Executes Advisor 'after()' chain (e.g. latency logging)              │
-│ - Maps JSON into Java Record if .entity(...) requested                 │
-│ - Returns String, ChatResponse, or Java DTO                            │
-└────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Configuring the `ChatClient.Builder`
-
-In a Spring Boot application, Spring AI automatically provides a pre-configured `ChatClient.Builder` bean.
-
-You customize it using the builder pattern to establish application-wide defaults:
+`ChatClient` sits above `ChatModel` as a high-level, fluent developer interface. It allows you to write conversational AI interactions that read like plain English sentences, supporting chained configurations for system personas, user parameters, advisors, and automatic serialization into Java records:
 
 ```java
-package com.genai.springai.config;
+String response = chatClient.prompt()
+    .system("You are an expert Java architect.")
+    .user(u -> u.text("Explain {topic}").param("topic", "Virtual Threads"))
+    .call()
+    .content();
+```
+
+```
++-----------------------------------------------------------------------------------+
+|               THE EXECUTIVE ASSISTANT BRIEFING DOSSIER ANALOGY                    |
+|                                                                                   |
+|  WITHOUT AN ASSISTANT (Raw ChatModel SPI):                                        |
+|  - The CEO must personally photocopy documents, look up phone numbers, type      |
+|    transcripts, and format raw notes.                                             |
+|  - High cognitive overhead, repetitive boilerplate, error-prone.                  |
+|                                                                                   |
+|  WITH A DEDICATED EXECUTIVE ASSISTANT (Spring AI ChatClient):                     |
+|  - Standing Orders (.defaultSystem): "Always address clients respectfully and     |
+|    summarize reports to 1 page."                                                  |
+|  - The Briefing Dossier (.user(u -> u.text("Summarize {company}").param(...))):   |
+|    The assistant takes standard templates and automatically binds parameters.     |
+|  - Security & Compliance Advisor (Custom Advisor Interceptor):                    |
+|    Before handing any dossier to the CEO, compliance officers redact credit card  |
+|    numbers and trade secrets (PII Redaction).                                     |
+|  - Executive Output (.call().entity(Report.class)):                               |
+|    The assistant formats output into an organized Java Record DTO!                |
++-----------------------------------------------------------------------------------+
+```
+
+### Minimal Beginner-Friendly Working Code Example
+
+Below is a self-contained Java 21 simulation demonstrating how `ChatClient` executes a fluent builder chain with intercepting advisors:
+
+```java
+import java.util.*;
+
+public class BasicChatClientExample {
+
+    // 1. Advisor Interceptor Interface
+    interface SimpleAdvisor {
+        String before(String prompt);
+        String after(String response);
+    }
+
+    // 2. PII Sanitization Advisor
+    static class PiiMaskingAdvisor implements SimpleAdvisor {
+        public String before(String prompt) {
+            return prompt.replaceAll("\\b\\d{4}-\\d{4}-\\d{4}-\\d{4}\\b", "[REDACTED_CARD]");
+        }
+        public String after(String response) { return response; }
+    }
+
+    // 3. Fluent ChatClient Simulation
+    static class FluentChatClient {
+        private String systemPrompt = "You are an AI assistant.";
+        private final List<SimpleAdvisor> advisors = new ArrayList<>();
+
+        public FluentChatClient system(String sys) { this.systemPrompt = sys; return this; }
+        public FluentChatClient addAdvisor(SimpleAdvisor adv) { this.advisors.add(adv); return this; }
+
+        public String ask(String userPrompt) {
+            String processed = userPrompt;
+            for (SimpleAdvisor adv : advisors) processed = adv.before(processed);
+
+            System.out.println("  [LLM Inbound Network Payload] " + processed);
+            String aiRawOutput = "[AI Answer to: " + processed + "]";
+
+            for (SimpleAdvisor adv : advisors) aiRawOutput = adv.after(aiRawOutput);
+            return aiRawOutput;
+        }
+    }
+
+    public static void main(String[] args) {
+        FluentChatClient client = new FluentChatClient()
+            .system("You are a financial banking assistant.")
+            .addAdvisor(new PiiMaskingAdvisor());
+
+        String userQuery = "Customer wants refund on card 1111-2222-3333-4444. Please assist.";
+        System.out.println("Original Input: " + userQuery);
+
+        String result = client.ask(userQuery);
+        System.out.println("Final Output: " + result);
+    }
+}
+```
+
+#### Line-by-Line Walkthrough:
+- **Lines 6–9**: Defines `SimpleAdvisor` exposing `before()` and `after()` lifecycle hooks around model calls.
+- **Lines 12–17**: `PiiMaskingAdvisor` scans outgoing text with regular expressions, replacing credit card patterns with `[REDACTED_CARD]` before transmission.
+- **Lines 20–34**: `FluentChatClient` chains methods (`.system()`, `.addAdvisor()`, `.ask()`), passing the prompt through the advisor pipeline before invoking the mock LLM engine.
+- **Lines 37–46**: Demonstrates fluent initialization and execution. The original credit card number is sanitized before the model processes it.
+
+---
+
+## 3. Core Concept Walkthrough (Basic → Intermediate)
+
+### From `RestClient` to `ChatClient`
+
+If you know Spring Web's `RestClient`, you already understand `ChatClient`:
+
+```
++-----------------------------------+-----------------------------------+---------------------------------------+
+| Spring Web (`RestClient`)         | Spring AI (`ChatClient`)          | Plain-English Purpose                 |
++-----------------------------------+-----------------------------------+---------------------------------------+
+| `restClient.get()`                | `chatClient.prompt()`             | Initiates fluent request builder.     |
+| `.uri("/users/{id}", 42)`         | `.user(u -> u.text(...).param())` | Safe parameter substitution.          |
+| `ClientHttpRequestInterceptor`    | `RequestResponseAdvisor`          | Pre/post request interception.        |
+| `.retrieve().body(User.class)`    | `.call().entity(UserRecord.class)`| Deserializes straight to Java Record. |
+| `.retrieve().body(String.class)`  | `.call().content()`               | Returns raw string response.          |
++-----------------------------------+-----------------------------------+---------------------------------------+
+```
+
+---
+
+### The Evolution: `ChatModel` (SPI) vs. `ChatClient` (API)
+
+```
++------------------------------------------------------------------------+
+| APPLICATION CODE (Controllers, Services, Use Cases)                    |
+|                                                                        |
+|   chatClient.prompt()                                                  |
+|       .system("You are a financial advisor")                          |
+|       .user(u -> u.text("Analyze {stock}").param("stock", "GOOGL"))    |
+|       .advisors(new LoggingAdvisor(), new PiiRedactionAdvisor())       |
+|       .call()                                                          |
+|       .content();                                                      |
++-----------------------------------+------------------------------------+
+                                    |
+                       (Fluent API Delegation)
+                                    v
++------------------------------------------------------------------------+
+| CHATCLIENT ENGINE                                                      |
+| - Renders prompt templates                                             |
+| - Executes Advisor 'before()' chain                                    |
+| - Assembles immutable Prompt(List<Message>, ChatOptions)               |
++-----------------------------------+------------------------------------+
+                                    |
+                        (Low-level SPI Invocation)
+                                    v
++------------------------------------------------------------------------+
+| CHATMODEL IMPLEMENTATION (OllamaChatModel / OpenAiChatModel)           |
+| - Dispatches HTTP REST / gRPC call to LLM Engine                       |
+| - Unpacks raw JSON completion into ChatResponse                        |
++-----------------------------------+------------------------------------+
+                                    |
+                        (Returns ChatResponse)
+                                    v
++------------------------------------------------------------------------+
+| CHATCLIENT RESPONSE PROCESSOR                                          |
+| - Executes Advisor 'after()' chain (e.g. latency logging)              |
+| - Maps JSON into Java Record if .entity(...) requested                 |
+| - Returns String, ChatResponse, or Java DTO                            |
++------------------------------------------------------------------------+
+```
+
+---
+
+### Configuring the `ChatClient.Builder`
+
+Spring AI auto-configures a `ChatClient.Builder` bean. You customize it in a `@Configuration` class to establish application-wide defaults:
+
+```java
+package com.example.genai.config;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
@@ -155,16 +197,16 @@ public class AiClientConfiguration {
     @Bean
     public ChatClient customerSupportChatClient(ChatClient.Builder builder) {
         return builder
-            // 1. Default System Directive (Applied to every prompt)
+            // 1. Default System Persona
             .defaultSystem("""
                 You are a senior customer support representative for CloudTech Inc.
                 Maintain a professional, empathetic tone.
-                Never reveal internal server infrastructure or database passwords.
+                Never reveal internal server infrastructure or credentials.
             """)
             // 2. Default Model Options
             .defaultOptions(ChatOptions.builder()
                 .temperature(0.3)      // Low temperature for factual consistency
-                .maxTokens(1024)        // Enforce token boundary
+                .maxTokens(1024)        // Strict output ceiling
                 .build())
             // 3. Default Advisors (Interceptors)
             .defaultAdvisors(new SimpleLoggerAdvisor())
@@ -175,15 +217,15 @@ public class AiClientConfiguration {
 
 ---
 
-## Dynamic Prompt Templates & Parameter Substitution
+### Dynamic Prompt Templates & Parameter Substitution
 
-Never concatenate user input directly into prompt strings using `+` or `String.format`:
+Never concatenate unvalidated user input directly into prompts using `+` or `String.format`:
 
 ```java
-// ❌ DANGEROUS ANTI-PATTERN: Vulnerable to prompt injection and unreadable
+// ❌ INSECURE ANTI-PATTERN: Vulnerable to prompt injection
 String badPrompt = "Translate " + text + " to " + targetLang;
 
-// ✅ PRODUCTION BEST PRACTICE: Using ChatClient fluent parameter binding
+// ✅ ENTERPRISE BEST PRACTICE: Parameterized template substitution
 String goodResponse = chatClient.prompt()
     .user(u -> u.text("Translate the following {text} into {targetLang}. Retain formatting.")
         .param("text", rawUserInput)
@@ -192,250 +234,119 @@ String goodResponse = chatClient.prompt()
     .content();
 ```
 
-### Why use parameterized prompt templates?
-1. **Safety**: Separates template syntax from dynamic variables.
-2. **Reusability**: Templates can be stored in external `.st` (StringTemplate) resource files and loaded dynamically.
-3. **Observability**: Advisors can inspect template variables independently from the base prompt.
-
 ---
 
-## Handling Responses: `.content()`, `.chatResponse()`, and `.entity()`
-
-`ChatClient` gives you three distinct ways to consume the model's output:
-
-### 1. Simple String Content (`.content()`)
-When you only need the plain text generated by the model:
+### Handling Responses: `.content()`, `.chatResponse()`, and `.entity()`
 
 ```java
+// 1. Simple String Content
 String summary = chatClient.prompt()
     .user("Explain Quarkus in one sentence")
     .call()
     .content();
-```
 
-### 2. Full Metadata & Token Telemetry (`.chatResponse()`)
-When you need to audit token usage, finish reasons, or inspect model metadata:
-
-```java
+// 2. Full Metadata & Token Telemetry
 ChatResponse response = chatClient.prompt()
     .user("Generate a 3-day travel itinerary for Tokyo")
     .call()
     .chatResponse();
 
-// Access generation output
-String text = response.getResult().getOutput().getContent();
-
-// Inspect finish reason (e.g. "STOP", "LENGTH")
+long totalTokens = response.getMetadata().getUsage().getTotalTokens();
 String finishReason = response.getResult().getMetadata().getFinishReason();
 
-// Inspect exact token count
-Usage usage = response.getMetadata().getUsage();
-long promptTokens = usage.getPromptTokens();
-long completionTokens = usage.getGenerationTokens();
-long totalTokens = usage.getTotalTokens();
-```
+// 3. Strongly Typed Java Record Output
+public record MovieRecommendation(String title, int releaseYear, String director, List<String> genres) {}
 
-### 3. Structured Java Record Output (`.entity(Class<T>)`)
-> [!TIP]
-> **No Manual JSON Parsing Required!**
-> Spring AI automatically instructs the LLM to format its response as JSON adhering to your Java record's schema, and deserializes the result directly into your strongly-typed Java DTO!
-
-```java
-public record MovieRecommendation(
-    String title,
-    int releaseYear,
-    String director,
-    List<String> genres,
-    double rating
-) {}
-
-// LLM response is automatically mapped directly into your Java record!
 MovieRecommendation movie = chatClient.prompt()
-    .user("Recommend a mind-bending sci-fi movie from the 2010s")
+    .user("Recommend a sci-fi movie from the 2010s")
     .call()
     .entity(MovieRecommendation.class);
-
-System.out.println("Title: " + movie.title() + " (" + movie.releaseYear() + ")");
-System.out.println("Directed by: " + movie.director());
 ```
 
 ---
 
-## The Advisor Interceptor Pattern: AOP for Artificial Intelligence
+## 4. Prerequisite & Supporting Concepts
 
-One of the most powerful innovations in Spring AI is the **Advisor** concept.
-
-An Advisor intercepts the conversational pipeline in two places:
-1. `before(Prompt)`: Executed **before** the prompt is sent to the LLM.
-2. `after(ChatResponse)`: Executed **after** the response is received from the LLM.
+### Prerequisite / Supporting Concept: The Advisor Interceptor Chain
+The Advisor pattern implements Aspect-Oriented Programming (AOP) for LLM interactions. Advisors execute in priority order on `before(Prompt)` and in reverse order on `after(ChatResponse)`:
 
 ```
-                         THE ADVISOR EXECUTION PIPELINE
-                         
- User Request
-      │
-      ▼
-┌──────────────┐
-│ Prompt Input │
-└──────┬───────┘
-       │
-       ▼
-┌────────────────────────────────────────────────────────┐
-│ Advisor 1 (before): PiiRedactionAdvisor                │ ── Masks credit cards & SSNs
-└──────┬─────────────────────────────────────────────────┘
-       │
-       ▼
-┌────────────────────────────────────────────────────────┐
-│ Advisor 2 (before): SimpleLoggerAdvisor                │ ── Records start time and prompt
-└──────┬─────────────────────────────────────────────────┘
-       │
-       ▼
-┌────────────────────────────────────────────────────────┐
-│ ChatModel SPI                                          │ ── Calls OpenAI / Ollama
-└──────┬─────────────────────────────────────────────────┘
-       │
-       ▼
-┌────────────────────────────────────────────────────────┐
-│ Advisor 2 (after): SimpleLoggerAdvisor                 │ ── Logs elapsed ms and token usage
-└──────┬─────────────────────────────────────────────────┘
-       │
-       ▼
-┌────────────────────────────────────────────────────────┐
-│ Advisor 1 (after): PiiRedactionAdvisor                 │ ── Returns final ChatResponse
-└──────┬─────────────────────────────────────────────────┘
-       │
-       ▼
- Caller Receives Result
+ User Request -> Advisor 1 before() -> Advisor 2 before() -> ChatModel SPI
+                                                                   |
+ Caller Result <- Advisor 1 after() <- Advisor 2 after()  <-------+
 ```
 
-### Built-in Spring AI Advisors:
-1. **`SimpleLoggerAdvisor`**: Logs outgoing prompts and incoming responses with elapsed milliseconds and token usage.
-2. **`MessageChatMemoryAdvisor`**: Connects to a conversational memory store (in-memory or Redis) and automatically injects conversation history so the LLM remembers previous messages.
-3. **`QuestionAnswerAdvisor`**: Injects relevant document snippets from a vector store (RAG) directly into the prompt.
+### Prerequisite / Supporting Concept: Built-in Spring AI Advisors
+- **`SimpleLoggerAdvisor`**: Logs outgoing prompts and incoming responses with elapsed milliseconds and token usage.
+- **`MessageChatMemoryAdvisor`**: Injects multi-turn conversation history from memory or Redis.
+- **`QuestionAnswerAdvisor`**: Injects relevant document chunks from a vector store (RAG) into the prompt context.
+
+### Prerequisite / Supporting Concept: PII (Personally Identifiable Information) Compliance
+Under GDPR, HIPAA, and PCI-DSS, transmitting raw customer credit cards or medical numbers to third-party cloud LLMs constitutes an unlawful data breach. Advisors inspect and sanitize data at the JVM boundary before outbound HTTP packets are created.
 
 ---
 
-## Building an Enterprise PII Redaction Advisor
+## 5. Advanced Depth (Intermediate → Advanced)
 
-In enterprise banking and healthcare environments, sending unmasked user data (credit cards, social security numbers) to external cloud LLMs violates GDPR, HIPAA, and PCI-DSS regulations.
-
-Let's build a production-grade **`PiiRedactionAdvisor`** that intercepts outgoing prompts, detects sensitive patterns, masks them with `[REDACTED_CARD]` and `[REDACTED_SSN]`, and logs the security event before any network packet leaves the machine:
+### Building an Enterprise PII Redaction Advisor
 
 ```java
-package com.genai.springai.chatclient;
+package com.example.genai.advisor;
 
-import com.genai.springai.core.ChatResponse;
-import com.genai.springai.core.Message;
-import com.genai.springai.core.Prompt;
-
-import java.util.ArrayList;
-import java.util.List;
+import org.springframework.ai.chat.client.advisor.api.*;
+import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.UserMessage;
+import java.util.*;
 import java.util.regex.Pattern;
 
-public class PiiRedactionAdvisor implements Advisor {
+public class PiiRedactionAdvisor implements CallAroundAdvisor {
 
-    private static final Pattern CREDIT_CARD_PATTERN = 
-            Pattern.compile("\\b(?:\\d{4}[ -]?){3}\\d{4}\\b");
-    
-    private static final Pattern SSN_PATTERN = 
-            Pattern.compile("\\b\\d{3}-\\d{2}-\\d{4}\\b");
+    private static final Pattern CREDIT_CARD_PATTERN = Pattern.compile("\\b(?:\\d{4}[ -]?){3}\\d{4}\\b");
+    private static final Pattern SSN_PATTERN = Pattern.compile("\\b\\d{3}-\\d{2}-\\d{4}\\b");
 
     @Override
-    public String getName() {
-        return "PiiRedactionAdvisor";
-    }
+    public String getName() { return "PiiRedactionAdvisor"; }
 
     @Override
-    public Prompt before(Prompt prompt) {
-        List<Message> sanitized = new ArrayList<>();
-        boolean redactedAny = false;
+    public int getOrder() { return 0; } // High priority
 
-        for (Message msg : prompt.messages()) {
-            String content = msg.getContent();
-            String redacted = CREDIT_CARD_PATTERN.matcher(content).replaceAll("[REDACTED_CARD]");
-            redacted = SSN_PATTERN.matcher(redacted).replaceAll("[REDACTED_SSN]");
-
-            if (!redacted.equals(content)) {
-                redactedAny = true;
-            }
-
-            if (msg.getMessageType() == Message.MessageType.SYSTEM) {
-                sanitized.add(new Message.SystemMessage(redacted, msg.getMetadata()));
-            } else if (msg.getMessageType() == Message.MessageType.USER) {
-                sanitized.add(new Message.UserMessage(redacted, msg.getMetadata()));
-            } else {
-                sanitized.add(new Message.AssistantMessage(redacted, msg.getMetadata()));
-            }
+    @Override
+    public AdvisedResponse aroundCall(AdvisedRequest advisedRequest, CallAroundAdvisorChain chain) {
+        String userText = advisedRequest.userText();
+        if (userText != null) {
+            String sanitized = CREDIT_CARD_PATTERN.matcher(userText).replaceAll("[REDACTED_CARD]");
+            sanitized = SSN_PATTERN.matcher(sanitized).replaceAll("[REDACTED_SSN]");
+            
+            advisedRequest = AdvisedRequest.from(advisedRequest)
+                .withUserText(sanitized)
+                .build();
         }
-
-        if (redactedAny) {
-            System.out.println("  [ADVISOR: PII_GUARD] 🛡️ Sensitive PII detected and redacted before reaching LLM provider!");
-        }
-
-        return new Prompt(sanitized, prompt.options());
-    }
-
-    @Override
-    public ChatResponse after(ChatResponse response) {
-        return response;
+        return chain.nextAroundCall(advisedRequest);
     }
 }
 ```
 
 ---
 
-## Step-by-Step Production Code Walkthrough
+### Hands-On Simulation Code Walkthrough
 
-Let's inspect the runnable companion code built for today's lesson in `Phase_06_Spring_AI/Day_33_ChatClient_Fluent_Conversational_API/code/`:
+The companion code repository demonstrates this architecture:
+- `PromptTemplate.java`: Renders parameterized string templates without string concatenation.
+- `Advisor.java`: Bidirectional interceptor hooks (`before()` and `after()`).
+- `PiiRedactionAdvisor.java`: Sanitizes credit card numbers and SSNs before calling the model.
+- `ChatClientDemo.java`: 3-scenario verification test suite validating default system directives, dynamic prompt parameters, and PII masking.
 
-### 1. `PromptTemplate.java`
-Renders parameterized string templates cleanly:
-
-```java
-public String render(Map<String, Object> variables) {
-    if (variables == null || variables.isEmpty()) return template;
-    String result = template;
-    for (Map.Entry<String, Object> entry : variables.entrySet()) {
-        result = result.replace("{" + entry.getKey() + "}", String.valueOf(entry.getValue()));
-    }
-    return result;
-}
-```
-
-### 2. `Advisor.java` & Interceptor Chain
-Defines the bidirectional interceptor hooks executed by `ChatClient`:
-
-```java
-public CallResponseSpec call() {
-    Prompt prompt = new Prompt(messages, options);
-
-    // Execute Advisors: before() hooks
-    for (Advisor advisor : advisors) {
-        prompt = advisor.before(prompt);
-    }
-
-    // Execute low-level ChatModel SPI
-    ChatResponse response = client.chatModel.call(prompt);
-
-    // Execute Advisors: after() hooks (in reverse order)
-    for (int i = advisors.size() - 1; i >= 0; i--) {
-        response = advisors.get(i).after(response);
-    }
-
-    return new CallResponseSpec(response);
-}
-```
-
-### 3. Running the Complete Verification Suite
-Compile and execute the demonstration:
-
-```bash
+```powershell
+# Compile Day 32 and Day 33 code
 javac -d out Phase_06_Spring_AI/Day_32_Introduction_to_Spring_AI/code/*.java Phase_06_Spring_AI/Day_33_ChatClient_Fluent_Conversational_API/code/*.java
+
+# Run ChatClientDemo
 java -cp out com.genai.springai.chatclient.ChatClientDemo
 ```
 
-Output:
-```text
+#### Verified Execution Output:
+```
 ================================================================================
   DAY 33: CHATCLIENT FLUENT API & ADVISOR INTERCEPTOR DEMONSTRATION             
 ================================================================================
@@ -468,50 +379,69 @@ Output:
 
 ---
 
-## Hands-On Exercises (With Complete Solutions)
+## 6. Quick Recap
 
-### Exercise 1: Multi-Turn Conversation with History Advisor
-**Problem Statement:**  
-Create an in-memory `ConversationHistoryAdvisor` that stores the last 5 turns of user and assistant messages in a `List<Message>` keyed by `conversationId`. Before each call, it injects the previous messages into the prompt, and after each call, it records the new assistant response.
+| Concept | Description | Enterprise Rule / Best Practice |
+| :--- | :--- | :--- |
+| **`ChatClient`** | Fluent conversational developer API | Preferred over calling `ChatModel` directly. |
+| **Prompt Template** | Parameterized prompt with `{placeholders}` | Always use `.param("key", val)` to prevent injection. |
+| **`.content()`** | Extracts raw text response | Standard for plain conversational output. |
+| **`.chatResponse()`** | Extracts full response with token telemetry| Essential for auditing token costs and finish reasons. |
+| **`.entity(Class<T>)`** | Deserializes LLM output into Java Record | Guarantees type safety without manual JSON parsing. |
+| **Advisors** | Pre- and post-invocation interceptors | Use for logging, PII masking, chat memory, and RAG. |
 
-<details>
-<summary>👉 View Solution</summary>
+---
+
+## 7. Self-Check Questions & Practice Exercises
+
+### Conceptual & Architectural Questions
+
+#### Q1: What was the primary motivation for introducing `ChatClient` in Spring AI?
+**Answer**: `ChatClient` was introduced to provide an ergonomic, fluent builder API inspired by `RestClient`. It abstracts low-level prompt construction, message role wrapping, dynamic parameter substitution, advisor interception, and structured output parsing into readable, chained method calls.
+
+#### Q2: In Spring AI `ChatClient`, what is an "Advisor"?
+**Answer**: An Advisor is an interceptor component implementing `before()` and `after()` lifecycle hooks (or `CallAroundAdvisor`). It wraps the conversational pipeline, enabling cross-cutting concerns like logging, PII sanitization, token metering, chat memory injection, and RAG document retrieval to execute cleanly outside business logic.
+
+#### Q3: How does `ChatClient` convert an LLM response directly into a Java record or DTO?
+**Answer**: By invoking `.call().entity(MyRecord.class)`. Spring AI automatically appends JSON schema instructions to the prompt and deserializes the model's structured JSON response into the target Java class.
+
+#### Q4: Which built-in advisor in Spring AI is used to automatically log prompt requests, response completions, elapsed time, and token metrics?
+**Answer**: **`SimpleLoggerAdvisor`**, which logs outgoing prompts and incoming responses along with latency in milliseconds and token counts.
+
+#### Q5: Why should you use parameterized prompt templates (`u.text("...{param}...").param("param", value)`) instead of string concatenation `+`?
+**Answer**: Parameterized prompt templates separate static prompt instructions from dynamic user variables. This prevents prompt injection syntax corruption, promotes template reusability, and allows advisors to inspect variables independently.
+
+---
+
+### Hands-On Practice Exercises
+
+#### Exercise 1: Multi-Turn Conversation Memory Advisor
+**Task**: Implement an in-memory `ConversationHistoryAdvisor` storing the last 5 turns of conversation in a `List<Message>`, injecting historical context on `before()` and recording assistant responses on `after()`.
 
 ```java
-package com.genai.springai.chatclient;
-
-import com.genai.springai.core.ChatResponse;
-import com.genai.springai.core.Message;
-import com.genai.springai.core.Prompt;
-
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-
+// Solution:
 public class ConversationHistoryAdvisor implements Advisor {
 
     private final Map<String, List<Message>> memoryStore = new ConcurrentHashMap<>();
     private final int maxTurns = 5;
 
     @Override
-    public String getName() {
-        return "ConversationHistoryAdvisor";
-    }
+    public String getName() { return "ConversationHistoryAdvisor"; }
 
     @Override
     public Prompt before(Prompt prompt) {
-        String conversationId = "default-session"; // In production, extract from context/advisorspec
-        List<Message> history = memoryStore.getOrDefault(conversationId, new ArrayList<>());
+        String sessionId = "default-session";
+        List<Message> history = memoryStore.getOrDefault(sessionId, new ArrayList<>());
 
         List<Message> combined = new ArrayList<>(history);
         combined.addAll(prompt.messages());
-
         return new Prompt(combined, prompt.options());
     }
 
     @Override
     public ChatResponse after(ChatResponse response) {
-        String conversationId = "default-session";
-        List<Message> history = memoryStore.computeIfAbsent(conversationId, k -> new ArrayList<>());
+        String sessionId = "default-session";
+        List<Message> history = memoryStore.computeIfAbsent(sessionId, k -> new ArrayList<>());
         
         history.add(response.getResult().output());
         while (history.size() > maxTurns * 2) {
@@ -521,39 +451,22 @@ public class ConversationHistoryAdvisor implements Advisor {
     }
 }
 ```
-</details>
 
----
-
-### Exercise 2: Toxic / Jailbreak Prompt Interceptor Advisor
-**Problem Statement:**  
-Write a custom `SafetyGuardAdvisor` that checks incoming user prompt text for forbidden terms (e.g., `"ignore all previous instructions"`, `"jailbreak"`, `"bypass safety"`). If detected, it throws a `SecurityException("Jailbreak attempt detected and blocked")` before the prompt is sent to the LLM.
-
-<details>
-<summary>👉 View Solution</summary>
+#### Exercise 2: Toxic / Jailbreak Prompt Interceptor Advisor
+**Task**: Write a `SafetyGuardAdvisor` that inspects prompt text for forbidden terms (e.g. `"ignore all previous instructions"`, `"jailbreak"`), throwing a `SecurityException` if detected.
 
 ```java
-package com.genai.springai.chatclient;
-
-import com.genai.springai.core.ChatResponse;
-import com.genai.springai.core.Message;
-import com.genai.springai.core.Prompt;
-
-import java.util.List;
-
+// Solution:
 public class SafetyGuardAdvisor implements Advisor {
 
     private static final List<String> FORBIDDEN_PATTERNS = List.of(
         "ignore all previous instructions",
         "bypass safety",
-        "jailbreak",
-        "system prompt reveal"
+        "jailbreak"
     );
 
     @Override
-    public String getName() {
-        return "SafetyGuardAdvisor";
-    }
+    public String getName() { return "SafetyGuardAdvisor"; }
 
     @Override
     public Prompt before(Prompt prompt) {
@@ -569,24 +482,15 @@ public class SafetyGuardAdvisor implements Advisor {
     }
 
     @Override
-    public ChatResponse after(ChatResponse response) {
-        return response;
-    }
+    public ChatResponse after(ChatResponse response) { return response; }
 }
 ```
-</details>
 
----
-
-### Exercise 3: Strongly-Typed Code Reviewer via `.entity()`
-**Problem Statement:**  
-Write a Spring REST controller endpoint `POST /api/v1/ai/review` that accepts a raw Java source code snippet and uses `ChatClient` to return a strongly-typed Java record:
-`public record CodeReview(int qualityScore, List<String> bugsFound, List<String> improvements, boolean approved)`.
-
-<details>
-<summary>👉 View Solution</summary>
+#### Exercise 3: Strongly-Typed Code Reviewer via `.entity()`
+**Task**: Build a controller endpoint `POST /api/v1/ai/review` accepting raw Java code and returning a strongly-typed Java record `CodeReview(int qualityScore, List<String> bugsFound, List<String> improvements, boolean approved)`.
 
 ```java
+// Solution:
 @RestController
 @RequestMapping("/api/v1/ai")
 public class CodeReviewController {
@@ -599,23 +503,17 @@ public class CodeReviewController {
             .build();
     }
 
-    public record CodeReview(
-        int qualityScore,
-        List<String> bugsFound,
-        List<String> improvements,
-        boolean approved
-    ) {}
+    public record CodeReview(int qualityScore, List<String> bugsFound, List<String> improvements, boolean approved) {}
 
     @PostMapping(value = "/review", consumes = MediaType.TEXT_PLAIN_VALUE)
     public ResponseEntity<CodeReview> reviewCode(@RequestBody String javaCode) {
         CodeReview review = chatClient.prompt()
             .user(u -> u.text("""
-                Perform an in-depth code review on the following Java 21 code snippet:
+                Review the following Java 21 code snippet:
                 ```java
                 {code}
                 ```
-                Provide a quality score out of 100, identify potential bugs (concurrency, null pointers, resource leaks),
-                and recommend idiomatic modern Java improvements.
+                Provide quality score out of 100, identify potential bugs, and recommend modern Java improvements.
             """).param("code", javaCode))
             .call()
             .entity(CodeReview.class);
@@ -624,63 +522,9 @@ public class CodeReviewController {
     }
 }
 ```
-</details>
 
 ---
 
-## 5-Question Self-Check Quiz
-
-#### 1. What was the primary motivation for introducing `ChatClient` in Spring AI?
-- A) To replace Java with Python in Spring Boot.
-- B) To provide a fluent, ergonomic builder API similar to `RestClient` that abstracts prompt building, options, advisors, and structured output parsing.
-- C) Because `ChatModel` was deleted from the library.
-- D) To enforce billing on every API call.
-
-#### 2. In Spring AI `ChatClient`, what is an "Advisor"?
-- A) A customer service chatbot.
-- B) An interceptor component with `before()` and `after()` hooks that wraps prompt creation and response processing (similar to an HTTP Filter or AOP aspect).
-- C) A database schema generator.
-- D) An IDE plugin for IntelliJ.
-
-#### 3. How does `ChatClient` support converting an LLM response directly into a Java record or DTO?
-- A) By calling `.call().entity(MyRecord.class)`.
-- B) By running `eval()` on Python scripts.
-- C) Through XML serialization.
-- D) Java records cannot be generated by LLMs.
-
-#### 4. Which built-in advisor in Spring AI is used to automatically log prompt requests, response completions, elapsed time, and token metrics?
-- A) `MetricsAdvisor`
-- B) `SimpleLoggerAdvisor`
-- C) `TomcatLoggingFilter`
-- D) `AuditAspect`
-
-#### 5. Why should you use `u.text("...{param}...").param("param", value)` instead of string concatenation `+`?
-- A) String concatenation causes memory leaks in JVM.
-- B) Parameterized prompt templates prevent prompt injection syntax breaking, allow template reusability, and integrate cleanly with advisors.
-- C) Because Java 21 removed the `+` operator.
-- D) String concatenation only works with integers.
-
----
-
-### Quiz Answers & Explanations
-
-1. **B is correct**: `ChatClient` was introduced to provide an ergonomic, fluent builder API that makes working with LLMs as natural as calling REST APIs with `RestClient`.
-2. **B is correct**: The Advisor pattern provides a standardized pre/post interception mechanism for cross-cutting concerns (logging, chat memory, RAG, PII sanitization).
-3. **A is correct**: `.call().entity(TargetClass.class)` leverages Spring AI's structured output converters to return strongly-typed Java objects.
-4. **B is correct**: `SimpleLoggerAdvisor` is the official Spring AI advisor for request/response logging and latency metrics.
-5. **B is correct**: Using template parameters cleanly separates static instructions from dynamic user inputs.
-
----
-
-## Day 33 Summary & Next Steps
-
-Awesome job today! You just unlocked one of the most powerful and developer-friendly features of Spring AI:
-1. **The Fluent Builder**: You now know how to build conversational prompts with `chatClient.prompt().system(...).user(...).call().content()`.
-2. **Template Variables**: You can replace `{variables}` cleanly without string-concatenation spaghetti.
-3. **Structured Java Output**: You saw how `.entity(MyRecord.class)` turns unstructured AI words directly into clean Java 21 records.
-4. **Enterprise Advisors & Privacy**: You wrote your own real-world PII Redaction Advisor to protect user privacy before messages ever leave your server.
-
-You're building real, production-grade AI skills that real companies look for every single day.
-
-👉 **Tomorrow in Day 34: Prompt Engineering in Java** — We're going to learn how to coach the AI to give us the exact answers we want! We'll explore Few-Shot Prompting, Chain-of-Thought thinking, and how to store prompt templates cleanly in `.st` files. See you tomorrow! 🌟
-
+| Previous Day | Course Hub | Next Day |
+|:---|:---:|---:|
+| [◀ Day 32: Introduction to Spring AI](../Day_32_Introduction_to_Spring_AI/Day_32_Introduction_to_Spring_AI.md) | [All 60 Days Overview](../../README.md) | [Day 34: Prompt Engineering in Java ▶](../Day_34_Prompt_Engineering_in_Java/Day_34_Prompt_Engineering_in_Java.md) |
