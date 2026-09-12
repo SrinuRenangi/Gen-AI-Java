@@ -1,217 +1,406 @@
 # Day 50: Model Context Protocol (MCP) in Java
 
-## The USB-C of AI Systems: Building Interoperable MCP Servers and Clients in the Java Ecosystem
-
 | Previous Day | Course Hub | Next Day |
 |:---|:---:|---:|
 | [Day 49: Building a ReAct Agent in Java](../../Phase_07_LangChain4j/Day_49_Building_ReAct_Agent_in_Java/Day_49_Building_ReAct_Agent_in_Java.md) | [All 60 Days Overview](../../README.md) | [Day 51: Prompt Injection Defense & AI Security](../Day_51_Prompt_Injection_AI_Security/Day_51_Prompt_Injection_AI_Security.md) |
 
 ---
 
-Welcome to Day 50 and welcome to **Phase 8: Enterprise Production**! You've already mastered Java foundations, Spring Boot REST APIs, JPA databases, Spring Security, Spring AI, and LangChain4j. Now, we prepare your AI applications for real-world enterprise deployment.
+## 1. Topic Overview
 
-In today's lesson, we tackle one of the most critical breakthroughs in modern AI engineering: **Model Context Protocol (MCP)**. Until recently, connecting an LLM to a database, a GitHub repo, or an internal Java service required messy, proprietary custom code for every vendor. Today, you'll learn how MCP acts as the universal "USB-C cable" for AI, allowing your Java services to seamlessly plug into any AI host. Let's start with today's essential vocabulary:
-
----
-
-> 💡 **New Word Alert! Plain English Definitions for Today's Concepts**
->
-> - **Model Context Protocol (MCP)**: An open industry standard (created by Anthropic and supported across the ecosystem) that lets any AI client talk to any tool or database using a single, universal protocol. It's the "USB-C cable" of AI.
-> - **MCP Host**: The application holding the AI steering wheel—like Claude Desktop, Cursor IDE, or your custom Spring Boot AI application.
-> - **MCP Client**: The connector component inside the host that negotiates communication, sends requests, and receives answers.
-> - **MCP Server**: The backend service (which you build in Java!) that exposes your enterprise data and methods to the AI.
-> - **MCP Tools**: Executable functions your server gives to the AI (e.g., `executeSql(query)` or `rebootServer(id)`).
-> - **MCP Resources**: Read-only streams of data the AI can inspect for context (e.g., database schemas, system log files, or customer contracts).
-> - **JSON-RPC 2.0**: The simple text-based protocol MCP uses to send requests and responses over the wire using JSON format.
-> - **Stdio vs. SSE Transport**: `Stdio` runs the MCP server as a local command-line subprocess (standard in/out), whereas `SSE` (Server-Sent Events over HTTP) runs it as a networked microservice accessible across the network.
+The **Model Context Protocol (MCP)** is an open, standardized communication protocol introduced by Anthropic that provides a universal standard for connecting Large Language Model (LLM) applications to external tools, data resources, and prompts. In enterprise Java systems, MCP eliminates the fragmentation of bespoke API connectors by establishing a unified JSON-RPC 2.0 interface across local subprocesses and networked microservices.
 
 ---
 
-## What Will You Learn Today?
+## 2. Basic Foundations (True Zero)
 
-- **The Interoperability Crisis**: Why proprietary tool integrations fragmented the AI ecosystem, and how the Model Context Protocol (MCP) establishes a universal, open standard.
-- **The MCP Architectural Triad**: Understanding the separation of concerns between the **MCP Host**, the **MCP Client**, and the **MCP Server**.
-- **The 3 Core Server Capabilities**: Implementing standardized **Tools** (executable functions), **Resources** (URI-addressable data streams), and **Prompts** (parameterized templates).
-- **The JSON-RPC 2.0 Protocol Handshake**: Deep-diving into the request-response lifecycle across `initialize`, `tools/list`, `tools/call`, and `resources/read`.
-- **Spring AI & Java SDK Integration**: Building a production-grade MCP Server exposing internal enterprise databases and business logic.
-- **Enterprise Transport & Security**: Hardening MCP communication across local Stdio processes and remote HTTP with Server-Sent Events (SSE).
+### What Problem Does MCP Solve?
 
----
-
-## 1. Real-World Analogy: USB-C for Artificial Intelligence
-
-Remember consumer electronics before USB-C?
-
-Every device had a proprietary, incompatible connector:
-- Old Nokia phones had a cylindrical 2mm pin.
-- Digital cameras used Mini-USB.
-- Android smartphones used Micro-USB.
-- Apple iPhones used the proprietary 30-pin, then Lightning.
-- Laptops required heavy, proprietary charging bricks.
-
-If you traveled, you needed six different cables. If you bought a new phone, all your existing accessories became electronic waste. Then came **USB-C**: a single, open, standardized physical and electrical protocol that charges phones, transmits 4K video, connects hard drives, and powers laptops.
+Before MCP, integrating an LLM application with enterprise data sources was an $N \times M$ integration problem:
 
 ```
-       PRE-MCP: FRAGMENTED PROPRIETARY CONNECTIONS             POST-MCP: UNIVERSAL OPEN STANDARD
-   ┌───────────────────┐    Proprietary Connector    ┌──────┐   ┌───────────────────┐   Standardized JSON-RPC   ┌──────┐
-   │ Spring Boot App   ├────────────────────────────►│OpenAI│   │ Spring Boot App   ├───┐                   ┌──►│Claude│
-   └───────────────────┘                             └──────┘   └───────────────────┘   │   ┌───────────┐   │   └──────┘
-   ┌───────────────────┐    Custom Function Schema   ┌──────┐   ┌───────────────────┐   ├──►│MCP Client ├───┼──►│ IDE  │
-   │ Postgres DB       ├────────────────────────────►│Claude│   │ Postgres MCP Serv ├───┤   └───────────┘   │   └──────┘
-   └───────────────────┘                             └──────┘   └───────────────────┘   │                   └──►│Ollama│
-   ┌───────────────────┐    Custom Tool Callback     ┌──────┐   ┌───────────────────┐   │                       └──────┘
-   │ Jira Ticketing    ├────────────────────────────►│Gemini│   │ Jira MCP Server   ├───┘
-   └───────────────────┘                             └──────┘   └───────────────────┘
-   (N * M Integration Nightmare! Rewrite for every LLM)          (Write Once: Any MCP Host Connects Instantly!)
+[Claude Desktop]      [ChatGPT]      [Spring AI Agent]      [Cursor IDE]
+       │                  │                  │                  │
+   (Custom)           (Custom)           (Custom)           (Custom)
+       ▼                  ▼                  ▼                  ▼
+[PostgreSQL DB]     [Git Repo]        [Slack API]       [Salesforce CRM]
 ```
 
-Until late 2024, the Generative AI ecosystem was stuck in the pre-USB-C era:
-- OpenAI used custom JSON schemas under `tools`.
-- Anthropic used its own tool-use format.
-- Google Gemini used proprietary function declarations.
-- Claude Desktop could not talk to your internal Spring Boot microservice without custom wrapper code.
+Every AI client had its own proprietary plugin or tool-calling schema. If you maintained four AI clients and four data sources, you had to write and maintain 16 separate integrations.
 
-**Model Context Protocol (MCP)**, open-sourced by Anthropic and adopted across the industry, is the **USB-C of AI systems**: an open, standardized JSON-RPC 2.0 protocol that allows any AI host (Claude Desktop, Cursor, Spring AI, LangChain4j) to securely connect to any data source or tool provider through a single universal interface.
+With MCP, the ecosystem converges on a single universal standard:
 
----
-
-## 🧭 The Mid-Level Java Developer Bridge: Model Context Protocol (MCP) Demystified
-
-If you've spent years building REST APIs, OpenAPI/Swagger docs, and microservices, here is how MCP fits into your existing world:
-
-| Standard Backend Concept | MCP Equivalent | Plain English Meaning |
-| :--- | :--- | :--- |
-| **REST / HTTP Endpoint** | **MCP Tool** (`tools/call`) | A Java method that the AI can discover and execute to take action (e.g. check order status, reboot server). |
-| **Swagger / OpenAPI Spec** | **`tools/list`** Handshake | When the client boots, the MCP server replies with a list of available tools and their JSON schemas so the AI knows what it can do. |
-| **Static File / GET Endpoint** | **MCP Resource** (`resources/read`) | A read-only stream of data (like server logs, DB schema, or customer profile) that the AI can read into context. |
-| **Prompt Template** | **MCP Prompt** (`prompts/get`) | Pre-packaged prompt instructions stored on the server so users get standardized outputs. |
-| **Transport Layer** | `stdio` (Local CLI process) or `SSE` (HTTP Server-Sent Events) | How messages travel between the AI client and your Java service. |
-
----
-
-## 2. The MCP Architectural Triad
-
-MCP cleanly decouples AI model execution from external tool execution through three distinct architectural roles:
-
-```mermaid
-flowchart LR
-    subgraph HostApp["1. MCP Host (Application Layer)"]
-        UI["User Interface / IDE / Spring Boot"]
-        LLM["Frontier Model (Claude 3.5 / GPT-4o)"]
-        Client["MCP Client Adapter"]
-    end
-
-    subgraph TransportLayer["2. Transport Protocol"]
-        Stdio["Stdio (Subprocess IPC)"]
-        SSE["HTTP + Server-Sent Events (SSE)"]
-    end
-
-    subgraph ServerLayer["3. MCP Servers (Enterprise Data & Tools)"]
-        S1["PostgreSQL MCP Server (Database Schema & Queries)"]
-        S2["Git / GitHub MCP Server (Commits & PRs)"]
-        S3["AWS Infrastructure MCP Server (EC2 / S3 Telemetry)"]
-    end
-
-    UI --> LLM
-    LLM --> Client
-    Client -->|JSON-RPC 2.0| Stdio & SSE
-    Stdio & SSE --> S1 & S2 & S3
+```
+[Claude Desktop]      [ChatGPT]      [Spring AI Agent]      [Cursor IDE]
+       │                  │                  │                  │
+       └──────────────────┴────────┬─────────┴──────────────────┘
+                                   │  (MCP Standard JSON-RPC 2.0)
+                                   ▼
+                       ┌───────────────────────┐
+                       │      MCP Clients      │
+                       └───────────┬───────────┘
+                                   │  (Stdio / HTTP + SSE)
+       ┌──────────────────┬────────┴─────────┬──────────────────┐
+       ▼                  ▼                  ▼                  ▼
+[PostgreSQL MCP]    [Git MCP]          [Slack MCP]       [Salesforce MCP]
 ```
 
-### 1. The MCP Host
-The client application orchestrating AI conversations and user interactions. Examples include Claude Desktop, Cursor IDE, or your own custom Spring Boot backend service. The Host contains one or more **MCP Clients**.
+Now, each data source or tool provider writes **one** MCP Server, and every MCP-compliant host can immediately discover and use it.
 
-### 2. The MCP Client
-An adapter running inside the host that maintains a stateful 1-to-1 connection to an MCP Server over a transport layer (either local `Stdio` process pipes or remote `HTTP + SSE`).
+### Relatable Physical Analogy: The USB-C Standard
 
-### 3. The MCP Server
-A lightweight, specialized program that exposes enterprise capabilities. A single host can connect to dozens of independent MCP servers concurrently (e.g. connecting simultaneously to a GitHub MCP Server, a Jira MCP Server, and an Internal PostgreSQL MCP Server).
+Think of the consumer electronics industry before USB-C: digital cameras had Mini-USB, older phones used Micro-USB, iPhones used Lightning, printers used USB-B, and laptops had proprietary barrel power jacks. Connecting your devices required a drawer full of specialized adapter cables.
 
----
-
-## 3. The 3 Core Server Capabilities
-
-Every MCP Server can expose any combination of three standardized primitives:
-
-### 1. Tools (`tools/list` & `tools/call`)
-Executable functions that allow an LLM to take actions in the external world (e.g., executing a SQL query, creating a GitHub issue, or transferring funds).
-- Defined by a name, human-readable description, and JSON Schema for parameters.
-- Invocation returns structured text or binary content blocks.
-
-### 2. Resources (`resources/list` & `resources/read`)
-Contextual data that can be read by the AI host, structured like files or database records.
-- Identified by standardized URIs: e.g. `postgres://warehouse/schema.sql`, `file:///var/log/syslog`, `git://repo/HEAD/README.md`.
-- Can be static text, binary data, or dynamic data streams updated in real time.
-
-### 3. Prompts (`prompts/list` & `prompts/get`)
-Pre-engineered, reusable prompt templates exposed by the server for standard enterprise workflows (e.g. `triage-incident`, `review-pr`, `audit-compliance`).
+**MCP is the USB-C standard for Generative AI.** Just as any USB-C cable connects any USB-C phone to any USB-C charger, monitor, or external SSD regardless of the manufacturer, MCP allows any AI host to plug into any data source or tool server using one universal wire protocol.
 
 ---
 
-## 4. The JSON-RPC 2.0 Protocol Lifecycle
+### Minimal Beginner-Friendly Example: A Pure Java MCP Ping-Pong Handshake
 
-MCP communicates strictly through standard **JSON-RPC 2.0**. Understanding the wire-level handshake is essential for debugging and implementing custom servers.
+Here is a minimal, zero-dependency Java program demonstrating the core wire format of an MCP JSON-RPC 2.0 `initialize` request and response:
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant Host as MCP Client (Spring Boot)
-    participant Server as MCP Server (Enterprise Database)
+```java
+package com.genai.enterprise.mcp.minimal;
 
-    Note over Host,Server: Phase 1: Initialization Handshake
-    Host->>Server: {"jsonrpc":"2.0", "id":"1", "method":"initialize", "params":{"protocolVersion":"2024-11-05"}}
-    Server-->>Host: {"jsonrpc":"2.0", "id":"1", "result":{"protocolVersion":"2024-11-05", "capabilities":{"tools":true, "resources":true}, "serverInfo":{"name":"postgres-mcp", "version":"1.4.0"}}}
-    Host->>Server: {"jsonrpc":"2.0", "method":"notifications/initialized"}
+public class MinimalMcpHandshake {
 
-    Note over Host,Server: Phase 2: Discovery
-    Host->>Server: {"jsonrpc":"2.0", "id":"2", "method":"resources/list"}
-    Server-->>Host: {"jsonrpc":"2.0", "id":"2", "result":{"resources":[{"uri":"postgres://warehouse/schema.sql", "name":"Warehouse DDL"}]}}
-    Host->>Server: {"jsonrpc":"2.0", "id":"3", "method":"tools/list"}
-    Server-->>Host: {"jsonrpc":"2.0", "id":"3", "result":{"tools":[{"name":"querySalesByRegion", "description":"Aggregates sales"}]}}
+    // 1. MCP client sends an initialize request in JSON-RPC 2.0 format
+    public static final String INITIALIZE_REQUEST = """
+        {
+          "jsonrpc": "2.0",
+          "id": 1,
+          "method": "initialize",
+          "params": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": { "roots": { "listChanged": true } },
+            "clientInfo": { "name": "SpringAiMcpHost", "version": "1.0.0" }
+          }
+        }
+        """;
 
-    Note over Host,Server: Phase 3: Execution
-    Host->>Server: {"jsonrpc":"2.0", "id":"4", "method":"tools/call", "params":{"name":"querySalesByRegion", "arguments":{"region":"EMEA"}}}
-    Server-->>Host: {"jsonrpc":"2.0", "id":"4", "result":{"content":[{"type":"text", "text":"{\"totalOrders\":1420,\"revenue\":482000.0}"}], "isError":false}}
+    // 2. MCP server inspects request and returns capabilities
+    public static String handleRpcRequest(String rawJson) {
+        if (rawJson.contains("\"method\": \"initialize\"")) {
+            return """
+                {
+                  "jsonrpc": "2.0",
+                  "id": 1,
+                  "result": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {
+                      "tools": { "listChanged": false },
+                      "resources": { "subscribe": false }
+                    },
+                    "serverInfo": { "name": "MinimalWarehouseMcpServer", "version": "1.0.0" }
+                  }
+                }
+                """;
+        }
+        return """
+            {"jsonrpc": "2.0", "id": 1, "error": {"code": -32601, "message": "Method not found"}}
+            """;
+    }
+
+    public static void main(String[] args) {
+        System.out.println("Client Request:");
+        System.out.println(INITIALIZE_REQUEST);
+
+        String serverResponse = handleRpcRequest(INITIALIZE_REQUEST);
+        System.out.println("Server Response:");
+        System.out.println(serverResponse);
+    }
+}
+```
+
+#### Line-by-Line Walkthrough:
+1. `public static final String INITIALIZE_REQUEST`: Defines the exact JSON-RPC 2.0 handshake envelope required by the MCP specification (`protocolVersion: 2024-11-05`).
+2. `"method": "initialize"`: The mandatory initial RPC method sent by any MCP client before any tools or resources can be accessed.
+3. `handleRpcRequest(String rawJson)`: Simulates the server-side RPC dispatcher inspecting the incoming message.
+4. `capabilities`: The server declares what features it supports (`tools`, `resources`, `prompts`).
+5. `main(String[] args)`: Executes the round-trip handshake demonstrating protocol compliance.
+
+---
+
+## 3. Core Concept Walkthrough (Basic → Intermediate)
+
+### 3.1 The MCP Architectural Roles
+
+An MCP deployment consists of three primary architectural components:
+
+```
+┌────────────────────────────────────────────────────────┐
+│                        MCP HOST                        │
+│  (e.g., Spring Boot AI Service, Claude Desktop, Cursor) │
+│                                                        │
+│  ┌────────────────────────┐  ┌──────────────────────┐  │
+│  │       LLM Engine       │  │      MCP Client      │  │
+│  │  (OpenAI / Anthropic)  │  │  (Manages Sessions)  │  │
+│  └───────────┬────────────┘  └──────────┬───────────┘  │
+└──────────────┼──────────────────────────┼──────────────┘
+               │                          │
+               │ Decides to call tool     │ Transports JSON-RPC 2.0
+               │                          │ (Stdio or HTTP+SSE)
+               ▼                          ▼
+┌────────────────────────────────────────────────────────┐
+│                       MCP SERVER                       │
+│  (e.g., PostgreSQL MCP, Git MCP, Jira MCP)             │
+│                                                        │
+│  ┌────────────────┐ ┌────────────────┐ ┌─────────────┐ │
+│  │   Resources    │ │     Tools      │ │   Prompts   │ │
+│  │ (Data/Schemas) │ │  (Executable)  │ │ (Templates) │ │
+│  └────────────────┘ └────────────────┘ └─────────────┘ │
+└────────────────────────────────────────────────────────┘
+```
+
+1. **MCP Host**: The application runtime coordinating the user interaction and the LLM (e.g., a Spring Boot service, Claude Desktop, or Cursor).
+2. **MCP Client**: The component embedded inside the Host that initiates connections, manages protocol lifecycles, and executes JSON-RPC calls against MCP servers.
+3. **MCP Server**: A standalone process or microservice that exposes domain tools, readable data resources, or pre-configured prompts.
+
+---
+
+### 3.2 The Three MCP Primitives: Tools, Resources, Prompts
+
+| Primitive | Nature | Purpose | Example |
+|:---|:---|:---|:---|
+| **Tools** | Active (Executable) | Functions with JSON Schema inputs that the LLM can decide to invoke. | `querySalesByRegion(region, minVolume)` |
+| **Resources** | Passive (Readable) | Read-only contextual data, documents, or schemas identified by URIs. | `postgres://warehouse/schema.sql`, `file:///logs/app.log` |
+| **Prompts** | Guided (Templated) | Standardized prompt workflows exposed by the server for user selection. | `audit-security-vulnerability`, `explain-code` |
+
+---
+
+### 3.3 MCP Transport Mechanisms: Stdio vs. HTTP + SSE
+
+MCP defines two official transport layers:
+
+```
+1. Standard I/O (Stdio) Transport:
+   [Host Application] ──(stdin / stdout)──> [Local Child Process MCP Server]
+   * Best for: Local desktop tools, CLI utilities, security-isolated child processes.
+
+2. HTTP with Server-Sent Events (SSE) Transport:
+   [Host Application] ──(POST /messages)───> [Remote Networked MCP Server]
+   [Host Application] <──(SSE Stream)─────── [Remote Networked MCP Server]
+   * Best for: Distributed cloud microservices, shared enterprise databases, Kubernetes.
 ```
 
 ---
 
-## 5. Building an Enterprise MCP Server in Java
+### 3.4 Java 21 Implementation: Protocol Records & Dispatcher
 
-With the official **Model Context Protocol Java SDK** (`io.modelcontextprotocol.sdk`), building an enterprise server in Java is clean, typed, and idiomatic:
+Let's inspect the real-world Java 21 implementation from our lesson companion code (`Phase_08_Enterprise_Production/Day_50_Model_Context_Protocol_MCP/code/`).
 
-### 5.1 Maven Dependency
-
-```xml
-<dependency>
-    <groupId>io.modelcontextprotocol.sdk</groupId>
-    <artifactId>mcp-sdk</artifactId>
-    <version>0.6.0</version>
-</dependency>
-```
-
-### 5.2 Exposing an Enterprise Spring Service as an MCP Server
+#### Step 1: Defining Immutable Protocol Records (`McpProtocol.java`)
 
 ```java
 package com.genai.enterprise.mcp;
 
-import org.springframework.stereotype.Service;
+import java.util.List;
+import java.util.Map;
+
+public final class McpProtocol {
+
+    public static final String PROTOCOL_VERSION = "2024-11-05";
+
+    public record JsonRpcRequest(
+        String jsonrpc,
+        Object id,
+        String method,
+        Map<String, Object> params
+    ) {
+        public static JsonRpcRequest of(Object id, String method, Map<String, Object> params) {
+            return new JsonRpcRequest("2.0", id, method, params);
+        }
+    }
+
+    public record JsonRpcResponse(
+        String jsonrpc,
+        Object id,
+        Object result,
+        JsonRpcError error
+    ) {
+        public static JsonRpcResponse success(Object id, Object result) {
+            return new JsonRpcResponse("2.0", id, result, null);
+        }
+
+        public static JsonRpcResponse error(Object id, int code, String message) {
+            return new JsonRpcResponse("2.0", id, null, new JsonRpcError(code, message, null));
+        }
+    }
+
+    public record JsonRpcError(int code, String message, Object data) {}
+
+    public record ServerCapabilities(boolean tools, boolean resources, boolean prompts) {}
+    public record ServerInfo(String name, String version) {}
+    public record InitializeResult(String protocolVersion, ServerCapabilities capabilities, ServerInfo serverInfo) {}
+
+    public record ToolDescriptor(String name, String description, Map<String, Object> inputSchema) {}
+    public record ResourceDescriptor(String uri, String name, String mimeType, String description) {}
+}
+```
+
+#### Step 2: Defining the Executable Tool Contract (`McpTool.java`)
+
+```java
+package com.genai.enterprise.mcp;
 
 import java.util.Map;
 
-@Service
-public class EnterpriseWarehouseMcpService {
+public interface McpTool {
+    McpProtocol.ToolDescriptor getDescriptor();
+    String execute(Map<String, Object> arguments) throws Exception;
+}
+```
 
-    // Expose SQL schema as an MCP Resource
-    public McpResource getWarehouseSchemaResource() {
-        return new McpResource() {
+#### Step 3: Dispatching Protocol Server (`McpServer.java`)
+
+```java
+package com.genai.enterprise.mcp;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class McpServer {
+
+    private final String serverName;
+    private final String version;
+    private final Map<String, McpTool> registeredTools = new ConcurrentHashMap<>();
+    private final Map<String, McpResource> registeredResources = new ConcurrentHashMap<>();
+
+    public McpServer(String serverName, String version) {
+        this.serverName = serverName;
+        this.version = version;
+    }
+
+    public void registerTool(McpTool tool) {
+        registeredTools.put(tool.getDescriptor().name(), tool);
+    }
+
+    public void registerResource(McpResource resource) {
+        registeredResources.put(resource.getDescriptor().uri(), resource);
+    }
+
+    public McpProtocol.JsonRpcResponse handleRequest(McpProtocol.JsonRpcRequest request) {
+        return switch (request.method()) {
+            case "initialize" -> handleInitialize(request);
+            case "tools/list" -> handleToolsList(request);
+            case "tools/call" -> handleToolsCall(request);
+            case "resources/list" -> handleResourcesList(request);
+            case "resources/read" -> handleResourcesRead(request);
+            default -> McpProtocol.JsonRpcResponse.error(
+                request.id(), -32601, "Method not found: " + request.method()
+            );
+        };
+    }
+
+    private McpProtocol.JsonRpcResponse handleInitialize(McpProtocol.JsonRpcRequest req) {
+        var capabilities = new McpProtocol.ServerCapabilities(!registeredTools.isEmpty(), !registeredResources.isEmpty(), false);
+        var serverInfo = new McpProtocol.ServerInfo(serverName, version);
+        return McpProtocol.JsonRpcResponse.success(req.id(), new McpProtocol.InitializeResult(McpProtocol.PROTOCOL_VERSION, capabilities, serverInfo));
+    }
+
+    private McpProtocol.JsonRpcResponse handleToolsList(McpProtocol.JsonRpcRequest req) {
+        List<McpProtocol.ToolDescriptor> descriptors = registeredTools.values().stream()
+            .map(McpTool::getDescriptor)
+            .toList();
+        return McpProtocol.JsonRpcResponse.success(req.id(), Map.of("tools", descriptors));
+    }
+
+    private McpProtocol.JsonRpcResponse handleToolsCall(McpProtocol.JsonRpcRequest req) {
+        String toolName = (String) req.params().get("name");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> arguments = (Map<String, Object>) req.params().getOrDefault("arguments", Map.of());
+
+        McpTool tool = registeredTools.get(toolName);
+        if (tool == null) {
+            return McpProtocol.JsonRpcResponse.error(req.id(), -32601, "Tool not found: " + toolName);
+        }
+
+        try {
+            String output = tool.execute(arguments);
+            return McpProtocol.JsonRpcResponse.success(req.id(), Map.of(
+                "content", List.of(Map.of("type", "text", "text", output)),
+                "isError", false
+            ));
+        } catch (Exception ex) {
+            return McpProtocol.JsonRpcResponse.error(req.id(), -32603, "Internal tool error: " + ex.getMessage());
+        }
+    }
+
+    private McpProtocol.JsonRpcResponse handleResourcesList(McpProtocol.JsonRpcRequest req) {
+        List<McpProtocol.ResourceDescriptor> descriptors = registeredResources.values().stream()
+            .map(McpResource::getDescriptor)
+            .toList();
+        return McpProtocol.JsonRpcResponse.success(req.id(), Map.of("resources", descriptors));
+    }
+
+    private McpProtocol.JsonRpcResponse handleResourcesRead(McpProtocol.JsonRpcRequest req) {
+        String uri = (String) req.params().get("uri");
+        McpResource resource = registeredResources.get(uri);
+        if (resource == null) {
+            return McpProtocol.JsonRpcResponse.error(req.id(), -32602, "Resource URI not found: " + uri);
+        }
+        return McpProtocol.JsonRpcResponse.success(req.id(), Map.of(
+            "contents", List.of(Map.of(
+                "uri", uri,
+                "mimeType", resource.getDescriptor().mimeType(),
+                "text", resource.read()
+            ))
+        ));
+    }
+}
+```
+
+---
+
+## 4. Prerequisite & Supporting Concepts
+
+### Prerequisite / Supporting Concept: JSON-RPC 2.0 Protocol
+MCP is strictly built on top of [JSON-RPC 2.0](https://www.jsonrpc.org/specification). Every message is a JSON object containing:
+- `"jsonrpc": "2.0"` (protocol version declaration)
+- `"id"`: Unique correlation identifier matching requests to responses.
+- `"method"`: Procedure name to invoke (e.g. `initialize`, `tools/list`, `tools/call`).
+- `"params"`: Structured parameter payload.
+- In responses: Either `"result"` or `"error"`, never both. Standard JSON-RPC error codes include:
+  - `-32700`: Parse error
+  - `-32600`: Invalid Request
+  - `-32601`: Method not found
+  - `-32602`: Invalid params
+  - `-32603`: Internal error
+
+### Prerequisite / Supporting Concept: Stdio vs. Server-Sent Events (SSE)
+- **Stdio Transport**: The MCP Host executes the MCP Server as a subprocess (`java -jar mcp-server.jar`) and communicates over standard input (`System.in`) and standard output (`System.out`). Log messages MUST go to `System.err` so they do not corrupt the JSON-RPC stream.
+- **HTTP + SSE Transport**: The MCP Server runs as a web service. The client opens an HTTP GET connection requesting `text/event-stream` to receive server messages, and sends JSON-RPC commands via HTTP POST requests to an endpoint (e.g., `/messages`).
+
+### Prerequisite / Supporting Concept: Java 21 Records and Pattern Matching
+Java 21 `record` declarations provide concise, immutable data carriers with automatic `equals()`, `hashCode()`, and `toString()` implementations. Pattern-matching `switch` expressions allow safe, exhaustive handling of protocol methods without brittle string parsing chains.
+
+---
+
+## 5. Advanced Depth (Intermediate → Advanced)
+
+### 5.1 Real-World Enterprise Database MCP Server
+
+In production, an MCP server can expose relational warehouse schemas as **Resources** and analytic aggregations as **Tools**:
+
+```java
+package com.genai.enterprise.mcp;
+
+import java.util.Map;
+
+public class EnterpriseDatabaseMcpServer {
+
+    public static McpServer createServer() {
+        McpServer server = new McpServer("acme-postgres-mcp", "1.4.0");
+
+        // 1. Register Warehouse DDL Schema as a Resource (Read-only context)
+        server.registerResource(new McpResource() {
             @Override
             public McpProtocol.ResourceDescriptor getDescriptor() {
                 return new McpProtocol.ResourceDescriptor(
                     "postgres://warehouse/schema.sql",
                     "PostgreSQL Warehouse Schema",
                     "text/x-sql",
-                    "DDL table definitions for orders, customers, and inventory"
+                    "DDL definition for enterprise orders, products, and customers tables"
                 );
             }
 
@@ -223,12 +412,10 @@ public class EnterpriseWarehouseMcpService {
                     CREATE TABLE products (id SERIAL PRIMARY KEY, sku VARCHAR(50), stock INT, price NUMERIC(10,2));
                     """;
             }
-        };
-    }
+        });
 
-    // Expose analytical query as an MCP Tool
-    public McpTool getSalesQueryTool() {
-        return new McpTool() {
+        // 2. Register Analytics Tool (Executable function)
+        server.registerTool(new McpTool() {
             @Override
             public McpProtocol.ToolDescriptor getDescriptor() {
                 return new McpProtocol.ToolDescriptor(
@@ -237,10 +424,10 @@ public class EnterpriseWarehouseMcpService {
                     Map.of(
                         "type", "object",
                         "properties", Map.of(
-                            "region", Map.of("type", "string", "description", "Geographic region: NA, EMEA, APAC"),
+                            "region", Map.of("type", "string", "description", "Geographic sales region: NA, EMEA, APAC"),
                             "minVolume", Map.of("type", "number", "description", "Minimum order volume threshold in USD")
                         ),
-                        "required", java.util.List.of("region")
+                        "required", List.of("region")
                     )
                 );
             }
@@ -253,31 +440,66 @@ public class EnterpriseWarehouseMcpService {
                     region.toUpperCase()
                 );
             }
-        };
+        });
+
+        return server;
     }
 }
 ```
 
 ---
 
-## 6. Complete Runnable Companion Code Architecture
+### 5.2 Common Mistakes & Misconceptions: Bad vs. Good
 
-In this lesson's companion code (`Phase_08_Enterprise_Production/Day_50_Model_Context_Protocol_MCP/code/`), we provide a complete, pure Java 21 implementation of the Model Context Protocol specification:
+#### Mistake 1: Logging to `System.out` in Stdio Transport
+In Stdio transport, standard output is the dedicated JSON-RPC communication channel. Printing debug statements to `System.out` corrupts the JSON parser on the client.
 
-```
-Day_50_Model_Context_Protocol_MCP/code/
-├── McpProtocol.java                 # Standard JSON-RPC 2.0 records (Initialize, Tools, Resources)
-├── McpTool.java                     # Contract for executable MCP tools
-├── McpResource.java                 # Contract for readable MCP resources
-├── McpServer.java                   # JSON-RPC 2.0 protocol dispatching server
-├── McpClient.java                   # Client adapter handling initialization and requests
-├── EnterpriseDatabaseMcpServer.java # Real-world server exposing database schema & analytics tools
-└── McpDemo.java                     # Executable verification suite demonstrating protocol handshake
+```java
+// ❌ BAD: Polluting stdout breaks the client's JSON-RPC stream
+System.out.println("Processing tool call: " + toolName);
+
+// ✅ GOOD: Direct all diagnostic logs to stderr or SLF4J stderr appenders
+System.err.println("[DEBUG MCP] Processing tool call: " + toolName);
 ```
 
-### Verification & Demonstration Output
+#### Mistake 2: Exposing Read-Only Static Data as Tools Instead of Resources
+Models have to guess tool arguments and spend extra reasoning cycles when data should simply be available as context.
 
-Execute `McpDemo.java`:
+```java
+// ❌ BAD: Exposing static DDL schema as an executable tool
+public class GetSchemaTool implements McpTool {
+    public String execute(Map<String, Object> args) { return ddlSchema; }
+}
+
+// ✅ GOOD: Expose schema as an McpResource with a distinct URI
+public class SchemaResource implements McpResource {
+    public McpProtocol.ResourceDescriptor getDescriptor() {
+        return new McpProtocol.ResourceDescriptor("postgres://schema", "DB Schema", "text/x-sql", "DDL");
+    }
+    public String read() { return ddlSchema; }
+}
+```
+
+#### Mistake 3: Unbounded Parameter Validation
+Failing to validate inputs before executing database queries or shell processes creates critical security vectors.
+
+```java
+// ❌ BAD: Executing raw SQL directly from unvalidated tool arguments
+String tableName = (String) args.get("table");
+jdbcTemplate.execute("SELECT * FROM " + tableName); // SQL Injection!
+
+// ✅ GOOD: Strictly whitelist parameters against known entities
+String tableName = (String) args.get("table");
+if (!ALLOWED_TABLES.contains(tableName)) {
+    throw new IllegalArgumentException("Unauthorized table name: " + tableName);
+}
+```
+
+---
+
+### 5.3 Complete Verification Suite & Demo Execution
+
+Execute the verification suite in `Phase_08_Enterprise_Production/Day_50_Model_Context_Protocol_MCP/code/`:
 
 ```bash
 javac -d out Phase_08_Enterprise_Production/Day_50_Model_Context_Protocol_MCP/code/*.java
@@ -302,10 +524,10 @@ CREATE TABLE products (id SERIAL PRIMARY KEY, sku VARCHAR(50), stock INT, price 
 }]}
 
 --- 3. Tool Discovery (tools/list) ---
-Discovered Tools: {tools=[ToolDescriptor[name=querySalesByRegion, description=Aggregates total enterprise sales volume and order count for a geographic region, inputSchema={properties={region={description=Geographic sales region: NA, EMEA, APAC, type=string}, minVolume={description=Minimum order volume threshold in USD, type=number}}, type=object, required=[region]}], ToolDescriptor[name=auditIndexPerformance, description=Analyzes index bloat and scan latency on a specific table, inputSchema={properties={tableName={description=Target table name, type=string}}, type=object, required=[tableName]}]]}
+Discovered Tools: {tools=[ToolDescriptor[name=querySalesByRegion, description=Aggregates total enterprise sales volume and order count for a geographic region, inputSchema={properties={region={description=Geographic sales region: NA, EMEA, APAC, type=string}, minVolume={description=Minimum order volume threshold in USD, type=number}}, type=object, required=[region]}]]}
 
 --- 4. Remote Tool Execution (tools/call) ---
-Tool Execution Output: {content=[{text={"region": "EMEA", "totalOrders": 1420, "grossRevenue": 482000.00, "averageOrder": 339.43, "filteredByMinVolume": 1000.00}, type=text}], isError=false}
+Tool Execution Output: {content=[{text={"region": "EMEA", "totalOrders": 1420, "grossRevenue": 482000.00, "status": "VERIFIED"}, type=text}], isError=false}
 
 --- 5. Error Handling for Unknown Tool ---
 Error Payload: code=-32601, message="Tool not found: dropDatabase"
@@ -317,18 +539,68 @@ Error Payload: code=-32601, message="Tool not found: dropDatabase"
 
 ---
 
-## 7. Why MCP Matters for Senior Enterprise AI Engineers
+## 6. Quick Recap
 
-1. **Write Once, Integrate Everywhere**: When you build an MCP Server for your enterprise database or internal CRM in Java, it can be consumed immediately by Claude Desktop, Cursor IDE, custom Spring Boot agents, and external third-party partners without writing custom adapter code for each platform.
-2. **Strict Security Sandboxing**: MCP servers run as independent processes. An MCP server connecting to an internal database can enforce read-only role credentials and log all queries, completely isolated from the LLM host.
-3. **Decoupled Team Velocity**: The team maintaining the database service can update tools and schemas on their MCP server without requiring changes to the frontend chat application.
+| Concept | Description | Enterprise Value |
+|:---|:---|:---|
+| **MCP (Model Context Protocol)** | Open JSON-RPC 2.0 standard for LLM-tool-data interoperability | Eliminates proprietary $N \times M$ custom integration code. |
+| **Tools Primitive** | Dynamic executable functions with strict JSON schema signatures | Allows LLM agents to safely invoke operations across microservices. |
+| **Resources Primitive** | Read-only contextual data documents identified by unique URIs | Efficiently provides database DDLs, docs, and logs as background context. |
+| **Prompts Primitive** | Server-managed, pre-engineered prompt templates | Standardizes domain workflows across multiple client UIs. |
+| **Stdio Transport** | Standard input/output communication for local subprocesses | Zero network overhead, high performance for desktop & CLI tools. |
+| **HTTP + SSE Transport** | Networked transport using HTTP POST and Server-Sent Events | Standardized, firewall-friendly microservice connectivity for cloud systems. |
 
 ---
 
-## 8. Practical Exercises
+## 7. Self-Check Questions & Practice Exercises
 
-### Exercise 1: Git Branch Auditor MCP Resource
-**Task**: Create an `McpResource` that exposes the current Git branch and latest commit hash under the URI `git://repo/status`.
+### Conceptual Self-Check Questions
+
+#### Question 1: What is the primary architectural goal of the Model Context Protocol?
+- A) To replace SQL queries with raw natural language.
+- B) To provide a standardized JSON-RPC 2.0 protocol enabling any AI model to discover and execute tools, read resources, and fetch prompts across heterogeneous systems without custom adapters.
+- C) To compress large prompt strings into binary zip files.
+- D) To run LLMs locally on CPU chips without GPUs.
+
+*Answer*: **B**. MCP acts as the "USB-C of AI", standardizing the wire protocol so any AI host (Spring AI, Claude, Cursor) can communicate with any tool or data provider.
+
+---
+
+#### Question 2: Why should database DDL schemas be exposed as an MCP "Resource" rather than an MCP "Tool"?
+- A) Relational databases do not support JSON formats.
+- B) Tools cannot return strings longer than 100 characters.
+- C) Resources represent passive, read-only contextual information that the host can inject into system context directly without executing a function call cycle.
+- D) Resources run faster on GPU hardware.
+
+*Answer*: **C**. Resources provide passive, cacheable context (schemas, logs, documentation) directly to the prompt context, avoiding unnecessary LLM tool-calling loops.
+
+---
+
+#### Question 3: In an MCP server communicating over standard I/O (Stdio), where must application log messages be written?
+- A) To `System.out` alongside JSON responses.
+- B) To `System.err` so that JSON-RPC messages on standard out are not corrupted.
+- C) Stdio MCP servers are forbidden from producing log messages.
+- D) To an external floppy drive.
+
+*Answer*: **B**. Standard out (`stdout`) is reserved strictly for JSON-RPC messages. Any raw logging sent to `stdout` breaks the client's JSON parser. Logs must always be routed to `stderr`.
+
+---
+
+#### Question 4: What are the two official transports defined in the MCP specification?
+- A) WebSocket and gRPC.
+- B) Stdio (Standard I/O) and HTTP with Server-Sent Events (SSE).
+- C) FTP and Telnet.
+- D) SMTP and SOAP.
+
+*Answer*: **B**. Stdio is used for local subprocesses (desktop, CLI), while HTTP + SSE is used for distributed cloud microservices.
+
+---
+
+### Hands-on Practice Exercises
+
+#### Exercise 1: Git Branch Auditor MCP Resource
+**Task**: Implement an `McpResource` that exposes the active Git branch and latest commit SHA under the URI `git://repo/status`.
+
 **Solution**:
 ```java
 package com.genai.enterprise.exercises;
@@ -344,38 +616,54 @@ public class GitStatusMcpResource implements McpResource {
             "git://repo/status",
             "Git Repository Working Status",
             "application/json",
-            "Returns active branch, HEAD commit SHA, and dirty working tree status"
+            "Returns active branch, HEAD commit SHA, and clean/dirty working tree status"
         );
     }
 
     @Override
     public String read() {
-        return "{\"branch\": \"main\", \"headCommit\": \"9a282b9\", \"isDirty\": false}";
+        // In production, execute `git status --porcelain` or read JGit
+        return """
+            {
+              "branch": "main",
+              "headCommit": "9a282b9",
+              "isDirty": false,
+              "upstream": "origin/main"
+            }
+            """;
     }
 }
 ```
 
-### Exercise 2: Secure Server Reconnection Guard
-**Task**: Build a connection watcher method `boolean verifyServerCapabilities(McpProtocol.InitializeResult initResult)` that rejects any MCP server that does not declare protocol version `2024-11-05` or fails to support tools.
+---
+
+#### Exercise 2: Server Protocol Compatibility Guard
+**Task**: Build a static security validator `boolean isServerCompatible(McpProtocol.InitializeResult result)` that verifies the server conforms to protocol version `2024-11-05` and supports tools.
+
 **Solution**:
 ```java
 package com.genai.enterprise.exercises;
 
 import com.genai.enterprise.mcp.McpProtocol;
 
-public class McpSecurityValidator {
+public class McpCompatibilityValidator {
 
-    public static boolean verifyServerCapabilities(McpProtocol.InitializeResult initResult) {
-        if (!McpProtocol.PROTOCOL_VERSION.equals(initResult.protocolVersion())) {
+    public static boolean isServerCompatible(McpProtocol.InitializeResult result) {
+        if (result == null) {
             return false;
         }
-        return initResult.capabilities().tools();
+        boolean versionMatches = McpProtocol.PROTOCOL_VERSION.equals(result.protocolVersion());
+        boolean hasToolCapability = result.capabilities() != null && result.capabilities().tools();
+        return versionMatches && hasToolCapability;
     }
 }
 ```
 
-### Exercise 3: Dynamic MCP Tool Invoker with Timeout
-**Task**: Write a method that invokes `client.callTool(toolName, args)` with a timeout, ensuring that hung tools do not block the host application thread.
+---
+
+#### Exercise 3: Resilient MCP Tool Invoker with Virtual Thread Timeout
+**Task**: Create a resilient invoker method that calls an MCP tool and enforces a timeout using Java 21 Virtual Threads, returning an appropriate JSON-RPC error response if the tool times out.
+
 **Solution**:
 ```java
 package com.genai.enterprise.exercises;
@@ -390,15 +678,29 @@ public class ResilientMcpInvoker {
 
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
-    public McpProtocol.JsonRpcResponse callWithTimeout(McpClient client, String toolName, Map<String, Object> args, long timeoutMs) {
-        Future<McpProtocol.JsonRpcResponse> future = executor.submit(() -> client.callTool(toolName, args));
+    public McpProtocol.JsonRpcResponse callWithTimeout(
+            McpClient client, 
+            String toolName, 
+            Map<String, Object> arguments, 
+            long timeoutMs) {
+        
+        Future<McpProtocol.JsonRpcResponse> future = executor.submit(() -> client.callTool(toolName, arguments));
+        
         try {
             return future.get(timeoutMs, TimeUnit.MILLISECONDS);
         } catch (TimeoutException te) {
             future.cancel(true);
-            return McpProtocol.JsonRpcResponse.error("timeout", -32000, "MCP Tool call timed out after " + timeoutMs + "ms");
+            return McpProtocol.JsonRpcResponse.error(
+                "timeout-" + System.currentTimeMillis(),
+                -32000,
+                "MCP tool call timed out after " + timeoutMs + " ms"
+            );
         } catch (Exception ex) {
-            return McpProtocol.JsonRpcResponse.error("error", -32603, "Execution failed: " + ex.getMessage());
+            return McpProtocol.JsonRpcResponse.error(
+                "err-" + System.currentTimeMillis(),
+                -32603,
+                "Tool execution failed: " + ex.getMessage()
+            );
         }
     }
 }
@@ -406,72 +708,6 @@ public class ResilientMcpInvoker {
 
 ---
 
-## 9. Self-Check Quiz
-
-### Question 1: What is the Model Context Protocol (MCP)?
-- A) A new video streaming codec from Google.
-- B) An open, standardized JSON-RPC 2.0 protocol that allows AI models and applications to securely discover and execute tools, resources, and prompts across heterogeneous systems.
-- C) A replacement for the Java Virtual Machine.
-- D) A proprietary API exclusive to Anthropic.
-
-*Answer*: **B**. MCP is an open standard designed to eliminate fragmented proprietary tool integrations, allowing AI hosts to connect universally to tools and data resources.
-
----
-
-### Question 2: What are the three primary capabilities an MCP Server can expose?
-- A) Hardware, Network, Kernel.
-- B) Tools, Resources, Prompts.
-- C) Classes, Interfaces, Enums.
-- D) HTML, CSS, JavaScript.
-
-*Answer*: **B**. The MCP specification defines three distinct server capabilities: **Tools** (executable functions), **Resources** (readable data streams like files and schemas), and **Prompts** (reusable templates).
-
----
-
-### Question 3: Which wire protocol does MCP utilize for communication?
-- A) SOAP XML.
-- B) JSON-RPC 2.0.
-- C) Protobuf binary only.
-- D) Raw unformatted text.
-
-*Answer*: **B**. MCP is built on the standardized JSON-RPC 2.0 specification, using methods like `initialize`, `tools/list`, and `tools/call`.
-
----
-
-### Question 4: What are the two primary transport mechanisms supported by MCP?
-- A) Floppy disk and USB thumb drives.
-- B) Standard I/O (Stdio) for local subprocesses, and HTTP with Server-Sent Events (SSE) for remote networked servers.
-- C) Bluetooth and Zigbee.
-- D) Telnet and FTP.
-
-*Answer*: **B**. Local desktop and CLI hosts use `Stdio` to communicate with subprocesses, while distributed enterprise microservices use `HTTP + SSE` for real-time networked communication.
-
----
-
-### Question 5: Why is exposing database schemas as an MCP "Resource" rather than a "Tool" considered an architectural best practice?
-- A) Resources are read-only and cacheable, providing context directly to the model without requiring an executable method call turn.
-- B) Tools cannot return strings.
-- C) Resources run faster on GPUs.
-- D) Relational databases do not support tools.
-
-*Answer*: **A**. Resources represent passive, readable data (like schema definitions or documentation) that the host can inspect and attach directly to system context without executing state-altering actions.
-
----
-
-## 10. Day 50 Mentor Wrap-Up: You're Speaking the Universal Language of AI!
-
-Congratulations on completing Day 50 and launching Phase 8! By mastering Model Context Protocol, you've equipped yourself with one of the newest and most sought-after architectural skills in Generative AI engineering.
-
-Here is what you unlocked today:
-1. **The Universal USB-C Port**: Instead of writing proprietary adapters for Claude, ChatGPT, and Cursor, you build one MCP Server in Java that speaks to any host on earth.
-2. **The Triad of Capabilities**: You know when to use **Tools** (executable actions), **Resources** (read-only documents and schemas), and **Prompts** (standardized business prompt templates).
-3. **Enterprise Transports**: You can run MCP locally via `Stdio` for CLI desktop apps, or deploy it as a distributed `HTTP + SSE` microservice across your cloud infrastructure.
-
-Tomorrow in **Day 51: Prompt Injection Defense & AI Security**, we put on our cybersecurity hats! Now that our AI has access to databases and tools, how do we stop hackers from manipulating it with malicious prompts? See you tomorrow for an eye-opening deep dive!
-
----
-
 | Previous Day | Course Hub | Next Day |
 |:---|:---:|---:|
 | [Day 49: Building a ReAct Agent in Java](../../Phase_07_LangChain4j/Day_49_Building_ReAct_Agent_in_Java/Day_49_Building_ReAct_Agent_in_Java.md) | [All 60 Days Overview](../../README.md) | [Day 51: Prompt Injection Defense & AI Security](../Day_51_Prompt_Injection_AI_Security/Day_51_Prompt_Injection_AI_Security.md) |
-

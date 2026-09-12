@@ -1,42 +1,36 @@
 # Day 52: Observability — OpenTelemetry, Langfuse & AI Metrics in Java
 
-## Distributed Tracing, Token Telemetry, and Production Performance Monitoring
-
 | Previous Day | Course Hub | Next Day |
 |:---|:---:|---:|
 | [Day 51: Prompt Injection Defense & AI Security](../Day_51_Prompt_Injection_AI_Security/Day_51_Prompt_Injection_AI_Security.md) | [All 60 Days Overview](../../README.md) | [Day 53: Caching, Rate Limiting & Cost Optimization](../Day_53_Caching_Rate_Limiting_Cost_Optimization/Day_53_Caching_Rate_Limiting_Cost_Optimization.md) |
 
 ---
 
-Welcome to Day 52! Yesterday we armored our application against hackers. But once your AI goes into production, a completely new operational challenge appears:
-- *"Why did that customer's question take 7 seconds to answer?"*
-- *"Why did our OpenAI API bill spike by $2,000 this weekend?"*
-- *"Did the slowdown happen during vector search, the LLM call, or our internal SQL tool?"*
+## 1. Topic Overview
 
-In traditional web apps, simple log lines like `HTTP 200 OK - 45ms` were enough. But an AI request is a multi-step financial transaction involving embeddings, vector searches, multiple LLM reasoning passes, and external tool calls. 
-
-Today, you will learn how to turn on the flight data recorder! We'll use **OpenTelemetry** and **Langfuse** to track every millisecond and every penny across your Java AI workflows. Let's look at the key concepts first:
+**AI Observability** is the practice of capturing, correlating, and analyzing distributed traces, operational latencies, token consumption, and financial costs across multi-stage Generative AI pipelines. In enterprise Java systems, observability unites vendor-neutral OpenTelemetry semantic conventions (`gen_ai.*`), Spring Boot 3 Micrometer tracing, and specialized AI monitoring platforms like Langfuse to provide complete visibility into vector searches, prompt executions, tool invocations, and model evaluations.
 
 ---
 
-> 💡 **New Word Alert! Plain English Definitions for Today's Concepts**
->
-> - **Observability**: The power to look at your dashboard and know *exactly* what happened under the hood without having to guess or attach a debugger in production.
-> - **Trace**: The complete end-to-end journey of a single user request—from the moment the user hits "Send" to the final response.
-> - **Span**: A single timed chapter within a trace. For example, one trace might contain 4 spans: (1) PII check [15ms], (2) pgvector search [40ms], (3) LLM call [1200ms], and (4) Java tool execution [30ms].
-> - **OpenTelemetry (OTel)**: The vendor-neutral industry standard for generating and collecting traces, metrics, and logs across modern cloud microservices.
-> - **Langfuse**: A modern observability platform designed specifically for Generative AI. It visualizes traces as beautiful interactive waterfalls, tracks token counts, and calculates dollar costs in real time.
-> - **Token Telemetry**: Counting every prompt token and completion token consumed so you know exactly which prompt template or user is driving your AI expenses.
+## 2. Basic Foundations (True Zero)
+
+### Core Observability Vocabulary
+
+- **Observability**: The ability to infer the internal health and operational execution of a software system based solely on its external telemetry outputs (traces, metrics, and logs).
+- **Trace**: The complete end-to-end journey of a single user request through the entire application—from the initial HTTP POST to the final streamed response.
+- **Span**: A single, contiguous timed unit of work within a trace. For example, a single RAG trace might contain four child spans: (1) Safety input guard [12ms], (2) Embedding calculation [45ms], (3) Vector database retrieval [28ms], and (4) LLM inference [1450ms].
+- **OpenTelemetry (OTel)**: The vendor-neutral Cloud Native Computing Foundation (CNCF) industry standard for generating, collecting, and exporting distributed traces, metrics, and logs.
+- **Langfuse**: An open-source, SOC 2 compliant observability and evaluation platform designed specifically for Generative AI, featuring interactive execution waterfalls, token accounting, prompt versioning, and LLM-as-a-judge scoring.
+- **Token Telemetry**: Measuring the exact number of prompt tokens and completion tokens consumed per request to track expenses, manage rate limits, and attribute costs to specific enterprise departments.
 
 ---
 
-## 1. Real-World Analogy: The Commercial Flight Black Box & Radar Control Room
+### Relatable Physical Analogy: The Flight Black Box & Radar Control Room
 
-Imagine an ultra-modern commercial airliner navigating across transatlantic airspace. If an engine experiences a sudden drop in thrust, or turbulence rattles the aircraft, pilots and ground engineers do not open a terminal window and sift through gigabytes of raw, unstructured text files saying "something went wrong." 
-
-Instead, the aircraft relies on two mission-critical systems:
-1. **The Flight Data Recorder (The Black Box)**: Every valve opening, rudder movement, hydraulic pressure reading, fuel consumption milliliter, and pilot voice command is logged with nanosecond-accurate timestamps and hierarchical event sequences. 
-2. **The Air Traffic Radar & Telemetry Feed**: Real-time telemetry is streamed to central control towers, calculating altitude, fuel burn financial rates, trajectory drift, and ETA down to the second.
+Imagine an ultra-modern commercial airliner flying an international route:
+- If an engine experiences a sudden drop in thrust, ground engineers do not open a command terminal to sift through gigabytes of raw, unstructured text files saying *"something went wrong."*
+- Instead, the aircraft relies on **The Flight Data Recorder (The Black Box)**: every control surface movement, fuel burn rate, cabin pressure change, and pilot voice command is logged with millisecond-precise timestamps into hierarchical event sequences.
+- Simultaneously, the **Air Traffic Radar Feed** streams real-time telemetry to the flight control tower, calculating speed, altitude, drift, and fuel expenditure down to the cent.
 
 ```
        [ Commercial Airliner: Enterprise AI Pipeline ]
@@ -57,76 +51,98 @@ Instead, the aircraft relies on two mission-critical systems:
        └──────────────────────────────────────────────┘
 ```
 
-In traditional software, standard HTTP request-response logging (`GET /api/v1/orders - 200 OK - 42ms`) was sufficient. But Generative AI systems are **multi-stage, non-deterministic, distributed financial sinks**. A single user query can spawn:
-- An embedding call ($0.00002, 35ms)
-- A vector database query over 10M embeddings (12ms)
-- An LLM call that consumes 1,200 prompt tokens ($0.006, 1,800ms)
-- Two automated tool executions (SQL query + ERP REST API call, 140ms)
-- A second LLM synthesis call (850 tokens, $0.004, 1,100ms)
-
-If a user complains "The chatbot took 5 seconds and gave me hallucinated garbage", without distributed tracing you are flying blind in a storm. **OpenTelemetry** and **Langfuse** provide the flight recorder and telemetry dashboard for modern enterprise Java AI systems.
+In traditional software, standard HTTP logging (`GET /api/v1/orders - 200 OK - 42ms`) was adequate. But Generative AI systems are **multi-stage, non-deterministic, distributed financial sinks**. A single user query can spawn an embedding call ($0.00002, 35ms), a pgvector similarity search (15ms), an LLM reasoning turn (1,200 tokens, $0.006, 1,800ms), and two automated tool calls (140ms). Without distributed tracing, diagnosing performance degradations is impossible.
 
 ---
 
-## 2. Under-the-Hood Architecture: OpenTelemetry Semantic Conventions for Gen AI
+### Minimal Beginner-Friendly Example: A Pure Java Mini-Tracer
 
-In traditional microservices, OpenTelemetry (OTel) standardizes HTTP, database, and messaging spans. In 2024, the Cloud Native Computing Foundation (CNCF) and OpenTelemetry working group released the official **OpenTelemetry Semantic Conventions for Generative AI Systems** (`gen_ai.*`).
+Here is a minimal, self-contained Java program demonstrating how parent-child spans track execution duration and token consumption:
 
-### The Gen AI Trace Hierarchy
+```java
+package com.genai.enterprise.observability.minimal;
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as Enterprise Client
-    participant Gateway as Spring AI Gateway
-    participant Guard as Safety / Guardrail
-    participant VectorDB as pgvector Store
-    participant LLM as OpenAI / Anthropic
-    participant Tool as Java Tool Engine
-    participant Langfuse as Langfuse / OTel Collector
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
-    User->>Gateway: POST /v1/chat (Trace: tr-9a8b1c)
-    Note over Gateway: Start Root Span: [gen_ai.workflow]
-    Gateway->>Guard: Validate Prompt
-    Note over Guard: Span: [gen_ai.guardrail] (15ms)
-    Guard-->>Gateway: OK (Risk: 0.01)
-    
-    Gateway->>VectorDB: Query Semantic Similarity
-    Note over VectorDB: Span: [gen_ai.retrieval] (35ms, top_k=3)
-    VectorDB-->>Gateway: Return 3 Context Chunks
-    
-    Gateway->>LLM: Stream Chat Completion (Prompt + Context)
-    Note over LLM: Span: [gen_ai.client.chat] (model=gpt-4o, prompt_tokens=420)
-    LLM-->>Gateway: Tool Call Required: "fetch_ledger"
-    
-    Gateway->>Tool: Execute Java Method
-    Note over Tool: Span: [gen_ai.tool.fetch_ledger] (28ms)
-    Tool-->>Gateway: Ledger Data: { balance: 14250.00 }
-    
-    Gateway->>LLM: Complete Synthesis (Tool Result)
-    LLM-->>Gateway: Final Answer (completion_tokens=95)
-    Note over Gateway: End Root Span (Total: 314ms, Total Cost: $0.0035)
-    Gateway-->>Langfuse: Flush Traces & Metric Gauges
-    Gateway-->>User: 200 OK (Answer + Ledger)
+public class MinimalSpanTracer {
+
+    public record MiniSpan(String spanId, String parentSpanId, String name, long durationMs, int tokens) {}
+
+    public static class SimpleTraceContext {
+        private final String traceId = "tr-" + UUID.randomUUID().toString().substring(0, 8);
+        private final List<MiniSpan> spans = new ArrayList<>();
+
+        public void recordSpan(String parentSpanId, String name, long durationMs, int tokens) {
+            String spanId = "sp-" + UUID.randomUUID().toString().substring(0, 8);
+            spans.add(new MiniSpan(spanId, parentSpanId, name, durationMs, tokens));
+        }
+
+        public void printSummary() {
+            System.out.println("Trace ID: " + traceId);
+            long totalTime = spans.stream().mapToLong(MiniSpan::durationMs).sum();
+            int totalTokens = spans.stream().mapToInt(MiniSpan::tokens).sum();
+            System.out.println("Total Spans: " + spans.size() + " | Total Time: " + totalTime + "ms | Total Tokens: " + totalTokens);
+            
+            for (MiniSpan s : spans) {
+                String prefix = s.parentSpanId() == null ? "├── [ROOT] " : "│    └── ";
+                System.out.printf("%s%s (%d ms, %d tokens)%n", prefix, s.name(), s.durationMs(), s.tokens());
+            }
+        }
+    }
+
+    public static void main(String[] args) throws InterruptedException {
+        SimpleTraceContext trace = new SimpleTraceContext();
+
+        // 1. Root pipeline work
+        trace.recordSpan(null, "rag_pipeline_root", 0, 0);
+
+        // 2. Child Span: Vector Search
+        long start = System.currentTimeMillis();
+        Thread.sleep(30); // Simulate DB query
+        trace.recordSpan("root", "pgvector_similarity_search", System.currentTimeMillis() - start, 0);
+
+        // 3. Child Span: Model Chat Generation
+        start = System.currentTimeMillis();
+        Thread.sleep(120); // Simulate LLM inference
+        trace.recordSpan("root", "openai_chat_completion", System.currentTimeMillis() - start, 480);
+
+        trace.printSummary();
+    }
+}
 ```
 
-### Official OpenTelemetry Attributes for Gen AI
-
-| Attribute Name | Type | Description | Example |
-| :--- | :--- | :--- | :--- |
-| `gen_ai.system` | `string` | The AI provider or engine | `openai`, `anthropic`, `ollama` |
-| `gen_ai.request.model` | `string` | Requested model name | `gpt-4o`, `claude-3-5-sonnet` |
-| `gen_ai.response.model` | `string` | Actual model serving output | `gpt-4o-2024-08-06` |
-| `gen_ai.request.temperature` | `double` | Sampling temperature | `0.2` |
-| `gen_ai.request.max_tokens` | `int` | Token generation limit | `4096` |
-| `gen_ai.usage.input_tokens` | `int` | Number of tokens in prompt | `512` |
-| `gen_ai.usage.output_tokens` | `int` | Number of tokens generated | `128` |
-| `gen_ai.operation.name` | `string` | High-level AI operation | `chat`, `embeddings`, `tool` |
-| `gen_ai.cost.usd` | `double` | Calculated financial cost | `0.00412` |
+#### Line-by-Line Walkthrough:
+1. `record MiniSpan(...)`: Encapsulates an individual span with its unique `spanId`, its `parentSpanId`, human-readable name, duration, and token usage.
+2. `SimpleTraceContext`: Manages the trace boundary, generating a unique `traceId` correlating all child operations.
+3. `recordSpan(...)`: Appends timed chapters into the trace ledger.
+4. `printSummary()`: Displays the hierarchical relationship and aggregate metrics.
+5. `main(...)`: Simulates a multi-step RAG query, capturing accurate timing and token metrics.
 
 ---
 
-## 3. The Three Pillars of Enterprise AI Observability
+## 3. Core Concept Walkthrough (Basic → Intermediate)
+
+### 3.1 OpenTelemetry Semantic Conventions for Generative AI
+
+The Cloud Native Computing Foundation (CNCF) and OpenTelemetry working group define official standardized attributes for Generative AI operations (`gen_ai.*`):
+
+| OpenTelemetry Attribute | Type | Description | Production Example |
+|:---|:---|:---|:---|
+| `gen_ai.system` | `string` | The AI provider or runtime platform | `openai`, `anthropic`, `ollama` |
+| `gen_ai.request.model` | `string` | The model name requested by the client | `gpt-4o`, `claude-3-5-sonnet` |
+| `gen_ai.response.model` | `string` | The actual model version serving the response | `gpt-4o-2024-08-06` |
+| `gen_ai.request.temperature` | `double` | Sampling temperature setting | `0.2` |
+| `gen_ai.request.max_tokens` | `int` | Maximum generation token cap | `4096` |
+| `gen_ai.usage.input_tokens` | `int` | Number of tokens consumed in prompt | `512` |
+| `gen_ai.usage.output_tokens` | `int` | Number of tokens generated in completion | `128` |
+| `gen_ai.operation.name` | `string` | Canonical AI operation | `chat`, `embeddings`, `tool` |
+| `gen_ai.cost.usd` | `double` | Calculated financial cost in USD | `0.003525` |
+
+---
+
+### 3.2 The Three Pillars of Enterprise AI Observability
 
 ```
                 ┌──────────────────────────────────────────────┐
@@ -142,30 +158,57 @@ sequenceDiagram
   • Langfuse waterfall          • Rate limit headroom         • User thumbs-up/down
 ```
 
-### Pillar 1: Distributed Tracing & Waterfall Analysis
-A user query is not atomic. Tracing breaks the execution into parent and child spans. If response latency jumps from 400ms to 4,200ms, the waterfall immediately reveals whether the culprit is:
-- pgvector index degradation (HNSW missing)
-- External LLM API rate-throttling
-- Slow internal database microservice called by a tool
-
-### Pillar 2: Token Financials & Cost Attribution
-In traditional web apps, CPU and RAM are fixed monthly costs. In Generative AI, every API request directly incurs a micro-charge on the company's credit card.
-- Without observability, a misconfigured while-loop in an agent or a massive document retrieval can burn $10,000 in an afternoon.
-- Telemetry enables **Cost Attribution by Organization**: tag every trace with `tenant.id="department_finance"` or `user.id="emp_401"`.
-
-### Pillar 3: LLM Output Evaluations & Feedback Loops
-Unlike static microservices, an AI service that returns HTTP 200 may still be returning toxic or hallucinated answers.
-- Observability platforms (Langfuse, Arize Phoenix) capture user feedback scores (e.g., thumbs up, copy text, feedback comment).
-- Automatically score outputs using offline LLM-as-a-judge models.
+1. **Traces & Spans (Latency Analysis)**: Breaks every user interaction into parent and child spans. If response latency jumps from 400ms to 4,500ms, the waterfall immediately reveals whether the delay occurred in the embedding layer, pgvector index scan, or external LLM API throttling.
+2. **Cost & Token Telemetry (Financial Accountability)**: Tracks input and output token consumption per prompt template, tenant ID, or department. Enables real-time alerting before rogue loops burn thousands of dollars on cloud API bills.
+3. **Evaluations & Feedback (Quality Monitoring)**: Correlates user feedback (thumbs up/down, edits) with trace executions, and runs automated offline evaluation models to detect hallucinations and context drift.
 
 ---
 
-## 4. OpenTelemetry & Micrometer in Spring Boot 3 & Spring AI
+### 3.3 The Enterprise Telemetry Sequence
 
-Spring Boot 3 natively embeds **Micrometer Tracing**, seamlessly exporting to OpenTelemetry, Zipkin, or OTLP endpoints.
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Enterprise Client
+    participant Gateway as Spring AI Gateway
+    participant Guard as Safety / Guardrail
+    participant VectorDB as pgvector Store
+    participant LLM as OpenAI / Anthropic
+    participant Tool as Java Tool Engine
+    participant Langfuse as Langfuse / OTel Collector
 
-### Maven Dependencies for OpenTelemetry & Actuator
+    User->>Gateway: POST /v1/chat (Trace: tr-85365240)
+    Note over Gateway: Start Root Span: [enterprise.rag.pipeline]
+    Gateway->>Guard: Validate Prompt
+    Note over Guard: Span: [security.prompt_guard] (17ms)
+    Guard-->>Gateway: OK (Risk: 0.0)
+    
+    Gateway->>VectorDB: Query Semantic Similarity
+    Note over VectorDB: Span: [rag.vector_database_search] (35ms, top_k=3)
+    VectorDB-->>Gateway: Return 3 Context Chunks
+    
+    Gateway->>LLM: Stream Chat Completion (Prompt + Context)
+    Note over LLM: Span: [llm.chat_completion] (model=gpt-4o, prompt_tokens=420)
+    LLM-->>Gateway: Tool Call Required: "fetch_account_balance"
+    
+    Gateway->>Tool: Execute Java Method
+    Note over Tool: Span: [tool.execution.fetch_account_balance] (27ms)
+    Tool-->>Gateway: Balance Data: { balance: 14250.00 }
+    
+    Gateway->>LLM: Complete Synthesis (Tool Result)
+    LLM-->>Gateway: Final Answer (completion_tokens=95)
+    Note over Gateway: End Root Span (Total: 314ms, Total Cost: $0.003525)
+    Gateway-->>Langfuse: Flush Traces & Metric Gauges
+    Gateway-->>User: 200 OK (Answer + Balance)
+```
 
+---
+
+### 3.4 Spring Boot 3 & Micrometer Tracing Configuration
+
+Spring Boot 3 natively bridges application metrics and traces to OpenTelemetry using **Micrometer Tracing**.
+
+#### Maven Dependencies (`pom.xml`)
 ```xml
 <dependencies>
     <!-- Spring Boot Actuator for Production Health & Metrics -->
@@ -194,8 +237,7 @@ Spring Boot 3 natively embeds **Micrometer Tracing**, seamlessly exporting to Op
 </dependencies>
 ```
 
-### Production `application.yml` Configuration
-
+#### Production Configuration (`application.yml`)
 ```yaml
 management:
   endpoints:
@@ -204,7 +246,7 @@ management:
         include: health,info,metrics,prometheus
   tracing:
     sampling:
-      probability: 1.0  # In high-throughput production, tune to 0.1 (10%)
+      probability: 1.0  # Sample 100% in staging; tune to 0.1 (10%) in high-throughput production
   otlp:
     tracing:
       endpoint: "http://otel-collector:4318/v1/traces"
@@ -218,75 +260,170 @@ spring:
 
 ---
 
-## 5. Langfuse Integration in Java
+### 3.5 Companion Code Walkthrough
 
-**Langfuse** is an open-source, SOC 2 compliant LLM engineering platform specifically designed for tracing, prompt versioning, and cost tracking.
+Let's examine the core classes in `Phase_08_Enterprise_Production/Day_52_Observability_OpenTelemetry_Langfuse/code/`:
 
-### Architecture of Langfuse with Java
+#### Step 1: ThreadLocal Trace Context Manager (`AiTraceContext.java`)
 
+```java
+package com.genai.enterprise.observability;
+
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.UUID;
+
+public class AiTraceContext {
+
+    private static final ThreadLocal<String> CURRENT_TRACE_ID = new ThreadLocal<>();
+    private static final ThreadLocal<Deque<AiSpan>> SPAN_STACK = ThreadLocal.withInitial(ArrayDeque::new);
+
+    public static String getOrCreateTraceId() {
+        if (CURRENT_TRACE_ID.get() == null) {
+            CURRENT_TRACE_ID.set("tr-" + UUID.randomUUID().toString().substring(0, 8));
+        }
+        return CURRENT_TRACE_ID.get();
+    }
+
+    public static AiSpan startSpan(String operationName) {
+        String traceId = getOrCreateTraceId();
+        Deque<AiSpan> stack = SPAN_STACK.get();
+        String parentSpanId = stack.isEmpty() ? null : stack.peek().getSpanId();
+
+        AiSpan newSpan = new AiSpan(traceId, parentSpanId, operationName);
+        stack.push(newSpan);
+        return newSpan;
+    }
+
+    public static void endCurrentSpan(TelemetryCollector collector) {
+        Deque<AiSpan> stack = SPAN_STACK.get();
+        if (!stack.isEmpty()) {
+            AiSpan completedSpan = stack.pop();
+            completedSpan.finish();
+            if (collector != null) {
+                collector.record(completedSpan);
+            }
+        }
+        if (stack.isEmpty()) {
+            CURRENT_TRACE_ID.remove();
+            SPAN_STACK.remove();
+        }
+    }
+}
 ```
-  ┌──────────────────────────────────────────────────────────┐
-  │                 Spring Boot 3 / Java 21                 │
-  │                                                          │
-  │   AiTraceContext (ThreadLocal Span Stack)                │
-  │       │                                                  │
-  │       ├── Start Root Trace: tr-85365240                  │
-  │       │     ├── Span: Prompt Guard                        │
-  │       │     ├── Span: Vector Search                      │
-  │       │     └── Span: LLM Chat Generation                │
-  │       │                                                  │
-  │       ▼                                                  │
-  │   Langfuse Client / OTLP HTTP Sender                     │
-  └──────────────────────────┬───────────────────────────────┘
-                             │ POST /api/public/ingestion (JSON batch)
-                             ▼
-  ┌──────────────────────────────────────────────────────────┐
-  │                      Langfuse Server                     │
-  │  ├── Web UI: Visual waterfall timeline                   │
-  │  ├── Token Pricing Engine: $0.003525 calculation         │
-  │  ├── Latency percentiles (P50, P95, P99)                 │
-  │  └── Dataset Benchmarking & LLM-as-a-Judge               │
-  └──────────────────────────────────────────────────────────┘
+
+#### Step 2: Accurate Token Financial Modeling (`TokenCostCalculator.java`)
+
+```java
+package com.genai.enterprise.observability;
+
+import java.util.Map;
+
+public class TokenCostCalculator {
+
+    // Pricing per 1,000,000 tokens (USD)
+    private record ModelPricing(double inputPricePerMillion, double outputPricePerMillion) {}
+
+    private static final Map<String, ModelPricing> PRICING_CATALOG = Map.of(
+        "gpt-4o", new ModelPricing(5.00, 15.00),
+        "gpt-4o-mini", new ModelPricing(0.15, 0.60),
+        "claude-3-5-sonnet", new ModelPricing(3.00, 15.00),
+        "text-embedding-3-small", new ModelPricing(0.02, 0.00),
+        "local-llama-3.2", new ModelPricing(0.00, 0.00)
+    );
+
+    public static double calculateCost(String modelName, int promptTokens, int completionTokens) {
+        ModelPricing pricing = PRICING_CATALOG.getOrDefault(modelName, new ModelPricing(0.0, 0.0));
+        double inputCost = (promptTokens / 1_000_000.0) * pricing.inputPricePerMillion();
+        double outputCost = (completionTokens / 1_000_000.0) * pricing.outputPricePerMillion();
+        return inputCost + outputCost;
+    }
+}
 ```
 
 ---
 
-## 6. Hands-On Implementation: Companion Code Walkthrough
+## 4. Prerequisite & Supporting Concepts
 
-Our companion repository inside `code/` implements a production-grade, zero-dependency OpenTelemetry & Langfuse trace engine in pure Java 21:
+### Prerequisite / Supporting Concept: Distributed Tracing & W3C Trace Context
+In modern microservice architectures, a single user transaction traverses multiple independent services. The W3C Trace Context standard defines two essential HTTP headers:
+- `traceparent`: Encodes version, `traceId`, `parentSpanId`, and trace flags.
+- `tracestate`: Carries vendor-specific routing metadata.
+By propagating these headers across HTTP boundaries, downstream services join the existing trace rather than starting a disconnected one.
 
-### 1. `AiSpan.java`
-Models an OpenTelemetry-compliant trace span recording trace ID, span ID, parent span ID, start/end timestamps, latency calculation, and custom key-value attributes (`ai.model`, `ai.prompt.tokens`, `ai.cost.usd`).
+### Prerequisite / Supporting Concept: ThreadLocal & Virtual Threads in Java 21
+Traditional `ThreadLocal` storage works seamlessly when requests are handled by dedicated platform threads. However, when switching between asynchronous reactive pipelines (`CompletableFuture`, Project Reactor) or unpinning virtual threads, trace context must be explicitly captured and restored using scoped values or context-propagating task decorators.
 
-### 2. `AiTraceContext.java`
-A thread-safe `ThreadLocal` stack manager that automatically builds nested span hierarchies (parent-child relationships) without requiring developers to manually thread span IDs through every method parameter.
+### Prerequisite / Supporting Concept: Spring Boot Actuator & Prometheus
+Spring Boot Actuator exposes health checks (`/actuator/health`) and metrics endpoints (`/actuator/prometheus`). The `micrometer-registry-prometheus` dependency formats JVM gauges, HTTP latencies, and custom AI counters into Prometheus scrape format.
+
+---
+
+## 5. Advanced Depth (Intermediate → Advanced)
+
+### 5.1 Common Mistakes & Misconceptions: Bad vs. Good
+
+#### Mistake 1: Tracing Raw User Prompts in High-Compliance Environments
+Enabling full prompt logging (`include-prompt: true`) inadvertently dumps credit cards, SSNs, and passwords into centralized, unencrypted logging collectors.
 
 ```java
-// Starting parent span
-AiSpan root = AiTraceContext.startSpan("enterprise.rag.pipeline");
-try {
-    // Starting child span (automatically sets parent to root's spanId)
-    AiSpan child = AiTraceContext.startSpan("rag.embedding_generation");
-    try {
-        // execute embedding logic
-    } finally {
-        AiTraceContext.endCurrentSpan(collector);
-    }
-} finally {
-    AiTraceContext.endCurrentSpan(collector);
-}
+// ❌ BAD: Storing unredacted prompt content in open telemetry attributes
+span.setAttribute("ai.prompt.raw", rawUserPrompt);
+
+// ✅ GOOD: Record prompt token count and template ID, but omit raw text
+span.setAttribute("gen_ai.usage.input_tokens", promptTokens);
+span.setAttribute("ai.prompt.template_id", "customer_refund_v2");
 ```
 
-### 3. `TokenCostCalculator.java`
-Implements precise financial modeling based on industry pricing tables per 1,000,000 tokens:
-- **GPT-4o**: $5.00 input / $15.00 output
-- **GPT-4o-mini**: $0.15 input / $0.60 output
-- **Claude 3.5 Sonnet**: $3.00 input / $15.00 output
-- **Text-Embedding-3-Small**: $0.02 input
-- **Local Llama 3.2**: $0.00 (marginal cost)
+#### Mistake 2: Failing to Propagate Trace Context Across Virtual Threads
+When dispatching parallel tasks to virtual threads, child threads lose the parent thread's `ThreadLocal` context.
 
-### 4. `TelemetryCollector.java`
-Aggregates completed spans, calculates total trace duration, total tokens consumed, total financial cost, and renders an ASCII waterfall tree matching Langfuse and Jaeger dashboards:
+```java
+// ❌ BAD: Virtual thread loses parent trace ID
+executor.submit(() -> {
+    // Current trace ID is null!
+    runVectorSearch();
+});
+
+// ✅ GOOD: Capture and re-attach trace context inside the task
+String activeTraceId = AiTraceContext.getOrCreateTraceId();
+executor.submit(() -> {
+    AiTraceContext.setTraceId(activeTraceId);
+    try {
+        runVectorSearch();
+    } finally {
+        AiTraceContext.clear();
+    }
+});
+```
+
+#### Mistake 3: 100% Trace Sampling in High-Throughput Production
+Tracing 100% of requests on an API handling 10,000 requests per second generates massive network bandwidth overhead and high telemetry SaaS bills.
+
+```yaml
+# ❌ BAD: 100% trace sampling on high-traffic production gateway
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+
+# ✅ GOOD: Sample 5% to 10% in production, reserving 100% for error traces
+management:
+  tracing:
+    sampling:
+      probability: 0.05
+```
+
+---
+
+### 5.2 Complete Verification Suite & Demo Execution
+
+Execute the verification suite in `Phase_08_Enterprise_Production/Day_52_Observability_OpenTelemetry_Langfuse/code/`:
+
+```bash
+javac -d out Phase_08_Enterprise_Production/Day_52_Observability_OpenTelemetry_Langfuse/code/*.java
+java -cp out com.genai.enterprise.observability.ObservabilityDemo
+```
 
 ```
 ==========================================================================
@@ -308,39 +445,77 @@ TRACE SPAN HIERARCHY (Langfuse / OpenTelemetry Waterfall):
 ==========================================================================
 ```
 
-### 5. `ObservabilityDemo.java`
-Main test driver demonstrating the complete workflow and printing verified metrics.
+---
+
+## 6. Quick Recap
+
+| Observability Component | Function | Industry Standard | Key Enterprise Metric |
+|:---|:---|:---|:---|
+| **Distributed Traces** | End-to-end request path across services | OpenTelemetry / W3C TraceContext | P95/P99 latency, trace waterfall |
+| **Token Telemetry** | Input and output token counting | CNCF `gen_ai.usage.*` | Total prompt & completion tokens |
+| **Financial Attribution** | Dollar cost calculation per query/tenant | Langfuse / Custom Ledgers | Cost per user, cost per model |
+| **Safety Egress Spans** | Timing of regex & canary filters | Custom OTel Spans | Security inspection overhead (ms) |
+| **Evaluations & Scoring** | Quality, toxicity, and hallucination scoring | Langfuse / Ragas / Arize | Faithfulness & answer relevance |
 
 ---
 
-## 7. Verifying the Implementation
+## 7. Self-Check Questions & Practice Exercises
 
-Run the test suite directly from your terminal:
+### Conceptual Self-Check Questions
 
-```powershell
-javac -d out Phase_08_Enterprise_Production/Day_52_Observability_OpenTelemetry_Langfuse/code/*.java
-java -cp out com.genai.enterprise.observability.ObservabilityDemo
-Remove-Item -Recurse -Force out
-```
+#### Question 1: What distinguishes Generative AI distributed tracing from standard REST API tracing?
+- A) Standard REST tracing uses binary Protobuf, whereas AI tracing only uses plain text.
+- B) Generative AI tracing standardizes token consumption, model names, temperature, prompt/completion payloads, and financial costs via CNCF `gen_ai.*` conventions.
+- C) Generative AI systems cannot be traced using OpenTelemetry.
+- D) Standard tracing records timestamps, whereas AI tracing does not.
 
----
-
-## 8. Why Observability Matters for Generative AI
-
-1. **Non-Deterministic Troubleshooting**: Unlike standard REST endpoints where deterministic input yields deterministic output, LLM outputs drift over time. Observability lets you correlate model version updates with user dissatisfaction.
-2. **Cost Anomaly Detection**: A rogue customer or automated bot could send a 100,000-token prompt in a loop. With real-time token telemetry and alerts, you can automatically throttle or block abusive tenants before incurring thousands of dollars in bills.
-3. **Data Privacy & Compliance (GDPR/HIPAA)**: Observability pipelines allow data masking interceptors to redact Social Security Numbers, API keys, and passwords *before* spans are transmitted to third-party dashboards.
+*Answer*: **B**. Generative AI operations involve non-deterministic model calls, dynamic tool loops, and direct financial costs per token, requiring specialized semantic conventions.
 
 ---
 
-## 9. Hands-On Exercises
+#### Question 2: Why should `include-prompt` be set to `false` in production Spring AI OpenTelemetry configurations?
+- A) Storing prompts in traces makes the application run out of CPU memory.
+- B) Prompts frequently contain sensitive customer PII, internal passwords, or proprietary business documents that must not be exported to unencrypted observability platforms.
+- C) OpenAI and Anthropic reject API requests if prompts are recorded in traces.
+- D) Prompts are already recorded in JVM garbage collection logs.
 
-### Exercise 1: Multi-Model Cost Comparison Filter
-**Problem**: Write a Java method `calculateSavings(int promptTokens, int completionTokens)` that compares the cost of running a query on `gpt-4o` versus `gpt-4o-mini`, printing the dollar savings and percentage reduction.
+*Answer*: **B**. Regulatory frameworks like GDPR and HIPAA strictly prohibit storing unencrypted customer personal data in telemetry and monitoring systems.
+
+---
+
+#### Question 3: In an OpenTelemetry trace hierarchy, what connects a child span (e.g., vector database search) to its parent span (the RAG workflow)?
+- A) The `gen_ai.system` attribute.
+- B) The `parentSpanId` referencing the parent span's unique `spanId`.
+- C) The HTTP port number.
+- D) The client's IP address.
+
+*Answer*: **B**. All distributed tracing systems correlate parent and child operations through `traceId` (the common transaction) and `parentSpanId` (the immediate caller).
+
+---
+
+#### Question 4: An enterprise application processes 2,000,000 prompt tokens and 500,000 completion tokens on GPT-4o ($5.00/1M prompt, $15.00/1M completion). What is the total financial cost?
+- A) $25.00
+- B) $17.50
+- C) $10.00
+- D) $7.50
+
+*Answer*: **B**. Prompt cost = $2.0 \times \$5.00 = \$10.00$. Completion cost = $0.5 \times \$15.00 = \$7.50$. Total = $\$10.00 + \$7.50 = \$17.50$.
+
+---
+
+### Hands-on Practice Exercises
+
+#### Exercise 1: Multi-Model Cost Comparison Calculator
+**Task**: Implement a Java utility method `calculateSavings(int promptTokens, int completionTokens)` that compares the financial cost of running a query on `gpt-4o` versus `gpt-4o-mini`, printing dollar savings and percentage reduction.
 
 **Solution**:
 ```java
-public class CostOptimizationService {
+package com.genai.enterprise.exercises;
+
+import com.genai.enterprise.observability.TokenCostCalculator;
+
+public class ModelCostComparator {
+
     public static void printSavings(int promptTokens, int completionTokens) {
         double gpt4oCost = TokenCostCalculator.calculateCost("gpt-4o", promptTokens, completionTokens);
         double gpt4oMiniCost = TokenCostCalculator.calculateCost("gpt-4o-mini", promptTokens, completionTokens);
@@ -353,12 +528,20 @@ public class CostOptimizationService {
 }
 ```
 
-### Exercise 2: Latency Bottleneck Detection
-**Problem**: Write a utility method in `TelemetryCollector` that finds the span responsible for the largest percentage of total trace time and flags it as the primary bottleneck if it exceeds 60% of total latency.
+---
+
+#### Exercise 2: Latency Bottleneck Detection
+**Task**: Write a method `identifyBottleneck(List<AiSpan> spans, long totalDurationMs)` that finds the span consuming the largest share of trace execution time and alerts if it accounts for $\ge 60\%$ of total latency.
 
 **Solution**:
 ```java
-public class BottleneckDetector {
+package com.genai.enterprise.exercises;
+
+import com.genai.enterprise.observability.AiSpan;
+import java.util.List;
+
+public class LatencyBottleneckAnalyzer {
+
     public static void identifyBottleneck(List<AiSpan> spans, long totalDurationMs) {
         AiSpan slowestSpan = null;
         long maxDuration = 0;
@@ -371,10 +554,10 @@ public class BottleneckDetector {
             }
         }
 
-        if (slowestSpan != null) {
+        if (slowestSpan != null && totalDurationMs > 0) {
             double percent = ((double) maxDuration / totalDurationMs) * 100.0;
             if (percent >= 60.0) {
-                System.out.printf("[ALERT] Primary Bottleneck: Span '%s' took %d ms (%.1f%% of total trace)%n",
+                System.out.printf("[BOTTLENECK ALERT] Span '%s' consumed %d ms (%.1f%% of total trace duration)%n",
                         slowestSpan.getOperationName(), maxDuration, percent);
             }
         }
@@ -382,78 +565,62 @@ public class BottleneckDetector {
 }
 ```
 
-### Exercise 3: Automated PII Masking Span Interceptor
-**Problem**: Implement a span filter that checks the `prompt.content` attribute and replaces any 16-digit credit card number pattern with `[REDACTED_CARD]` before saving to telemetry.
+---
+
+#### Exercise 3: Automated PII Masking Span Interceptor
+**Task**: Build an attribute interceptor method that scrubs 16-digit credit card numbers from span attributes before exporting to OpenTelemetry collectors.
 
 **Solution**:
 ```java
+package com.genai.enterprise.exercises;
+
 import java.util.regex.Pattern;
 
-public class PiiMaskingInterceptor {
+public class PiiSpanSanitizer {
+
     private static final Pattern CREDIT_CARD_PATTERN = Pattern.compile("\\b(?:\\d{4}[ -]?){3}\\d{4}\\b");
 
-    public static String maskSensitiveData(String content) {
-        if (content == null) return null;
-        return CREDIT_CARD_PATTERN.matcher(content).replaceAll("[REDACTED_CARD]");
+    public static String maskAttribute(String attributeValue) {
+        if (attributeValue == null || attributeValue.isBlank()) {
+            return "";
+        }
+        return CREDIT_CARD_PATTERN.matcher(attributeValue).replaceAll("[REDACTED_CARD]");
     }
 }
 ```
 
 ---
 
-## 10. Self-Check Quiz
+#### Exercise 4: Context-Propagating Virtual Thread Wrapper
+**Task**: Write a task decorator `Runnable wrapWithTraceContext(Runnable task, String traceId)` that binds the active `traceId` to the worker virtual thread, executing the task safely and clearing the context upon completion.
 
-### Question 1: What is the primary difference between traditional application tracing and Generative AI tracing?
-- A) Traditional tracing uses HTTP headers, while AI tracing uses websockets.
-- B) Generative AI tracing tracks multi-stage non-deterministic steps, token counts, model parameters, and financial costs alongside standard latency.
-- C) Traditional tracing records timestamps, whereas AI tracing does not.
-- D) Generative AI systems cannot be traced using OpenTelemetry.
-*Answer: B. Gen AI tracing standardizes token consumption, model names, temperature, prompt/completion payloads, and financial costs via CNCF `gen_ai.*` conventions.*
+**Solution**:
+```java
+package com.genai.enterprise.exercises;
 
-### Question 2: Why should `include-prompt` often be set to `false` in production Spring AI OpenTelemetry configurations?
-- A) Prompts make trace files too fast to process.
-- B) OpenAI will refuse to respond if prompts are traced.
-- C) Prompts frequently contain sensitive user PII, customer secrets, or proprietary data that must not be stored in unencrypted telemetry collectors.
-- D) Prompts are already recorded in system memory by default.
-*Answer: C. Compliance regulations like GDPR and HIPAA require strict redaction or omission of raw user inputs from logging and observability databases.*
+public class TraceContextPropagator {
 
-### Question 3: In an OpenTelemetry trace hierarchy, what links a child span (like a vector database search) to its parent span (the RAG workflow)?
-- A) The `model.name` attribute.
-- B) The `parentSpanId` referencing the parent span's unique `spanId`.
-- C) The HTTP port number.
-- D) The client IP address.
-*Answer: B. Distributed tracing relies on `traceId` to group the entire transaction and `parentSpanId` to construct the hierarchical call tree.*
+    private static final ThreadLocal<String> TRACE_ID_HOLDER = new ThreadLocal<>();
 
-### Question 4: If an enterprise application generates 1,000,000 prompt tokens and 200,000 completion tokens on GPT-4o ($5.00/1M prompt, $15.00/1M completion), what is the total cost?
-- A) $20.00
-- B) $8.00
-- C) $5.00
-- D) $10.00
-*Answer: B. 1.0 * $5.00 = $5.00 for prompt tokens; 0.2 * $15.00 = $3.00 for completion tokens. Total = $5.00 + $3.00 = $8.00.*
+    public static Runnable wrap(Runnable delegate, String traceId) {
+        return () -> {
+            TRACE_ID_HOLDER.set(traceId);
+            try {
+                delegate.run();
+            } finally {
+                TRACE_ID_HOLDER.remove();
+            }
+        };
+    }
 
-### Question 5: What is the role of a tool like Langfuse in an enterprise AI system?
-- A) It serves as a local vector database replacing PostgreSQL.
-- B) It compiles Java bytecode into native machine instructions.
-- C) It provides a centralized dashboard for LLM tracing, latency waterfalls, token financials, prompt management, and evaluation scores.
-- D) It replaces the LLM model completely.
-*Answer: C. Langfuse specializes in observability, evaluation, and analytics for Generative AI applications.*
-
----
-
-## 11. Day 52 Mentor Wrap-Up: You Turned on the Radar Screen!
-
-Telemetry is what separates weekend hobby projects from multi-million-dollar enterprise software. Today, you brought full operational transparency to your Java AI stack:
-
-1. **The Commercial Flight Analogy**: Just like a black box recorder, your application now captures every span, duration, and parameter across complex multi-step workflows.
-2. **OpenTelemetry Semantic Conventions**: You adopted the official CNCF standard (`gen_ai.system`, `gen_ai.usage.input_tokens`, `gen_ai.cost.usd`) so your data integrates smoothly with industry-standard observability collectors.
-3. **Langfuse Waterfalls**: You visualized the exact timeline of requests, making it trivial to spot whether a 3-second delay was caused by vector retrieval or slow model inference.
-4. **Token Cost Accounting**: You know down to the fourth decimal place how much each prompt costs the business.
-
-Tomorrow in **Day 53: Caching, Rate Limiting & Cost Optimization**, we take this financial data and build active cost-saving machines! We'll explore semantic caching (answering similar questions instantly for $0) and token bucket rate limiters. See you tomorrow!
+    public static String getCurrentTraceId() {
+        return TRACE_ID_HOLDER.get();
+    }
+}
+```
 
 ---
 
 | Previous Day | Course Hub | Next Day |
 |:---|:---:|---:|
 | [Day 51: Prompt Injection Defense & AI Security](../Day_51_Prompt_Injection_AI_Security/Day_51_Prompt_Injection_AI_Security.md) | [All 60 Days Overview](../../README.md) | [Day 53: Caching, Rate Limiting & Cost Optimization](../Day_53_Caching_Rate_Limiting_Cost_Optimization/Day_53_Caching_Rate_Limiting_Cost_Optimization.md) |
-

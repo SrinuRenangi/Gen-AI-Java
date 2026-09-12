@@ -1,43 +1,40 @@
 # Day 54: Docker, CI/CD & Cloud Deployment for Enterprise Java AI
 
-## Multi-Stage Dockerfiles, Testcontainers, GitHub Actions, and Kubernetes Readiness Probes
-
 | Previous Day | Course Hub | Next Day |
 |:---|:---:|---:|
 | [Day 53: Caching, Rate Limiting & Cost Optimization](../Day_53_Caching_Rate_Limiting_Cost_Optimization/Day_53_Caching_Rate_Limiting_Cost_Optimization.md) | [All 60 Days Overview](../../README.md) | [Day 55: Capstone — Enterprise AI Platform](../Day_55_Capstone_Enterprise_AI_Platform/Day_55_Capstone_Enterprise_AI_Platform.md) |
 
 ---
 
-Welcome to Day 54! You've written enterprise code, guarded against adversarial prompts, instrumented OpenTelemetry tracing, and tuned semantic caches. But the most common heartbreak in software engineering is hearing: *"Well, it worked on my laptop!"*
+## 1. Topic Overview
 
-In Generative AI, deploying to production is uniquely demanding. You aren't just deploying a standalone `.jar`; you're coordinating high-memory JVM heaps for embeddings, pgvector database extensions, Redis caches, and long-lived streaming Server-Sent Events (SSE) connections that must not be severed when rolling out new updates.
-
-Today, you will master the art of **Cloud-Native Deployment for Java AI**. You'll build multi-stage Dockerfiles that slash image sizes by 75%, run integration tests against real databases using Testcontainers, automate delivery with GitHub Actions, and deploy zero-downtime Kubernetes pods with smart readiness probes. Let's start with our plain-English cloud glossary:
+**Cloud-Native Deployment for Java AI** encompasses packaging, testing, and deploying containerized Spring Boot AI microservices to Kubernetes clusters and enterprise cloud environments. In modern production systems, this discipline establishes multi-stage Docker builds, automated GitHub Actions CI/CD pipelines with real database Testcontainers, container-aware JVM tuning (Generational ZGC, `-XX:MaxRAMPercentage=75.0`), and intelligent Kubernetes readiness probes that ensure long-lived streaming responses terminate cleanly with zero downtime.
 
 ---
 
-> 💡 **New Word Alert! Plain English Definitions for Today's Concepts**
->
-> - **Docker Container**: A sealed, standardized digital shipping box holding your compiled Java `.jar` along with the exact Java runtime it needs. If it runs on your machine, it runs identically on AWS, Azure, or Google Cloud!
-> - **Multi-Stage Docker Build**: A clever recipe where you use a heavy image with Maven and the full JDK to build your `.jar`, but then copy *only* the finished `.jar` into a tiny, stripped-down JRE image. It slashes your image size from 850 MB to 180 MB and closes security holes!
-> - **CI/CD (Continuous Integration / Continuous Deployment)**: Automated assembly lines (like GitHub Actions) that automatically run your tests, build your Docker images, and deploy them to the cloud every time you push code to GitHub.
-> - **Testcontainers**: A Java testing library that automatically spins up real Docker containers (like PostgreSQL with `pgvector`) during your Maven tests, ensuring your database queries work before deploying to production.
-> - **Liveness vs. Readiness Probes**: Kubernetes health checks.
->   - *Liveness*: "Is the app frozen or deadlocked?" If yes, restart it.
->   - *Readiness*: "Has the vector database finished warming up?" If not, hold traffic until it's ready!
-> - **Graceful Shutdown**: Configuring Spring Boot to pause and wait up to 30 seconds during a restart so any user receiving a streaming AI answer doesn't get cut off mid-sentence.
+## 2. Basic Foundations (True Zero)
+
+### Core Cloud & Deployment Vocabulary
+
+- **Docker Container**: A standardized, lightweight standalone package containing your compiled Spring Boot `.jar` alongside the exact Java runtime (JRE) and OS dependencies it requires to execute identically across any cloud host.
+- **Multi-Stage Docker Build**: A container build pattern that uses a full JDK and build tools (Maven/Gradle) in a temporary builder stage to compile the `.jar`, then copies *only* the finished artifact into a lean, stripped-down JRE runtime image (dropping image size from ~850MB to ~180MB).
+- **CI/CD (Continuous Integration / Continuous Deployment)**: An automated delivery pipeline (such as GitHub Actions) that compiles code, executes unit and integration tests against real databases, scans for vulnerabilities, and publishes container images upon every commit.
+- **Testcontainers**: A Java testing library that spins up throwaway, production-equivalent Docker containers (e.g., PostgreSQL with the `pgvector` extension) during automated Maven test runs.
+- **Liveness Probe**: A Kubernetes health check answering: *"Is the JVM process responsive or deadlocked?"* If it fails, Kubernetes terminates and restarts the container.
+- **Readiness Probe**: A Kubernetes health check answering: *"Is this pod ready to process AI queries right now?"* If the vector store is rebuilding an index or warming up, the probe fails, signaling Kubernetes to temporarily route user traffic to other pods without killing the instance.
+- **Graceful Shutdown**: Configuring Spring Boot and Kubernetes to allow active streaming LLM connections (Server-Sent Events) up to 45 seconds to complete generation before terminating during a rolling deployment.
 
 ---
 
-## 1. Real-World Analogy: The Standardized Shipping Container & Port Authority Terminal
+### Relatable Physical Analogy: The Intermodal Shipping Container & Port Inspector
 
-Before 1956, shipping cargo across oceans was pure chaos. Loose sacks of coffee, barrels of wine, and steel pipes were manually carried into ships by longshoremen. If a barrel leaked, it ruined the coffee. If a ship arrived in London, workers spent two weeks unpacking it piece by piece, and half the cargo was stolen or broken.
+Before 1956, international freight shipping was chaotic. Loose sacks of coffee, crates of fruit, and barrels of oil were loaded by hand onto ships. Barrels leaked, items broke, and offloading in London took two weeks of manual inspection.
 
 Then came the **Intermodal Shipping Container**:
-- A standardized, sealed, steel box that fits identically on a truck bed in Ohio, a freight train in Chicago, a container ship in the Atlantic, and a gantry crane in Rotterdam.
-- At the international port, the **Port Authority Inspector** does not open the container and taste every item. Instead, they check two external indicators:
-  1. **Integrity Seal (Liveness)**: Is the container intact, or has the roof collapsed? If the box is structurally crushed, hoist it off immediately.
-  2. **Customs Clearance & Refrigeration Power (Readiness)**: Is the cold-chain cooling unit running at -18°C and are the customs papers signed? If the cooling generator is still booting up, **do not load the cargo onto the delivery truck yet**, or the perishable food will spoil.
+- A standardized, sealed steel box that fits identically on an American railway car, a Dutch container ship, a highway truck in Germany, and a gantry crane in Singapore.
+- At the port terminal, the **Port Authority Inspector** does not open the container to taste every item. Instead, they inspect two external indicators:
+  1. **Integrity Seal (Liveness Probe)**: Is the container structurally intact, or did the roof cave in? If crushed, remove it immediately.
+  2. **Customs Clearance & Refrigeration (Readiness Probe)**: Is the cold-chain freezer running at $-18^\circ\text{C}$ and are the customs papers approved? If the generator is still warming up, **do not load the cargo onto delivery vans yet**, or the perishable food will spoil.
 
 ```
  [ Developer Machine (Local Train) ] ───► [ GitHub Actions CI/CD (Gantry Crane) ]
@@ -56,15 +53,72 @@ Then came the **Intermodal Shipping Container**:
   └── Pod 2: Actuator Liveness: UP | Readiness: DOWN ──► Booting pgvector (Traffic Paused)
 ```
 
-In enterprise Generative AI, packaging and deploying applications is significantly more demanding than traditional web services. AI microservices depend on:
-- High-memory JVM heaps for embedding models and vector buffers.
-- Synchronized companion infrastructure (PostgreSQL with `pgvector`, Redis for caching, Ollama for local LLMs).
-- Stateful long-lived Server-Sent Events (SSE) connections that must not be abruptly terminated during rolling updates.
-- Deep readiness checks verifying that vector indexes are fully warmed up before user queries hit the cluster.
+---
+
+### Minimal Beginner-Friendly Example: A Pure Java Health Probe Simulator
+
+Here is a minimal, self-contained Java program demonstrating how separate Liveness and Readiness probes behave during database maintenance:
+
+```java
+package com.genai.enterprise.deployment.minimal;
+
+public class MinimalHealthProbeSimulator {
+
+    public record HealthStatus(int statusCode, String status, String detail) {}
+
+    public static class ApplicationHealthService {
+        private boolean isJvmDeadlocked = false;
+        private boolean isVectorIndexReady = true;
+
+        public HealthStatus checkLiveness() {
+            if (isJvmDeadlocked) {
+                return new HealthStatus(500, "DOWN", "Deadlock detected in worker thread");
+            }
+            return new HealthStatus(200, "UP", "JVM process healthy");
+        }
+
+        public HealthStatus checkReadiness() {
+            if (!isVectorIndexReady) {
+                return new HealthStatus(503, "DOWN", "pgvector HNSW index rebuilding; pause traffic");
+            }
+            return new HealthStatus(200, "UP", "Vector store ready for queries");
+        }
+
+        public void simulateIndexRebuild() { this.isVectorIndexReady = false; }
+        public void simulateIndexComplete() { this.isVectorIndexReady = true; }
+    }
+
+    public static void main(String[] args) {
+        ApplicationHealthService service = new ApplicationHealthService();
+
+        System.out.println("1. Normal Operations:");
+        System.out.println("   Liveness:  " + service.checkLiveness());
+        System.out.println("   Readiness: " + service.checkReadiness());
+
+        System.out.println("\n2. Simulating Vector Index Rebuild:");
+        service.simulateIndexRebuild();
+        System.out.println("   Liveness:  " + service.checkLiveness() + " (Pod stays alive!)");
+        System.out.println("   Readiness: " + service.checkReadiness() + " (Traffic diverted!)");
+
+        System.out.println("\n3. Index Rebuild Complete:");
+        service.simulateIndexComplete();
+        System.out.println("   Readiness: " + service.checkReadiness() + " (Traffic restored!)");
+    }
+}
+```
+
+#### Line-by-Line Walkthrough:
+1. `record HealthStatus(...)`: Represents an HTTP health probe response containing status code, status text, and diagnostic message.
+2. `checkLiveness()`: Confirms the core JVM process is executing normally. If this fails, Kubernetes kills the pod.
+3. `checkReadiness()`: Verifies external dependencies (like pgvector) are ready to serve queries.
+4. `simulateIndexRebuild()`: When the vector index undergoes maintenance, readiness drops to `503 DOWN`.
+5. `main(...)`: Confirms that during index rebuilds, Kubernetes keeps the container running (liveness remains `UP`) while cleanly stopping incoming traffic until readiness recovers.
 
 ---
 
-## 2. Under-the-Hood Architecture: Cloud-Native Java 21 AI Infrastructure
+## 3. Core Concept Walkthrough (Basic → Intermediate)
+
+### 3.1 Cloud-Native Java 21 AI Architecture
 
 ```mermaid
 graph TD
@@ -105,14 +159,11 @@ graph TD
 
 ---
 
-## 3. The Multi-Stage Dockerfile: Slashing Image Size and Hardening Security
+### 3.2 The Multi-Stage Dockerfile for Spring AI
 
-A standard single-stage `Dockerfile` with a full JDK weighs over **850 MB** and carries compilers, build tools, package managers, and root permissions directly into production—a massive security and bandwidth liability.
+A single-stage Dockerfile containing Maven and the full JDK produces an image exceeding **850 MB** and carries unnecessary compilers and package managers into production.
 
-A **Multi-Stage Dockerfile** solves this:
-1. **Builder Stage**: Uses a full Eclipse Temurin 21 JDK to download dependencies and compile the `.jar`.
-2. **Runner Stage**: Uses a stripped-down Eclipse Temurin 21 JRE Jammy image (weighing only ~180 MB). Build tools (`mvn`, `javac`) are discarded.
-3. **Non-Root Execution**: Creates an unprivileged user `appuser:appgroup` so that even in the unlikely event of a remote code execution exploit, the attacker has zero root capabilities.
+Our hardened, multi-stage Dockerfile builds the application in an isolated stage and runs it in a minimal, non-root runtime environment:
 
 ```dockerfile
 # ------------------------------------------------------------------------------
@@ -152,55 +203,45 @@ ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0 -XX:+UseZGC -XX:+ZGenerational -Djava.s
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]
 ```
 
-### Why JVM Container Awareness is Crucial (`-XX:MaxRAMPercentage=75.0`)
-Historically, the JVM would query the host machine's total physical RAM rather than the Docker container's allocated limit. If your host has 64 GB of RAM and your container limit is 2 GB, an unconfigured JVM might allocate a 16 GB heap, causing the Linux kernel to immediately kill the container with an **OOMKilled (Out of Memory Killer)** exit code 137.
+---
 
-By specifying:
+### 3.3 Container-Aware JVM Tuning (`-XX:MaxRAMPercentage=75.0`)
+
+Historically, the JVM checked the host machine's total physical memory rather than the container's cgroups limit. If the host has 64 GB of RAM and Kubernetes assigns a 2 GB limit, an unconfigured JVM may size its heap to 16 GB, triggering the Linux kernel's **OOMKilled (exit code 137)**.
+
+By configuring:
 ```bash
 -XX:MaxRAMPercentage=75.0
 ```
-the JVM dynamically calculates its heap size as 75% of whatever cgroup memory limit Kubernetes assigns to the pod, leaving the remaining 25% for Metaspace, off-heap vector buffers, and thread stacks.
+the JVM dynamically sizes its maximum heap to 75% of whatever cgroup memory limit Kubernetes assigns to the pod, leaving 25% for Metaspace, off-heap vector buffers, and thread stacks.
 
-Furthermore, Java 21 introduces **Generational ZGC** (`-XX:+UseZGC -XX:+ZGenerational`), delivering sub-millisecond garbage collection pauses even under heavy memory churn from streaming LLM responses.
+Java 21 **Generational ZGC** (`-XX:+UseZGC -XX:+ZGenerational`) delivers sub-millisecond garbage collection pauses under heavy memory churn from streaming LLM responses.
 
 ---
 
-## 4. Kubernetes Health Probes: Liveness vs Readiness in AI Applications
-
-In standard microservices, `/health` simply checks if the HTTP port is open. In AI microservices, this naive check causes production outages during cold starts and index rebuilds.
-
-```
-              ┌──────────────────────────────────────────────┐
-              │           KUBERNETES PROBE DYNAMICS          │
-              └──────────────────────┬───────────────────────┘
-                                     │
-         ┌───────────────────────────┴───────────────────────────┐
-         ▼                                                       ▼
-  [ Liveness Probe ]                                      [ Readiness Probe ]
-  Path: /actuator/health/liveness                         Path: /actuator/health/readiness
-  Question: "Is the JVM process alive?"                   Question: "Can this pod answer AI queries?"
-  If Fails: Kubernetes RESTARTS the pod                   If Fails: Kubernetes STOPS sending traffic
-  Triggered by: Deadlocks, infinite loops                 Triggered by: Vector DB down, index warming
-```
-
-### Writing a Custom Spring Boot AI Readiness Indicator
+### 3.4 Custom Spring Boot AI Readiness Indicator
 
 ```java
+package com.genai.enterprise.deployment;
+
+import org.springframework.boot.actuate.health.Health;
+import org.springframework.boot.actuate.health.HealthIndicator;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Component;
+
 @Component
 public class VectorDatabaseReadinessIndicator implements HealthIndicator {
 
     private final JdbcTemplate jdbcTemplate;
-    private final VectorStore vectorStore;
 
-    public VectorDatabaseReadinessIndicator(JdbcTemplate jdbcTemplate, VectorStore vectorStore) {
+    public VectorDatabaseReadinessIndicator(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
-        this.vectorStore = vectorStore;
     }
 
     @Override
     public Health health() {
         try {
-            // 1. Verify pgvector extension is installed
+            // 1. Verify pgvector extension is active
             String ext = jdbcTemplate.queryForObject(
                 "SELECT extname FROM pg_extension WHERE extname = 'vector'", String.class);
             
@@ -208,7 +249,7 @@ public class VectorDatabaseReadinessIndicator implements HealthIndicator {
                 return Health.down().withDetail("error", "pgvector extension missing").build();
             }
 
-            // 2. Verify HNSW index is ready and readable
+            // 2. Verify vector store table is reachable
             Integer count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM vector_store", Integer.class);
 
@@ -218,21 +259,17 @@ public class VectorDatabaseReadinessIndicator implements HealthIndicator {
                 .build();
 
         } catch (Exception e) {
-            return Health.down(e).withDetail("error", "Vector database unreachable").build();
+            return Health.down(e).withDetail("error", "Vector database unreachable: " + e.getMessage()).build();
         }
     }
 }
 ```
 
-If the database is restarting or rebuilding an HNSW index of 5 million vectors, the readiness probe returns HTTP 503 `DOWN`. **Kubernetes does not kill the pod**; it simply routes incoming user traffic to other healthy replicas until the index completes!
-
 ---
 
-## 5. Automated CI/CD Pipeline with GitHub Actions & Testcontainers
+### 3.5 Automated CI/CD with GitHub Actions & Testcontainers
 
-A production AI CI/CD pipeline must never skip database integration tests. Mocking `VectorStore` in memory hides syntax errors in pgvector SQL, dimension mismatches, and cosine distance operator failures.
-
-### The CI/CD Pipeline Workflow
+A production AI CI/CD pipeline must never skip database integration tests. In-memory mocks hide syntax errors in pgvector queries, dimension mismatches, and cosine operator failures.
 
 ```yaml
 name: Enterprise Java AI CI/CD Pipeline
@@ -310,42 +347,110 @@ jobs:
 
 ---
 
-## 6. Hands-On Companion Code Walkthrough
+### 3.6 Graceful Shutdown & Streaming LLM Connections
 
-Our companion repository inside `code/` provides production-grade deployment manifests and simulation code:
+In Generative AI, **Server-Sent Events (SSE) streaming connections stay active for 30 to 60 seconds** while the LLM generates tokens. If Kubernetes abruptly issues `SIGKILL`, user screens freeze mid-sentence.
 
-### 1. `Dockerfile`
-A fully hardened, multi-stage Dockerfile using Eclipse Temurin 21 JRE Jammy, non-root `appuser`, and container-aware memory and GC tuning.
+#### Spring Boot Graceful Shutdown (`application.yml`):
+```yaml
+server:
+  shutdown: graceful
 
-### 2. `docker-compose.prod.yml`
-An enterprise stack orchestrating:
-- `ai-backend`: Spring AI backend with resource limits (2 CPU / 2048 MB RAM).
-- `postgres-pgvector`: PostgreSQL 16 with pre-installed pgvector and automated health checks.
-- `redis-cache`: High-speed Alpine Redis with 512 MB LRU eviction.
-- `ollama-service`: Open-weight model server for zero-cost edge inference.
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 45s
+```
 
-### 3. `k8s-deployment.yaml`
-Production Kubernetes Deployment, Service, and Horizontal Pod Autoscaler (HPA) manifests with `/actuator/health/liveness` and `/actuator/health/readiness` probes configured.
+#### Kubernetes Pod Spec (`deployment.yaml`):
+```yaml
+spec:
+  template:
+    spec:
+      terminationGracePeriodSeconds: 60
+```
 
-### 4. `ci-pipeline.yml`
-GitHub Actions workflow executing automated unit tests, real pgvector integration tests, Trivy CVE scanning, and multi-arch Docker image publishing.
-
-### 5. `HealthProbeSimulator.java` & `DeploymentDemo.java`
-Interactive Java 21 classes verifying how Kubernetes health probes respond when vector databases undergo transient maintenance, confirming that traffic is cleanly diverted without restarting the container.
+When a rolling update occurs:
+1. Kubernetes removes the Pod from the Service endpoint (no new traffic arrives).
+2. The readiness probe reports `DOWN`.
+3. Spring Boot allows active streaming LLM connections up to 45 seconds to finish delivering tokens.
+4. The pod terminates cleanly with zero interrupted responses.
 
 ---
 
-## 7. Verifying the Implementation
+## 4. Prerequisite & Supporting Concepts
 
-Run the test suite directly from your terminal:
+### Prerequisite / Supporting Concept: Linux Containers & Cgroups Memory Limits
+Docker containers rely on Linux Control Groups (cgroups) to enforce CPU and memory boundaries. The Linux kernel OOM killer monitors cgroup memory usage. If an unconfigured JVM allocates memory beyond its cgroup limit, the kernel terminates the container immediately with exit code 137.
 
-```powershell
-javac -d out Phase_08_Enterprise_Production/Day_54_Docker_CICD_Cloud_Deployment/code/*.java
-java -cp out com.genai.enterprise.deployment.DeploymentDemo
-Remove-Item -Recurse -Force out
+### Prerequisite / Supporting Concept: Testcontainers & Ephemeral Docker Infrastructure
+`org.testcontainers` communicates with the local Docker daemon to instantiate ephemeral containers (like `pgvector/pgvector:pg16`) for JUnit tests. Random available ports are assigned automatically to prevent port conflicts on shared CI runners.
+
+### Prerequisite / Supporting Concept: Server-Sent Events (SSE) & Connection Lifecycle
+Unlike standard HTTP request-response cycles where a connection lasts 50ms, SSE keeps an HTTP connection open with `Transfer-Encoding: chunked` and `Content-Type: text/event-stream` for the entire duration of LLM generation.
+
+---
+
+## 5. Advanced Depth (Intermediate → Advanced)
+
+### 5.1 Common Mistakes & Misconceptions: Bad vs. Good
+
+#### Mistake 1: Running Containers as `root`
+Running as root exposes the underlying host kernel to severe privilege escalation attacks if any dependency contains a remote code execution vulnerability.
+
+```dockerfile
+# ❌ BAD: Defaults to root user
+FROM eclipse-temurin:21-jre-jammy
+COPY app.jar app.jar
+ENTRYPOINT ["java", "-jar", "app.jar"]
+
+# ✅ GOOD: Create and switch to an unprivileged system user
+FROM eclipse-temurin:21-jre-jammy
+RUN groupadd -r appgroup && useradd -r -g appgroup -s /sbin/nologin -d /app appuser
+COPY --chown=appuser:appgroup app.jar app.jar
+USER appuser:appgroup
+ENTRYPOINT ["java", "-jar", "app.jar"]
 ```
 
-Expected output:
+#### Mistake 2: Using Hardcoded Heap Limits (`-Xmx2g`) in Dynamic Environments
+Hardcoded heap sizes fail when Kubernetes cluster autoscalers adjust pod resource limits.
+
+```bash
+# ❌ BAD: Hardcoded memory limits trigger OOMKills if pod limit is reduced
+ENV JAVA_OPTS="-Xmx2048m -Xms2048m"
+
+# ✅ GOOD: Dynamically calculate heap as percentage of container memory
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=50.0"
+```
+
+#### Mistake 3: Pointing Kubernetes Liveness Probes to Heavy External Checks
+If the liveness probe queries an external database or model API, an outage in that downstream service causes Kubernetes to restart every pod in your cluster, amplifying the failure into a catastrophic crash loop.
+
+```yaml
+# ❌ BAD: Liveness probe checks external database (triggers cluster crash loops)
+livenessProbe:
+  httpGet:
+    path: /actuator/health # Includes database, Redis, OpenAI checks!
+
+# ✅ GOOD: Separate Liveness (JVM only) from Readiness (Dependencies)
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+```
+
+---
+
+### 5.2 Complete Verification Suite & Demo Execution
+
+Execute the verification suite in `Phase_08_Enterprise_Production/Day_54_Docker_CICD_Cloud_Deployment/code/`:
+
+```bash
+javac -d out Phase_08_Enterprise_Production/Day_54_Docker_CICD_Cloud_Deployment/code/*.java
+java -cp out com.genai.enterprise.deployment.DeploymentDemo
+```
+
 ```
 ==========================================================================
      ENTERPRISE CLOUD DEPLOYMENT & KUBERNETES PROBE VERIFIER             
@@ -374,44 +479,68 @@ Expected output:
 
 ---
 
-## 8. Graceful Shutdown & Streaming LLM Connections
+## 6. Quick Recap
 
-When deploying new versions in Kubernetes, rolling updates terminate old pods. In traditional REST APIs, requests take 50ms, so pods can terminate immediately.
-
-In Generative AI, **Server-Sent Events (SSE) streaming connections can stay open for 30 to 60 seconds** while the LLM generates tokens. If Kubernetes abruptly sends `SIGKILL`, user screens will freeze mid-sentence with an error.
-
-### Configuring Graceful Shutdown in Spring Boot
-
-In `application.yml`:
-```yaml
-server:
-  shutdown: graceful
-
-spring:
-  lifecycle:
-    timeout-per-shutdown-phase: 45s
-```
-
-In Kubernetes Deployment:
-```yaml
-spec:
-  template:
-    spec:
-      terminationGracePeriodSeconds: 60
-```
-
-When Kubernetes signals a rolling update:
-1. Kubernetes removes the Pod from the Service Endpoints (no new requests arrive).
-2. The readiness probe reports `DOWN`.
-3. Spring Boot allows existing streaming LLM responses up to 45 seconds to finish generating.
-4. The pod terminates cleanly with zero dropped customer tokens.
+| Deployment Component | Configuration | Enterprise Purpose |
+|:---|:---|:---|
+| **Multi-Stage Docker** | Eclipse Temurin 21 JRE Jammy | Reduces image size from 850MB to 180MB; eliminates build tool attack surface. |
+| **Non-Root Security** | `USER appuser:appgroup` | Adheres to CIS Docker Benchmark; prevents container root escapes. |
+| **Container Memory** | `-XX:MaxRAMPercentage=75.0` | Adapts JVM heap dynamically to cgroup limit, preventing OOMKilled exit code 137. |
+| **Generational ZGC** | `-XX:+UseZGC -XX:+ZGenerational` | Sub-millisecond GC pauses under high-throughput streaming allocations. |
+| **Liveness Probe** | `/actuator/health/liveness` | Restarts pods only if the JVM process deadlocks. |
+| **Readiness Probe** | `/actuator/health/readiness` | Diverts traffic when vector DB indexes are warming without killing the pod. |
+| **Graceful Shutdown** | `timeout-per-shutdown-phase: 45s` | Guarantees in-flight LLM streaming tokens finish before pod termination. |
 
 ---
 
-## 9. Hands-On Exercises
+## 7. Self-Check Questions & Practice Exercises
 
-### Exercise 1: Multi-Arch Container Image Build
-**Problem**: Write a `docker buildx` terminal command that compiles your Spring AI application image for both `linux/amd64` (AWS EC2 / Intel servers) and `linux/arm64` (Apple Silicon / AWS Graviton instances) and pushes the manifest to Docker Hub.
+### Conceptual Self-Check Questions
+
+#### Question 1: What occurs if a Kubernetes Liveness probe fails 3 consecutive times?
+- A) Kubernetes sends a warning email to the DevOps team.
+- B) Kubernetes removes the pod from the service load balancer but leaves it running.
+- C) Kubernetes terminates (kills) the container and restarts a new pod instance.
+- D) The Horizontal Pod Autoscaler doubles the replica count.
+
+*Answer*: **C**. The Liveness probe monitors process health; if it fails, Kubernetes assumes the process is deadlocked or unrecoverable and restarts the container.
+
+---
+
+#### Question 2: What occurs if a Kubernetes Readiness probe fails?
+- A) The pod is terminated immediately with `SIGKILL`.
+- B) The pod's IP is removed from the Kubernetes Service load balancer, pausing incoming traffic until the probe reports `UP` again.
+- C) The entire node drains all pods.
+- D) The database drops all active connections.
+
+*Answer*: **B**. Readiness checks whether an application is currently prepared to accept traffic. If an AI service is waiting for a vector database index to warm up, traffic is diverted without killing the container.
+
+---
+
+#### Question 3: Why should production Docker containers run under an unprivileged user (`USER appuser`)?
+- A) Non-root containers compile Java bytecode faster.
+- B) To enforce least privilege, preventing an attacker who achieves arbitrary code execution from accessing host devices or tampering with container root filesystems.
+- C) Docker requires non-root users to mount persistent volumes.
+- D) The JVM crashes if started as root.
+
+*Answer*: **B**. Running as non-root is a standard security hardening requirement (CIS Docker Benchmark) that restricts the blast radius of potential exploits.
+
+---
+
+#### Question 4: What is the purpose of `-XX:MaxRAMPercentage=75.0` in containerized Java?
+- A) It limits CPU utilization to 75%.
+- B) It instructs the JVM to configure its maximum heap size as 75% of the container's cgroup memory limit, preventing Linux kernel OOMKills.
+- C) It reserves 75% of disk space for application logs.
+- D) It guarantees a 75% vector cache hit rate.
+
+*Answer*: **B**. It allows Java to dynamically adapt heap memory to container boundaries rather than incorrectly querying total host RAM.
+
+---
+
+### Hands-on Practice Exercises
+
+#### Exercise 1: Multi-Architecture Container Build
+**Task**: Write a `docker buildx` terminal command that builds your Spring AI container image for both `linux/amd64` (Intel/AMD cloud VMs) and `linux/arm64` (Apple Silicon / AWS Graviton instances) and pushes the multi-arch manifest to a container registry.
 
 **Solution**:
 ```bash
@@ -422,16 +551,25 @@ docker buildx build \
   --push .
 ```
 
-### Exercise 2: Testcontainers PostgreSQL pgvector Integration Test
-**Problem**: Write a JUnit 5 test class using Testcontainers that boots a real `pgvector/pgvector:pg16` Docker container, creates the vector extension, and asserts that a cosine distance query executes successfully.
+---
+
+#### Exercise 2: Testcontainers PostgreSQL pgvector Integration Test
+**Task**: Implement a JUnit 5 test class using Testcontainers that launches a real `pgvector/pgvector:pg16` Docker container, enables the vector extension, and asserts that a cosine distance query executes successfully.
 
 **Solution**:
 ```java
+package com.genai.enterprise.exercises;
+
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import java.sql.*;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.Statement;
+
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Testcontainers
@@ -439,26 +577,28 @@ class PgVectorContainerTest {
 
     @Container
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("pgvector/pgvector:pg16")
-            .withDatabaseName("testdb")
-            .withUsername("testuser")
-            .withPassword("testpass");
+            .withDatabaseName("test_ai")
+            .withUsername("test_user")
+            .withPassword("test_pass");
 
     @Test
-    void testPgVectorExtensionEnabled() throws SQLException {
+    void testPgVectorExtensionActive() throws Exception {
         try (Connection conn = DriverManager.getConnection(
                 postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
              Statement stmt = conn.createStatement()) {
             
             stmt.execute("CREATE EXTENSION IF NOT EXISTS vector;");
             ResultSet rs = stmt.executeQuery("SELECT extname FROM pg_extension WHERE extname = 'vector';");
-            assertTrue(rs.next());
+            assertTrue(rs.next(), "pgvector extension must be installed and active");
         }
     }
 }
 ```
 
-### Exercise 3: JVM Heap Dump on Out-of-Memory Configuration
-**Problem**: Update your Dockerfile `JAVA_OPTS` to automatically generate an HPROF heap dump file in a mounted volume `/dumps` whenever the JVM encounters an OutOfMemoryError, allowing engineers to diagnose memory leaks caused by massive vector loads.
+---
+
+#### Exercise 3: JVM Heap Dump Configuration on OOM
+**Task**: Configure Docker `JAVA_OPTS` to automatically generate an HPROF heap dump file in a mounted volume `/dumps` whenever an OutOfMemoryError occurs, enabling diagnostic analysis of memory leaks caused by massive vector loads.
 
 **Solution**:
 ```dockerfile
@@ -470,58 +610,54 @@ ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0 \
 
 ---
 
-## 10. Self-Check Quiz
+#### Exercise 4: Dynamic Model Gateway Readiness Indicator
+**Task**: Implement a Spring Boot `HealthIndicator` that verifies whether the external LLM gateway is reachable within a 500ms HTTP connection timeout before marking the pod as ready.
 
-### Question 1: What happens if a Kubernetes Liveness probe fails 3 consecutive times?
-- A) Kubernetes sends an alert email to the developer.
-- B) Kubernetes stops sending network traffic to the pod but keeps it running.
-- C) Kubernetes terminates (kills) the container and restarts a new one.
-- D) The pod is automatically scaled up by the HPA.
-*Answer: C. The Liveness probe monitors process viability; if it fails, Kubernetes assumes the process is deadlocked or unrecoverable and restarts it.*
+**Solution**:
+```java
+package com.genai.enterprise.exercises;
 
-### Question 2: What happens if a Kubernetes Readiness probe fails?
-- A) The pod is immediately destroyed and restarted.
-- B) The pod's IP address is removed from the Kubernetes Service load balancer, stopping new traffic until the probe reports UP again.
-- C) The entire cluster restarts.
-- D) Docker images are re-pulled.
-*Answer: B. Readiness determines if a container is ready to accept user requests. If an AI service is waiting for a vector database or model gateway, traffic is paused without killing the container.*
+import org.springframework.boot.actuate.health.Health;
+import org.springframework.boot.actuate.health.HealthIndicator;
+import org.springframework.stereotype.Component;
 
-### Question 3: Why should production Docker containers run under a non-root user (e.g. `USER appuser`)?
-- A) Non-root containers compile Java code faster.
-- B) To enforce the principle of least privilege, preventing an attacker who achieves arbitrary code execution from accessing host devices or altering container root filesystems.
-- C) Docker requires non-root users to mount volumes.
-- D) JVM cannot start if running as root.
-*Answer: B. Running as non-root is a fundamental security hardening standard (CIS Docker Benchmark) that minimizes exploit blast radius.*
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 
-### Question 4: What is the purpose of the `-XX:MaxRAMPercentage=75.0` flag in containerized Java?
-- A) It limits CPU usage to 75%.
-- B) It forces the JVM to configure its maximum heap size as 75% of the container's cgroup memory limit, preventing Linux kernel OOMKills.
-- C) It guarantees 75% cache hit rates.
-- D) It reserves 75% of disk space for logs.
-*Answer: B. It allows Java to dynamically adapt heap memory to container boundaries rather than incorrectly querying total host RAM.*
+@Component
+public class LlmGatewayReadinessIndicator implements HealthIndicator {
 
-### Question 5: Why is `server.shutdown=graceful` critical for Generative AI applications?
-- A) It deletes temporary vector database files on shutdown.
-- B) It ensures active streaming LLM responses (Server-Sent Events) have time to finish generating and delivering tokens to users before the pod terminates during rolling deployments.
-- C) It compresses log files into zip archives.
-- D) It automatically renews expired OpenAI API keys.
-*Answer: B. LLM token generation is an asynchronous streaming process that can take up to a minute; graceful shutdown prevents freezing user sessions mid-sentence.*
+    private final HttpClient client = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofMillis(500))
+            .build();
 
----
+    @Override
+    public Health health() {
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.openai.com/v1/models"))
+                    .timeout(Duration.ofMillis(1000))
+                    .GET()
+                    .build();
 
-## 11. Day 54 Mentor Wrap-Up: You're Cloud-Native & Deployment Ready!
-
-Outstanding work! You have closed the loop between local AI experimentation and bulletproof cloud infrastructure:
-
-1. **Standardized Shipping Containers**: Your multi-stage Docker build drops image sizes from 850 MB to 180 MB, strips out attack vectors, and enforces unprivileged non-root execution.
-2. **True Integration Confidence**: With Testcontainers, you spin up real PostgreSQL pgvector instances during Maven tests so regressions are caught before they ever hit Git.
-3. **Zero-Downtime Rolling Deploys**: Kubernetes Liveness and Readiness probes ensure your app only receives user queries when vector indexes are warm, while graceful shutdown ensures active streaming responses finish cleanly.
-
-Tomorrow in **Day 55: Capstone — Enterprise AI Platform**, we bring every single skill from the entire course together into an industrial-strength, end-to-end enterprise platform! It's the crown jewel of Phase 8. See you tomorrow!
+            // Check gateway reachability (HTTP 200 or 401 Unauthorized both prove gateway is reachable)
+            HttpResponse<Void> resp = client.send(request, HttpResponse.BodyHandlers.discarding());
+            if (resp.statusCode() == 200 || resp.statusCode() == 401) {
+                return Health.up().withDetail("llm_gateway", "REACHABLE").build();
+            }
+            return Health.down().withDetail("http_status", resp.statusCode()).build();
+        } catch (Exception ex) {
+            return Health.down(ex).withDetail("error", "LLM Gateway unreachable: " + ex.getMessage()).build();
+        }
+    }
+}
+```
 
 ---
 
 | Previous Day | Course Hub | Next Day |
 |:---|:---:|---:|
 | [Day 53: Caching, Rate Limiting & Cost Optimization](../Day_53_Caching_Rate_Limiting_Cost_Optimization/Day_53_Caching_Rate_Limiting_Cost_Optimization.md) | [All 60 Days Overview](../../README.md) | [Day 55: Capstone — Enterprise AI Platform](../Day_55_Capstone_Enterprise_AI_Platform/Day_55_Capstone_Enterprise_AI_Platform.md) |
-
