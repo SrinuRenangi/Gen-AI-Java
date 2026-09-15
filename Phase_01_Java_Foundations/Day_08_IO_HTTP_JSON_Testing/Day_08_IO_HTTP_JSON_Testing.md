@@ -1,599 +1,250 @@
-# 🧪 Day 08: I/O, HTTP Client, JSON & Testing
-## The Production Toolkit — Calling Real LLM APIs and Testing with JUnit 5 & Mockito
+# Day_08 — IO, HTTP, JSON, Testing
 
 | ⬅️ Previous Day | 📚 Course Hub | ➡️ Next Day |
 |:---|:---:|---:|
 | [← Day 07: Concurrency & Virtual Threads](../Day_07_Concurrency_Virtual_Threads/Day_07_Concurrency_Virtual_Threads.md) | [All 60 Days Overview](../../README.md) | [Day 09: The Problem Spring Solves — Dependency Hell →](../../Phase_02_Spring_Core_and_DI/Day_09_Problem_Spring_Solves_Dependency_Hell/Day_09_Problem_Spring_Solves_Dependency_Hell.md) |
 
-[![Phase](https://img.shields.io/badge/Phase_01-Java_Foundations-brightgreen.svg?style=for-the-badge)](../../README.md)
-[![Day](https://img.shields.io/badge/Day-08_of_60-blue.svg?style=for-the-badge)](../../README.md)
-[![Difficulty](https://img.shields.io/badge/Difficulty-Intermediate-blue.svg?style=for-the-badge)](../../README.md)
-[![Milestone](https://img.shields.io/badge/Milestone-Phase_1_Graduation!-brightgreen.svg?style=for-the-badge)](../../README.md)
+---
+
+## 🎯 What You'll Understand By the End
+- How to read and write document files cleanly using modern Java NIO (`Files.readString` and `Files.writeString`).
+- How to make real HTTP API calls to external AI services using Java's built-in `HttpClient`.
+- How to convert raw JSON strings into strongly-typed Java Records using the industry-standard **Jackson** library (`ObjectMapper`).
+- How to write professional, automated unit tests using **JUnit 5** to verify business logic.
+- How to mock external AI network calls using **Mockito** so your tests run instantly without spending real API credits.
 
 ---
 
-## 🗺️ Table of Contents
-- [1. Topic Overview](#1-topic-overview)
-- [2. Basic Foundations (True Zero)](#2-basic-foundations-true-zero)
-  - [2.1 What is File I/O, an HTTP Client, JSON, and Unit Testing?](#21-what-is-file-io-an-http-client-json-and-unit-testing)
-  - [2.2 The Crash-Test Dummy Analogy for Mocking](#22-the-crash-test-dummy-analogy-for-mocking)
-  - [2.3 Minimal Working Example: Safe File Reading and Validation](#23-minimal-working-example-safe-file-reading-and-validation)
-  - [2.4 Line-by-Line Code Breakdown](#24-line-by-line-code-breakdown)
-- [3. Core Concept Walkthrough (Basic → Intermediate)](#3-core-concept-walkthrough-basic--intermediate)
-  - [3.1 Modern Java NIO.2 & `try-with-resources`](#31-modern-java-nio2--try-with-resources)
-  - [3.2 The Modern Built-in `HttpClient` (`java.net.http`)](#32-the-modern-built-in-httpclient-javanethttp)
-  - [3.3 Calling a Local Ollama LLM with Zero Dependencies](#33-calling-a-local-ollama-llm-with-zero-dependencies)
-  - [3.4 JSON Serialization & Deserialization with Jackson](#34-json-serialization--deserialization-with-jackson)
-  - [3.5 Automated Testing with JUnit 5](#35-automated-testing-with-junit-5)
-  - [3.6 Mocking LLM API Calls with Mockito](#36-mocking-llm-api-calls-with-mockito)
-  - [3.7 Phase 1 Graduation Capstone](#37-phase-1-graduation-capstone)
-- [4. Prerequisite & Supporting Concepts](#4-prerequisite--supporting-concepts)
-  - [Prerequisite / Supporting Concept: Operating System File Descriptors & Resource Leaks](#prerequisite--supporting-concept-operating-system-file-descriptors--resource-leaks)
-  - [Prerequisite / Supporting Concept: The HTTP Protocol (Methods, Status Codes, Headers)](#prerequisite--supporting-concept-the-http-protocol-methods-status-codes-headers)
-  - [Prerequisite / Supporting Concept: Test-Driven Development (TDD) & The Test Pyramid](#prerequisite--supporting-concept-test-driven-development-tdd--the-test-pyramid)
-- [5. Advanced Depth (Intermediate → Advanced)](#5-advanced-depth-intermediate--advanced)
-  - [5.1 Senior Deep Dive: `HttpClient.sendAsync()` with Virtual Threads](#51-senior-deep-dive-httpclientsendasync-with-virtual-threads)
-  - [5.2 Advanced Mockito: Argument Matchers & Verification](#52-advanced-mockito-argument-matchers--verification)
-  - [5.3 Common Mistakes & Misconceptions (With Bad vs. Good Code)](#53-common-mistakes--misconceptions-with-bad-vs-good-code)
-  - [5.4 Architectural Trade-Offs: Real API Integration Tests vs. Mocked Unit Tests](#54-architectural-trade-offs-real-api-integration-tests-vs-mocked-unit-tests)
-- [6. Quick Recap](#6-quick-recap)
-- [7. Self-Check Questions & Practice Exercises](#7-self-check-questions--practice-exercises)
-  - [Self-Check Questions (Basic to Advanced)](#self-check-questions-basic-to-advanced)
-  - [Hands-On Practice Exercises with Full Solutions](#hands-on-practice-exercises-with-full-solutions)
+## 🧠 The Problem This Solves
+
+Building production AI systems requires connecting to external services across networks and file systems:
+
+1. **Ancient File I/O**: Older Java required 15 lines of nested `FileReader`, `BufferedReader`, and manual stream-closing loops just to read a text file. If an exception occurred, streams leaked, locking files on the operating system.
+2. **Third-Party HTTP Dependencies**: For years, Java developers had to rely on heavy third-party HTTP libraries (like Apache HttpClient).
+3. **Fragile JSON Parsing**: AI models communicate exclusively in JSON. Manually parsing JSON strings using string splitting or regex is brittle and dangerous.
+4. **Testing Against Live AI APIs**: If your automated tests call real OpenAI or Anthropic endpoints on every git commit:
+   - Your tests will run painfully slow (taking minutes instead of milliseconds).
+   - Your team burns real money on API billing.
+   - If the external API goes down or you lose Wi-Fi, your entire build pipeline fails.
+
+Modern Java provides built-in **`java.nio.file.Files`** and **`java.net.http.HttpClient`**, paired with **Jackson** for JSON and **JUnit 5 + Mockito** for hermetic, zero-cost unit testing.
 
 ---
 
-# 1. Topic Overview
+## 📖 Core Concept, Explained Simply
 
-Modern enterprise Java provides standard, production-ready toolkits for **File I/O (NIO.2)**, **HTTP Client communication (`java.net.http`)**, **JSON processing (Jackson)**, and **automated testing (JUnit 5 & Mockito)**. Together, these tools form the bridge between in-memory Java code and external networks, file systems, and AI cloud services.
+### 1. Modern File I/O (`java.nio.file.Files`)
+Forget ancient buffer loops. In modern Java, reading or writing an entire document chunk takes a single method call:
+- `Files.readString(Path.of("prompt.txt"))` reads an entire text file into memory as a `String`.
+- `Files.writeString(Path.of("output.txt"), content)` saves text to disk cleanly and safely closes the file.
 
-### Why This Topic Matters
-Real-world Generative AI applications do not operate in a vacuum. They read system prompts and PDF documents from disk, dispatch HTTP POST requests to OpenAI, Anthropic, or Ollama endpoints, parse returned JSON strings into immutable Java records, and validate business logic using automated unit tests. Without mocking tools like Mockito, testing AI applications would incur exorbitant cloud API bills and produce flaky CI/CD pipelines.
+### 2. The Diplomatic Courier (`java.net.http.HttpClient`)
+Introduced in Java 11, the built-in HTTP client follows a clean three-part architecture:
+- **`HttpClient`**: The courier engine. Configures timeouts, connection pooling, and redirects.
+- **`HttpRequest`**: The sealed envelope. Defines the destination URL, HTTP method (GET, POST), headers (API keys), and body data.
+- **`HttpResponse`**: The returned parcel. Contains the HTTP status code (e.g., 200 OK) and the response body.
 
-> 💡 **New Word Alert — "HTTP Client"**: A software component that acts as a headless web browser, sending HTTP requests (GET, POST) over network sockets to external APIs and receiving responses.
+### 3. The Universal Translator (Jackson `ObjectMapper`)
+An AI model returns a raw text string like `{"model": "gpt-4o", "tokens": 150}`. 
+- Jackson's **`ObjectMapper`** acts as a universal translator.
+- It parses that JSON text and maps each key directly to the fields of a Java **Record** (`record ModelResponse(String model, int tokens) {}`), giving you full type safety.
 
-> 💡 **New Word Alert — "Serialization / Deserialization"**:
-> - *Serialization*: Converting an in-memory Java object/record into a JSON string to transmit over the network.
-> - *Deserialization*: Parsing an incoming JSON string into an in-memory Java object/record.
+### 4. Mocking with Mockito (The Stunt Double)
+In a movie, an expensive actor doesn't jump off a bridge; a stunt double does.
+- When unit-testing your AI service, you don't call the live, billable AI network endpoint.
+- You create a **Mock** (a stunt double) using Mockito.
+- You tell the mock: *"When your `sendPrompt` method is called, do not touch the network. Immediately return this pre-recorded canned response."* Your test runs in 2 milliseconds, costs $0.00, and verifies your parsing logic perfectly.
 
-> 💡 **New Word Alert — "Mocking (Mockito)"**: Creating a simulated "stunt double" of an external dependency (like an LLM API) during automated testing so tests execute in milliseconds at zero monetary cost.
+> 💡 **New Word Alert — "Serialization / Deserialization"**: Serialization converts a live Java object in memory into a text format (like JSON) to send over a network. Deserialization reverses the process, turning JSON text back into a live Java object.
+
+> 💡 **New Word Alert — "Mocking"**: Creating a simulated fake object in tests that mimics the behavior of a real dependency (like an external API) in a controlled way.
 
 ---
 
-# 2. Basic Foundations (True Zero)
+## 🗺️ Visual Overview
 
-Let's begin with absolute basics, assuming no prior networking or testing background.
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Test as JUnit Test Suite
+    participant Service as AiPromptService
+    participant Mock as Mockito HTTP Client (Stunt Double)
+    participant Live as Live AI API (Skipped!)
 
-### 2.1 What is File I/O, an HTTP Client, JSON, and Unit Testing?
-
-- **File I/O (Input/Output)**: Reading text or binary data from your computer's hard drive into RAM, or saving data from RAM back to disk.
-- **HTTP Client**: A built-in Java tool that connects to web addresses (like `https://api.openai.com/v1/chat/completions`) to send and receive text payloads.
-- **JSON (JavaScript Object Notation)**: A lightweight, universal plain-text data interchange format that computers across different programming languages understand (e.g., `{"model": "gpt-4o", "temperature": 0.7}`).
-- **Unit Testing**: Writing small, automated code snippets that verify individual methods in your application to catch bugs before deploying to production.
-
----
-
-### 2.2 The Crash-Test Dummy Analogy for Mocking
-
-```
-                     REAL LUXURY CAR CRASH (Calling Live OpenAI in Tests)
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ You buy a brand new $100,000 car and smash it into a concrete wall to test  │
-│ whether the airbag sensor triggers. If you run 500 tests a day, you go      │
-│ bankrupt and wait hours for replacement cars to arrive!                     │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                       vs.
-                     CRASH-TEST SIMULATOR (Mockito Stunt-Double)
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ You build a lightweight simulator that replicates the exact electrical wire │
-│ signal of a crash. The airbag tests run in 5 milliseconds, cost $0.00, and  │
-│ never destroy a physical car!                                               │
-└─────────────────────────────────────────────────────────────────────────────┘
+    Note over Test,Service: Safe, Zero-Cost Unit Test Execution
+    Test->>Mock: when(client.send()).thenReturn(Fake 200 OK JSON)
+    Test->>Service: service.executePrompt("Summarize text")
+    Service->>Mock: POST /v1/chat/completions
+    Mock-->>Service: Returns Canned JSON Response
+    Service->>Service: Jackson parses JSON into Java Record
+    Service-->>Test: Returns Validated Java Object
+    Test->>Test: assertEquals("Expected Summary", result.summary())
+    Note over Live: Real API is never called (zero dollars spent!)
 ```
 
-When testing an AI service, you **never** call OpenAI or Claude directly. You instruct Mockito: *"When someone calls `chatModel.call(...)`, immediately return `'Mocked Response'` without touching the internet."*
+*This sequence diagram shows how an automated unit test uses Mockito to intercept network calls. The test supplies a canned JSON response to verify application parsing logic instantly without spending money on external AI API credits.*
 
 ---
 
-### 2.3 Minimal Working Example: Safe File Reading and Validation
+## 💻 Code Walkthrough
 
-Let's write a minimal, fully runnable program that reads a prompt template from disk using modern Java NIO.2:
+Here is a complete, runnable example showing how to parse JSON into a Java Record using Jackson and test it with JUnit 5:
 
 ```java
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
-public class SimpleFileIODemo {
-
-    public static void main(String[] args) {
-        Path tempFile = null;
-        try {
-            // 1. Create a temporary prompt file
-            tempFile = Files.createTempFile("system-prompt", ".txt");
-            Files.writeString(tempFile, "You are a helpful AI assistant.");
-
-            // 2. Read the file into a String in one line
-            String content = Files.readString(tempFile);
-            System.out.println("Prompt Loaded: " + content);
-
-        } catch (IOException e) {
-            System.err.println("File operation failed: " + e.getMessage());
-        } finally {
-            // 3. Clean up temporary file
-            if (tempFile != null) {
-                try { Files.deleteIfExists(tempFile); } catch (IOException ignored) {}
-            }
-        }
-    }
-}
-```
-
----
-
-### 2.4 Line-by-Line Code Breakdown
-
-1. `Files.createTempFile(...)`: Safely creates a unique temporary file on disk managed by the OS.
-2. `Files.writeString(...)`: Modern Java 11 method that writes a string to disk using UTF-8 encoding.
-3. `Files.readString(...)`: Reads the entire file into memory as a `String` in a single line, eliminating ancient boilerplate loops.
-4. `try-catch`: Catches potential `IOException` events (such as missing files or permission errors).
-
----
-
-# 3. Core Concept Walkthrough (Basic → Intermediate)
-
-Now let's examine the production components used to connect to real LLM backends.
-
-### 3.1 Modern Java NIO.2 & `try-with-resources`
-
-In operating systems, open file streams are tracked as **file descriptors**. If an application opens files without closing them, the server runs out of descriptors and crashes.
-
-Modern Java uses **`try-with-resources`**: Any resource implementing `AutoCloseable` is guaranteed to close automatically upon block exit:
-
-```java
-package com.javagenai.day08;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
-public class SafeFileReader {
-
-    public static void printLines(Path filePath) throws IOException {
-        // Guaranteed automatic closure of reader upon exiting block
-        try (BufferedReader reader = Files.newBufferedReader(filePath)) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                System.out.println(line);
-            }
-        }
-    }
-}
-```
-
----
-
-### 3.2 The Modern Built-in `HttpClient` (`java.net.http`)
-
-Introduced in Java 11, `java.net.http.HttpClient` provides a native, asynchronous, HTTP/2-enabled client with zero third-party dependencies.
-
-```
-┌────────────────────────┐      ┌────────────────────────┐      ┌────────────────────────┐
-│      HttpClient        │ ──►  │      HttpRequest       │ ──►  │      HttpResponse      │
-│  - HTTP/2 support      │      │  - URI: /api/generate  │      │  - Status Code: 200    │
-│  - Connection pooling  │      │  - Method: POST        │      │  - Headers             │
-│  - Timeout configs     │      │  - Body: JSON payload  │      │  - Body: Response text │
-└────────────────────────┘      └────────────────────────┘      └────────────────────────┘
-```
-
----
-
-### 3.3 Calling a Local Ollama LLM with Zero Dependencies
-
-Here is a complete, working client that makes an actual REST API call to Ollama (`http://localhost:11434/api/generate`):
-
-```java
-package com.javagenai.day08;
-
-import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
-
-public class RawOllamaClient {
-    private final HttpClient httpClient;
-    private final String baseUrl;
-
-    public RawOllamaClient(String baseUrl) {
-        this.baseUrl = baseUrl;
-        this.httpClient = HttpClient.newBuilder()
-            .version(HttpClient.Version.HTTP_2)
-            .connectTimeout(Duration.ofSeconds(10))
-            .build();
-    }
-
-    public String generate(String model, String prompt) throws IOException, InterruptedException {
-        String jsonBody = String.format("""
-            {
-              "model": "%s",
-              "prompt": "%s",
-              "stream": false
-            }
-            """, model, prompt.replace("\"", "\\\""));
-
-        HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(baseUrl + "/api/generate"))
-            .header("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
-            .timeout(Duration.ofSeconds(30))
-            .build();
-
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-        if (response.statusCode() != 200) {
-            throw new RuntimeException("Ollama API failed with HTTP status: " + response.statusCode());
-        }
-
-        return response.body();
-    }
-}
-```
-
----
-
-### 3.4 JSON Serialization & Deserialization with Jackson
-
-In enterprise applications, we use **Jackson (`ObjectMapper`)** to map JSON payloads directly into Java Records:
-
-```java
-package com.javagenai.day08;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-public class JsonMappingDemo {
-
-    public record ChatRequest(String model, String prompt, boolean stream) {}
-
-    public static void main(String[] args) throws Exception {
-        ObjectMapper mapper = new ObjectMapper();
-
-        // 1. Serialize: Java Record -> JSON String
-        ChatRequest req = new ChatRequest("llama-3.2", "Explain Java", false);
-        String jsonText = mapper.writeValueAsString(req);
-        System.out.println("JSON Output: " + jsonText);
-
-        // 2. Deserialize: JSON String -> Java Record
-        ChatRequest parsed = mapper.readValue(jsonText, ChatRequest.class);
-        System.out.println("Parsed Model: " + parsed.model());
-    }
-}
-```
-
----
-
-### 3.5 Automated Testing with JUnit 5
-
-Automated tests prevent regressions when developers modify prompt templates or model settings:
-
-```java
-package com.javagenai.day08;
-
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-@DisplayName("AI Prompt Validator Suite")
-class PromptValidatorTest {
+// 1. Domain Record representing the AI JSON payload
+record AiChatCompletion(String id, String model, int totalTokens) {}
+
+// 2. Service that processes the JSON response
+class AiResponseParser {
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public AiChatCompletion parseResponse(String jsonString) throws Exception {
+        if (jsonString == null || jsonString.isBlank()) {
+            throw new IllegalArgumentException("JSON response cannot be empty");
+        }
+        // Deserializes JSON string directly into our Record!
+        return objectMapper.readValue(jsonString, AiChatCompletion.class);
+    }
+}
+
+// 3. Automated Unit Test with JUnit 5
+public class AiResponseParserTest {
 
     @Test
-    @DisplayName("Should accept valid prompt with content")
-    void testValidPrompt() {
-        String prompt = "Summarize the quarterly financial report.";
-        assertTrue(prompt.length() > 10, "Prompt must exceed minimum length threshold");
+    void shouldCorrectlyParseValidAiJson() throws Exception {
+        AiResponseParser parser = new AiResponseParser();
+        String fakeApiResponse = """
+            {
+                "id": "chatcmpl-12345",
+                "model": "gpt-4o",
+                "totalTokens": 85
+            }
+            """;
+
+        AiChatCompletion result = parser.parseResponse(fakeApiResponse);
+
+        assertNotNull(result);
+        assertEquals("chatcmpl-12345", result.id());
+        assertEquals("gpt-4o", result.model());
+        assertEquals(85, result.totalTokens());
     }
 
     @Test
-    @DisplayName("Should throw exception when prompt is blank")
-    void testBlankPromptThrowsException() {
+    void shouldThrowExceptionWhenJsonIsEmpty() {
+        AiResponseParser parser = new AiResponseParser();
+
         assertThrows(IllegalArgumentException.class, () -> {
-            validatePrompt("   ");
+            parser.parseResponse("");
         });
     }
+}
+```
 
-    private void validatePrompt(String p) {
-        if (p == null || p.isBlank()) {
-            throw new IllegalArgumentException("Prompt cannot be empty");
-        }
-    }
+### Line-by-Line Breakdown
+
+| Code Statement | Plain-English Explanation |
+|:---|:---|
+| `record AiChatCompletion(...)` | The target data carrier. Jackson automatically matches JSON keys (`"model"`, `"totalTokens"`) to the record component names. |
+| `objectMapper.readValue(json, Class)` | Core Jackson method. Scans the JSON text and constructs a typed `AiChatCompletion` object. |
+| `""" ... """` | **Java Text Block**: A multi-line string literal introduced in modern Java, making embedded JSON payloads clean and readable without ugly `\n` or `\"` escapes. |
+| `@Test` | JUnit 5 annotation marking the method as an executable automated test case. |
+| `assertEquals(expected, actual)` | Verifies that the parsed record value matches our expected value. If it does not match, the test fails with a clear diff. |
+| `assertThrows(...)` | Verifies that the method properly rejects invalid input by throwing the expected exception type. |
+
+---
+
+## 🔑 Key Terminology
+
+| Term | Plain-English Meaning |
+|:---|:---|
+| **`Files.readString()`** | A modern Java NIO method that reads an entire text file into a String in a single line. |
+| **`HttpClient`** | Modern Java's built-in, thread-safe client for sending HTTP requests and receiving responses. |
+| **`ObjectMapper`** | The primary class in the Jackson library used to serialize Java objects to JSON and deserialize JSON into objects. |
+| **JUnit 5** | The industry-standard testing framework used to write and execute automated test assertions in Java. |
+| **Mockito** | A Java library used to create mock objects and stub method returns for isolated testing. |
+| **Stubbing (`when...thenReturn`)** | Defining canned return values on a mock object during a test run. |
+
+---
+
+## ⚠️ Common Beginner Mistakes
+
+### 1. Hardcoding API Keys Directly in Source Code
+Never commit live OpenAI or Anthropic API keys into your Java files or Git repositories.
+
+❌ **Wrong Way**:
+```java
+String apiKey = "sk-proj-abc123456789SecretKeyDoNotShare"; // Security breach!
+```
+
+✅ **Right Way**:
+```java
+// Read from environment variables securely:
+String apiKey = System.getenv("OPENAI_API_KEY");
+if (apiKey == null) {
+    throw new IllegalStateException("OPENAI_API_KEY environment variable is not set!");
 }
 ```
 
 ---
 
-### 3.6 Mocking LLM API Calls with Mockito
+### 2. Creating a New `ObjectMapper` on Every Request
+The Jackson `ObjectMapper` is heavy to initialize, but it is completely **thread-safe**. Creating a new instance on every HTTP request creates massive garbage collection pressure.
 
-Mockito allows you to test business logic that depends on an LLM without making real network requests or spending money on tokens:
-
+❌ **Wrong Way**:
 ```java
-package com.javagenai.day08;
-
-// The business service under test
-public class AISummarizerService {
-    private final ChatModel chatModel;
-
-    public AISummarizerService(ChatModel chatModel) {
-        this.chatModel = chatModel;
-    }
-
-    public String summarize(String rawText) {
-        if (rawText == null || rawText.isBlank()) {
-            throw new IllegalArgumentException("Cannot summarize empty text");
-        }
-        String prompt = "Summarize in 1 sentence: " + rawText;
-        return this.chatModel.call(prompt);
-    }
+public void handleResponse(String json) throws Exception {
+    ObjectMapper mapper = new ObjectMapper(); // Costly allocation on every single call!
+    ...
 }
 ```
 
+✅ **Right Way**:
 ```java
-package com.javagenai.day08;
-
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
-
-@ExtendWith(MockitoExtension.class)
-class AISummarizerServiceTest {
-
-    @Mock
-    private ChatModel mockChatModel; // Stunt double! Zero network calls
-
-    @InjectMocks
-    private AISummarizerService summarizerService;
-
-    @Test
-    void testSuccessfulSummarization() {
-        // Arrange
-        String text = "Java 21 introduced virtual threads for high concurrency.";
-        String expectedPrompt = "Summarize in 1 sentence: " + text;
-        when(mockChatModel.call(expectedPrompt)).thenReturn("Virtual threads simplify concurrency.");
-
-        // Act
-        String result = summarizerService.summarize(text);
-
-        // Assert
-        assertEquals("Virtual threads simplify concurrency.", result);
-        verify(mockChatModel, times(1)).call(expectedPrompt);
-    }
-}
+// Reuse a single, shared, thread-safe instance:
+private static final ObjectMapper MAPPER = new ObjectMapper();
 ```
 
 ---
 
-### 3.7 Phase 1 Graduation Capstone
+### 3. Calling Live APIs in Unit Tests
+Connecting to real external servers inside unit tests makes your test suite slow, fragile, and expensive.
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│             CONGRATULATIONS: PHASE 1 COMPLETED! 🎓                     │
-├────────────────────────────────────────────────────────────────────────┤
-│ Day 01: Java Ecosystem, JDK 21 LTS, Bytecode & Maven                   │
-│ Day 02: OOP, Classes, Objects, Stack vs Heap & equals/hashCode         │
-│ Day 03: Inheritance, Interfaces, Polymorphism & Sealed Types           │
-│ Day 04: Generics (<T>), Collections (List, Map, Set, PriorityQueue)   │
-│ Day 05: Modern Java (Records, Optional<T>, Text Blocks, Switch)       │
-│ Day 06: Functional Programming, Lambdas & Parallel Stream Pipelines    │
-│ Day 07: Concurrency, Virtual Threads (Project Loom) & CompletableFuture│
-│ Day 08: Modern I/O, HttpClient, JSON & Testing (JUnit 5 + Mockito)     │
-└────────────────────────────────────────────────────────────────────────┘
-```
+❌ **Wrong Way**:
+Writing a test that connects to `https://api.openai.com` over the internet during `mvn test`.
 
-You now possess the foundational mastery of a modern Java engineer. You understand memory layout, interface contracts, stream processing, virtual threads, and automated testing.
+✅ **Right Way**:
+Use **Mockito** to mock your HTTP client or service interface so the test runs in 5 milliseconds on any machine with zero network access.
 
 ---
 
-# 4. Prerequisite & Supporting Concepts
+## ✅ Best Practices
 
-### Prerequisite / Supporting Concept: Operating System File Descriptors & Resource Leaks
-
-Every time a program opens a file or network socket, the operating system assigns an integer identifier called a **file descriptor**. Operating systems set hard limits on maximum concurrent open descriptors (typically 1,024 to 65,535). Failing to close streams exhausts descriptors, causing subsequent socket or file operations to fail with `Too many open files`.
-
----
-
-### Prerequisite / Supporting Concept: The HTTP Protocol (Methods, Status Codes, Headers)
-
-- **Methods**: `GET` (retrieve data), `POST` (submit data/prompts), `DELETE` (remove resource).
-- **Status Codes**: `200 OK` (success), `400 Bad Request` (client validation error), `401 Unauthorized` (bad API key), `500 Internal Server Error` (backend failure).
-- **Headers**: Key-value metadata accompanying the request (e.g., `Content-Type: application/json`, `Authorization: Bearer sk-...`).
+1. **Use Modern `Files` Methods for File Operations**: Prefer `Files.readString(path)` and `Files.writeString(path, text)` over legacy `FileInputStream` or `BufferedReader` for simple document operations.
+2. **Always Use Text Blocks (`"""`) for JSON Fixtures**: When writing test JSON payloads, modern Java text blocks eliminate backslash escape noise completely.
+3. **Write Unit Tests for Every Parser and Validator**: Always test both the "happy path" (valid JSON) and the "error path" (malformed JSON, missing fields) using `assertThrows`.
 
 ---
 
-### Prerequisite / Supporting Concept: Test-Driven Development (TDD) & The Test Pyramid
-
-- **Unit Tests (Base)**: Fast, isolated tests executing in milliseconds with mocked dependencies.
-- **Integration Tests (Middle)**: Verify real database or network interactions.
-- **E2E Tests (Peak)**: Full system simulation across all microservices.
+## 🔭 Looking Ahead
+Congratulations! You have completed **Phase 1: Java Foundations**. In **Day_09** of **Phase 2**, we will discover **Spring Core & Dependency Injection** — understanding why enterprise frameworks exist to solve "Dependency Hell" and wire all these components together automatically.
 
 ---
 
-# 5. Advanced Depth (Intermediate → Advanced)
-
-### 5.1 Senior Deep Dive: `HttpClient.sendAsync()` with Virtual Threads
-
-The modern `HttpClient` supports both synchronous blocking calls (`send`) and non-blocking asynchronous calls (`sendAsync`):
-
-```java
-CompletableFuture<HttpResponse<String>> future = httpClient.sendAsync(
-    request, 
-    HttpResponse.BodyHandlers.ofString()
-);
-
-future.thenApply(HttpResponse::body)
-      .thenAccept(System.out::println);
-```
-
-When combined with Java 21 **Virtual Threads**, calling synchronous `httpClient.send(...)` is already non-blocking at the operating system level, eliminating the need to write complex asynchronous callback pipelines!
+## 📝 Quick Recap
+- Modern Java NIO (`Files.readString` / `Files.writeString`) handles text file I/O safely in a single line.
+- Java's built-in **`HttpClient`** provides clean, asynchronous-ready HTTP communication without external libraries.
+- **Jackson (`ObjectMapper`)** seamlessly serializes and deserializes JSON text directly to and from Java **Records**.
+- **JUnit 5** provides `@Test`, `assertEquals`, and `assertThrows` to guarantee your code behaves as expected.
+- **Mockito** lets you stub external network responses, creating fast, zero-cost, reliable unit test suites.
 
 ---
 
-### 5.2 Advanced Mockito: Argument Matchers & Verification
+## 🧪 Try It Yourself
 
-- **`any()` / `anyString()`**: Matches any string parameter.
-- **`eq(value)`**: Matches exact value.
-- **`verify(mock, times(n))`**: Asserts that a method was called exactly $n$ times.
-- **`verifyNoMoreInteractions(mock)`**: Guarantees no unexpected background calls occurred.
-
-```java
-when(mockChatModel.call(anyString())).thenReturn("Default mock answer");
-verify(mockChatModel, never()).call("forbidden prompt");
-```
-
----
-
-### 5.3 Common Mistakes & Misconceptions (With Bad vs. Good Code)
-
-#### Mistake 1: Forgetting `try-with-resources`
-**Bad Code:**
-```java
-// ❌ If an exception is thrown, stream is NEVER closed!
-FileInputStream fis = new FileInputStream("prompt.txt");
-byte[] data = fis.readAllBytes();
-fis.close();
-```
-**Correct Code:**
-```java
-// ✅ Guaranteed closure under all circumstances
-try (InputStream fis = Files.newInputStream(Path.of("prompt.txt"))) {
-    byte[] data = fis.readAllBytes();
-}
-```
-
-#### Mistake 2: Hardcoding Live API Calls in Unit Tests
-**Bad Practice:** Calling real OpenAI endpoints inside `@Test` methods. Tests fail when offline, run slowly, and consume real money on every commit.
-**Correct Practice:** Use Mockito `@Mock` to stub AI responses deterministically.
-
----
-
-### 5.4 Architectural Trade-Offs: Real API Integration Tests vs. Mocked Unit Tests
-
-| Dimension | Mocked Unit Tests (Mockito) | Real Live API Integration Tests |
-| :--- | :--- | :--- |
-| **Execution Speed** | < 10 milliseconds | 2,000 to 10,000 milliseconds |
-| **Monetary Cost** | **$0.00** | Costs tokens per test run |
-| **Determinism** | 100% predictable | Non-deterministic output |
-| **Network Dependency**| 100% Offline | Requires active internet & API keys |
-| **Purpose** | Validate business logic, edge cases | Validate API connectivity & authentication |
-
----
-
-# 6. Quick Recap
-
-| Component | Library | Primary Function |
-| :--- | :--- | :--- |
-| **`Files.readString(path)`** | `java.nio.file` | High-level, single-line UTF-8 file reading. |
-| **`try-with-resources`** | Core Language | Guaranteed closure of `AutoCloseable` streams. |
-| **`HttpClient`** | `java.net.http` | Modern HTTP/2 zero-dependency web client. |
-| **`ObjectMapper`** | Jackson | Serializes/Deserializes JSON to/from Java records. |
-| **JUnit 5** | `org.junit.jupiter` | Standard automated test runner (`@Test`, asserts). |
-| **Mockito** | `org.mockito` | Mocks external AI models for fast, zero-cost tests. |
-
----
-
-# 7. Self-Check Questions & Practice Exercises
-
-### Self-Check Questions (Basic to Advanced)
-
-1. **Why is `try-with-resources` superior to manual `close()` calls in a `finally` block?**
-   - *Answer*: `try-with-resources` automatically guarantees that all `AutoCloseable` resources are closed even when exceptions are thrown, eliminating resource leaks and preventing suppressed exception issues.
-2. **What are the three core classes of the Java 11+ HTTP client?**
-   - *Answer*: `HttpClient` (engine configuration and connection manager), `HttpRequest` (URL, method, headers, and request body), and `HttpResponse` (status code, response headers, and body).
-3. **Why should you mock LLM calls in automated unit tests?**
-   - *Answer*: Real LLM API calls incur token billing costs, require active internet connections, exhibit network latency, and return non-deterministic text that causes test flakiness.
-4. **What does Mockito's `when(...).thenReturn(...)` construct do?**
-   - *Answer*: It stubs a method on a mock object, dictating the exact canned value that should be returned when the method is invoked with specified arguments.
-5. **What major milestone did you just achieve?**
-   - *Answer*: Graduation from Phase 1! You have mastered core Java 21, memory management, OOP, polymorphism, collections, records, streams, virtual threads, and automated testing.
-
----
-
-### Hands-On Practice Exercises with Full Solutions
-
-#### 🏋️ Exercise 1: Build a Pure Java HTTP GET Health Checker
-**Objective**: Use `java.net.http.HttpClient` to check if a local service (such as Ollama on port 11434) is reachable, returning `true` on HTTP 200 and `false` on failure.
-
-```java
-package com.javagenai.day08;
-
-import java.net.URI;
-import java.net.http.*;
-import java.time.Duration;
-
-public class ServiceHealthChecker {
-
-    public static boolean isServiceAlive(String url) {
-        HttpClient client = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(2))
-            .build();
-
-        HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(url))
-            .GET()
-            .timeout(Duration.ofSeconds(2))
-            .build();
-
-        try {
-            HttpResponse<Void> response = client.send(request, HttpResponse.BodyHandlers.discarding());
-            return response.statusCode() == 200;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-}
-```
-
----
-
-#### 🏋️ Exercise 2: Safe File Reader with Word Count Metric
-**Objective**: Write a method that reads a prompt template from disk, counts total words, and returns an `Optional<String>` containing the prompt if it has at least 5 words.
-
-```java
-package com.javagenai.day08;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Optional;
-
-public class PromptFileReader {
-
-    public static Optional<String> readValidPrompt(Path path) {
-        try {
-            if (!Files.exists(path)) return Optional.empty();
-            String content = Files.readString(path).trim();
-            String[] words = content.split("\\s+");
-            if (words.length >= 5) {
-                return Optional.of(content);
-            }
-            return Optional.empty();
-        } catch (IOException e) {
-            return Optional.empty();
-        }
-    }
-}
-```
-
----
-
-<p align="center">
-  <b>🎉 Congratulations on Graduating Phase 1: Java Foundations! 🎉</b><br>
-  You have mastered Core Java 21, OOP, memory, polymorphism, collections, records, streams, virtual threads, and testing.<br>
-  Proceed to <b>Phase 2: Spring Core & Dependency Injection</b> starting with <b>Day 09: The Problem Spring Solves — Dependency Hell</b>.<br>
-  <a href="../../Phase_02_Spring_Core_and_DI/Day_09_Problem_Spring_Solves_Dependency_Hell/Day_09_Problem_Spring_Solves_Dependency_Hell.md"><b>Continue to Day 09 →</b></a>
-</p>
+1. **Write a File I/O Routine**: Write a short Java program that writes an AI prompt to `prompt.txt` using `Files.writeString`, reads it back with `Files.readString`, and prints the text in uppercase.
+2. **JSON Record Mapping**: Create a Java record `ModelConfig(String provider, int maxTokens, boolean streaming)`. Create a JSON string with matching fields and deserialize it using Jackson's `ObjectMapper`.
+3. **Write a Negative Unit Test**: Write a unit test using JUnit 5's `assertThrows` that verifies your `AiResponseParser` properly throws an exception when fed corrupted JSON (e.g., `{"model": ` missing its closing bracket).
