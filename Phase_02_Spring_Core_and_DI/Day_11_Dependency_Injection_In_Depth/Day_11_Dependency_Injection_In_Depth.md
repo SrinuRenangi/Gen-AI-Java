@@ -1,522 +1,242 @@
-# 💉 Day 11: Dependency Injection In-Depth
-## Constructor vs Field Injection, @Qualifier, @Primary, and Multi-Environment Profiles
+# Day_11 — Dependency Injection In-Depth
 
 | ⬅️ Previous Day | 📚 Course Hub | ➡️ Next Day |
 |:---|:---:|---:|
 | [← Day 10: Spring IoC Container & Bean Lifecycle](../Day_10_Spring_IoC_Container_Bean_Lifecycle/Day_10_Spring_IoC_Container_Bean_Lifecycle.md) | [All 60 Days Overview](../../README.md) | [Day 12: Spring Boot Auto-Configuration Magic →](../Day_12_Spring_Boot_Auto_Configuration/Day_12_Spring_Boot_Auto_Configuration.md) |
 
-[![Phase](https://img.shields.io/badge/Phase_02-Spring_Core_%26_DI-brightgreen.svg?style=for-the-badge)](../../README.md)
-[![Day](https://img.shields.io/badge/Day-11_of_60-blue.svg?style=for-the-badge)](../../README.md)
-[![Difficulty](https://img.shields.io/badge/Difficulty-Intermediate-blue.svg?style=for-the-badge)](../../README.md)
-[![Topic](https://img.shields.io/badge/Spring_Core-Dependency_Injection-purple.svg?style=for-the-badge)](../../README.md)
+---
+
+## 🎯 What You'll Understand By the End
+- Why **Constructor Injection** is the industry standard over Field and Setter injection.
+- How to resolve **Bean Ambiguity** when multiple AI models implement the same interface using **`@Primary`** and **`@Qualifier`**.
+- How to manage third-party classes (like official OpenAI or Pinecone SDK clients) using **`@Configuration`** and **`@Bean`** methods.
+- How to bind YAML configuration settings safely to modern Java Records using **`@ConfigurationProperties`**.
+- How to switch seamlessly between free local development (Ollama) and cloud production (GPT-4o) using Spring **`@Profile`**.
 
 ---
 
-![Spring Dependency Injection Methods and Bean Selection](assets/day11_constructor_vs_field_injection.jpg)
+## 🧠 The Problem This Solves
 
-## 🗺️ Table of Contents
-- [1. Topic Overview](#1-topic-overview)
-- [2. Basic Foundations (True Zero)](#2-basic-foundations-true-zero)
-  - [2.1 What is Constructor Injection, Field Injection, and Bean Ambiguity?](#21-what-is-constructor-injection-field-injection-and-bean-ambiguity)
-  - [2.2 The Universal Power Strip & Voltage Selector Analogy](#22-the-universal-power-strip--voltage-selector-analogy)
-  - [2.3 Minimal Working Example: Constructor Injection in Action](#23-minimal-working-example-constructor-injection-in-action)
-  - [2.4 Line-by-Line Code Breakdown](#24-line-by-line-code-breakdown)
-- [3. Core Concept Walkthrough (Basic → Intermediate)](#3-core-concept-walkthrough-basic--intermediate)
-  - [3.1 The 3 DI Flavors: Constructor vs. Setter vs. Field Injection](#31-the-3-di-flavors-constructor-vs-setter-vs-field-injection)
-  - [3.2 Resolving Multiple Beans: `@Primary` vs. `@Qualifier`](#32-resolving-multiple-beans-primary-vs-qualifier)
-  - [3.3 Externalizing Configuration with `@Value`](#33-externalizing-configuration-with-value)
-  - [3.4 Type-Safe Configuration Properties with Java Records](#34-type-safe-configuration-properties-with-java-records)
-  - [3.5 Multi-Environment Deployment with Spring Profiles (`@Profile`)](#35-multi-environment-deployment-with-spring-profiles-profile)
-  - [3.6 Building an Intelligent AI Model Router](#36-building-an-intelligent-ai-model-router)
-- [4. Prerequisite & Supporting Concepts](#4-prerequisite--supporting-concepts)
-  - [Prerequisite / Supporting Concept: YAML Configuration Syntax & Hierarchy](#prerequisite--supporting-concept-yaml-configuration-syntax--hierarchy)
-  - [Prerequisite / Supporting Concept: Immutability (final fields) in Dependency Management](#prerequisite--supporting-concept-immutability-final-fields-in-dependency-management)
-  - [Prerequisite / Supporting Concept: Spring Expression Language (SpEL) in @Value](#prerequisite--supporting-concept-spring-expression-language-spel-in-value)
-- [5. Advanced Depth (Intermediate → Advanced)](#5-advanced-depth-intermediate--advanced)
-  - [5.1 Senior Deep Dive: Dynamic Map Injection for Multi-Provider AI Systems](#51-senior-deep-dive-dynamic-map-injection-for-multi-provider-ai-systems)
-  - [5.2 Custom Qualifier Annotations for Enterprise Safety](#52-custom-qualifier-annotations-for-enterprise-safety)
-  - [5.3 Common Mistakes & Misconceptions (With Bad vs. Good Code)](#53-common-mistakes--misconceptions-with-bad-vs-good-code)
-  - [5.4 Architectural Trade-Offs: Static Binding vs. Dynamic Routing](#54-architectural-trade-offs-static-binding-vs-dynamic-routing)
-- [6. Quick Recap](#6-quick-recap)
-- [7. Self-Check Questions & Practice Exercises](#7-self-check-questions--practice-exercises)
-  - [Self-Check Questions (Basic to Advanced)](#self-check-questions-basic-to-advanced)
-  - [Hands-On Practice Exercises with Full Solutions](#hands-on-practice-exercises-with-full-solutions)
+As an AI engineering system grows, you quickly run into real-world injection challenges:
+
+1. **The Multiple Implementations Conflict (Ambiguity)**: If your project defines two beans that implement `ChatModel` (`OpenAiChatModel` and `OllamaChatModel`), and a service asks for `ChatModel`, Spring crashes on startup with `NoUniqueBeanDefinitionException: expected single matching bean but found 2`.
+2. **Third-Party Classes Cannot Be Annotated**: You cannot open an official external library (like OpenAI's Java SDK or AWS Bedrock SDK) and type `@Component` above their classes because the code lives in compiled JARs.
+3. **Configuration Drift Between Environments**: Running unit tests or local development against expensive cloud LLMs burns team budgets. You need an automated way to say: *"Use local Ollama when running on my laptop (`dev`), but use OpenAI when deployed to AWS (`prod`)."*
+
+Spring provides **`@Primary`**, **`@Qualifier`**, **`@Bean`**, and **`@Profile`** to solve these configuration challenges cleanly.
 
 ---
 
-# 1. Topic Overview
+## 📖 Core Concept, Explained Simply
 
-Dependency Injection in Spring encompasses multiple injection strategies (**Constructor**, **Setter**, and **Field**), bean disambiguation mechanisms (**`@Primary`** and **`@Qualifier`**), and configuration externalization (**`@Value`**, **`@ConfigurationProperties`**, and **`@Profile`**).
+### The Universal Power Adapter Analogy
 
-### Why This Topic Matters
-Production AI platforms rarely rely on a single model. A cost-effective architecture uses small, free local models (e.g., Ollama running Llama-3.2) for simple tasks and high-reasoning cloud models (e.g., OpenAI GPT-4o) for complex multi-step reasoning. When an application configures multiple implementations of `ChatModel`, Spring requires explicit disambiguation rules. Furthermore, switching between local development on your laptop and cloud production environments must happen cleanly through environment profiles rather than code modifications.
+Think of Dependency Injection like a hotel room electrical system:
 
-> 💡 **New Word Alert — "Constructor Injection"**: Delivering all required dependencies into a class's constructor, ensuring instance fields can be declared `final` (immutable) and enabling simple unit testing without a running container.
+- **The Standard Wall Socket (`@Primary`)**:
+  - Most everyday appliances (like your phone charger) plug into the default standard wall socket. They don't specify anything special.
+  - Marking a bean `@Primary` tells Spring: *"Whenever a class asks for a `ChatModel` without being specific, provide this default bean."*
+- **The High-Voltage Industrial Plug (`@Qualifier`)**:
+  - If a guest brings a specialized high-power device (like an AI GPU accelerator), they plug it into the explicitly labeled 240V socket.
+  - `@Qualifier("ollamaChatModel")` tells Spring: *"Ignore the default. Give me the exact bean registered under this specific name."*
+- **The Travel Voltage Switch (`@Profile`)**:
+  - When traveling from the United States (110V) to Europe (220V), you flip the voltage toggle on your power brick.
+  - With `@Profile("dev")` vs. `@Profile("prod")`, you toggle your application's active profile, and Spring automatically wires local or cloud services without changing a single line of Java code.
 
-> 💡 **New Word Alert — "Bean Ambiguity"**: A container startup conflict where multiple candidate beans implement the requested interface and Spring cannot infer which one to inject without explicit guidance.
+### The `@Configuration` and `@Bean` Factory Method
 
-> 💡 **New Word Alert — "@Primary"**: An annotation marking a bean as the default candidate when multiple beans of the same type exist.
+When you use classes from an external library, you cannot add `@Component` to their source files. 
 
-> 💡 **New Word Alert — "@Qualifier"**: An annotation specifying the exact bean identifier name to inject, overriding any default `@Primary` designation.
+Instead, you create a configuration class marked **`@Configuration`**, and write methods marked **`@Bean`**:
+- The `@Bean` annotation tells Spring: *"Execute this method once, take whatever object it returns, and register it inside the `ApplicationContext` as a managed bean."*
+
+> 💡 **New Word Alert — "@Primary"**: An annotation indicating that a particular bean should be given preference when multiple candidates qualify for an autowired dependency.
+
+> 💡 **New Word Alert — "@Qualifier"**: An annotation used alongside an injection point to specify the exact name of the candidate bean to inject, overriding `@Primary`.
+
+> 💡 **New Word Alert — "@ConfigurationProperties"**: A Spring annotation used to map entire groups of hierarchical configuration properties from `application.yml` directly into a strongly typed Java Record or class.
 
 ---
 
-# 2. Basic Foundations (True Zero)
+## 🗺️ Visual Overview
 
-Let's start from true zero, assuming you only know basic Java classes.
+```mermaid
+flowchart TD
+    subgraph Registry ["Spring ApplicationContext Registry"]
+        OpenAI["@Bean<br><b>@Primary</b><br>openAiChatModel"]
+        Ollama["@Bean<br><b>@Qualifier('ollamaChatModel')</b><br>ollamaChatModel"]
+    end
 
-### 2.1 What is Constructor Injection, Field Injection, and Bean Ambiguity?
+    subgraph Consumers ["Dependent Services"]
+        ServiceA["<b>GeneralAssistantService</b><br>public GeneralAssistantService(ChatModel model)"]
+        ServiceB["<b>BackgroundSummaryService</b><br>public BackgroundSummaryService(@Qualifier('ollamaChatModel') ChatModel model)"]
+    end
 
-- **Constructor Injection**: Passing all required helper objects into a class through its constructor parameters: `public MyService(Helper h) { this.h = h; }`.
-- **Field Injection**: Sticking `@Autowired` directly onto a private variable inside a class. While visually concise, it hides dependencies and makes testing painful.
-- **Bean Ambiguity**: If you ask Spring for a `ChatModel`, but your project defines both `OpenAiChatModel` and `OllamaChatModel`, Spring stops and throws an error asking: *"Which one do you want?"*
-
----
-
-### 2.2 The Universal Power Strip & Voltage Selector Analogy
-
-```
-                  ┌──────────────────────────────────────────────┐
-                  │          UNIVERSAL WALL OUTLET (DI)          │
-                  └──────────────────────┬───────────────────────┘
-                                         │
-                 ┌───────────────────────┴───────────────────────┐
-                 ▼                                               ▼
-         [ 110V Socket: USA ]                           [ 220V Socket: Europe ]
-         (@Qualifier("usGrid"))                         (@Qualifier("euGrid"))
+    OpenAI -->|Default Candidate Injected| ServiceA
+    Ollama -->|Explicit Qualifier Injected| ServiceB
 ```
 
-- If you plug in a generic device, the room routes power through the **default socket** (`@Primary`).
-- If your device requires high voltage, you plug into the explicitly labeled socket (`@Qualifier("euGrid")`).
-- When traveling between countries, you don't buy a new laptop—you just toggle the **country profile switch** (`@Profile("dev")` vs. `@Profile("prod")`).
+*This diagram illustrates bean disambiguation. When `GeneralAssistantService` requests a `ChatModel`, Spring automatically injects the `@Primary` bean (`openAiChatModel`). When `BackgroundSummaryService` specifies `@Qualifier("ollamaChatModel")`, Spring injects the Ollama bean instead.*
 
 ---
 
-### 2.3 Minimal Working Example: Constructor Injection in Action
+## 💻 Code Walkthrough
 
-Let's write a minimal, fully runnable Spring service utilizing clean constructor injection:
+Here is a complete Java example showing how to configure multiple third-party AI models and selectively inject them:
 
 ```java
-package com.javagenai.day11;
-
-import org.springframework.stereotype.Service;
-
-public interface ModelService {
-    String query(String prompt);
-}
-
-@Service
-public class SimpleAssistant {
-    private final ModelService model; // Immutable final field!
-
-    // Constructor Injection (Spring 4.3+: @Autowired is 100% optional on single constructor!)
-    public SimpleAssistant(ModelService model) {
-        this.model = model;
-    }
-
-    public String ask(String question) {
-        return model.query(question);
-    }
-}
-```
-
----
-
-### 2.4 Line-by-Line Code Breakdown
-
-1. `private final ModelService model;`: Declares the dependency as an interface and marks it `final` for strict immutability.
-2. `public SimpleAssistant(ModelService model)`: Single constructor accepting the dependency.
-3. Spring automatically discovers this constructor and supplies the matching bean without requiring `@Autowired`.
-4. In unit tests, you can instantiate this class in pure Java using `new SimpleAssistant(mockModel)` without booting the Spring container!
-
----
-
-# 3. Core Concept Walkthrough (Basic → Intermediate)
-
-Now let's examine injection flavors, disambiguation, and configuration management.
-
-### 3.1 The 3 DI Flavors: Constructor vs. Setter vs. Field Injection
-
-| Injection Style | Code Structure | Pros | Cons | Verdict |
-| :--- | :--- | :--- | :--- | :--- |
-| **Constructor** | `public Service(Dependency d)` | **`final` fields, easy unit testing, fails fast at startup** | Verbose with 5+ parameters (refactor code!) | **Industry Standard (100% Recommended)** |
-| **Setter** | `public void setDep(Dependency d)` | Allows optional dependencies or circular fixes | Mutable fields, object may exist in half-initialized state | **Use only for optional dependencies** |
-| **Field** | `@Autowired private Dep d;` | Short, concise code | **Cannot be `final`, hard to test without Spring reflection** | **Discouraged Anti-Pattern** |
-
----
-
-### 3.2 Resolving Multiple Beans: `@Primary` vs. `@Qualifier`
-
-Suppose your AI platform configures two distinct `ChatModel` beans:
-
-```java
-package com.javagenai.day11;
-
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.stereotype.Service;
 
+// 1. Shared Interface
+interface ChatModel {
+    String generate(String prompt);
+}
+
+// 2. Concrete Classes (simulating third-party libraries)
+class OpenAiModel implements ChatModel {
+    @Override public String generate(String prompt) { return "[Cloud GPT-4o] " + prompt; }
+}
+
+class OllamaModel implements ChatModel {
+    @Override public String generate(String prompt) { return "[Local LLaMA] " + prompt; }
+}
+
+// 3. Central Configuration Class
 @Configuration
-public class AIModelConfiguration {
+public class AiModelConfig {
 
     @Bean
-    @Primary // Default choice whenever ChatModel is requested without a qualifier
-    public ChatModel openAiChatModel() {
-        return new OpenAiChatModel("sk-prod-key");
+    @Primary // Default choice for any unqualified ChatModel injection
+    public ChatModel openAiModel() {
+        return new OpenAiModel();
     }
 
     @Bean
-    public ChatModel ollamaChatModel() {
-        return new OllamaChatModel("http://localhost:11434");
+    public ChatModel ollamaModel() {
+        return new OllamaModel();
     }
 }
-```
 
-#### Scenario A: Using the Default Bean (`@Primary`):
-```java
+// 4. Consumer A: Uses the @Primary default bean
 @Service
-public class GeneralChatService {
+class CustomerChatService {
     private final ChatModel chatModel;
 
-    // Receives openAiChatModel because it is marked @Primary!
-    public GeneralChatService(ChatModel chatModel) {
+    // Receives openAiModel automatically because it is marked @Primary
+    public CustomerChatService(ChatModel chatModel) {
         this.chatModel = chatModel;
     }
-}
-```
 
-#### Scenario B: Explicit Targeting with `@Qualifier`:
-```java
+    public String reply(String userText) {
+        return chatModel.generate(userText);
+    }
+}
+
+// 5. Consumer B: Explicitly requests Ollama via @Qualifier
 @Service
-public class BackgroundBatchSummarizer {
+class OfflineBatchService {
     private final ChatModel localModel;
 
-    // Overrides @Primary and explicitly requests the Ollama bean!
-    public BackgroundBatchSummarizer(@Qualifier("ollamaChatModel") ChatModel localModel) {
+    // Explicitly targets the ollamaModel bean
+    public OfflineBatchService(@Qualifier("ollamaModel") ChatModel localModel) {
         this.localModel = localModel;
     }
 
-    public void processNightlyBatch() {
-        localModel.call("Summarize logs");
+    public String runBatch(String task) {
+        return localModel.generate(task);
     }
 }
 ```
 
----
+### Line-by-Line Breakdown
 
-### 3.3 Externalizing Configuration with `@Value`
-
-Hardcoding secrets in code is a security vulnerability. Use `@Value` for scalar configuration:
-
-```yaml
-# application.yml
-ai:
-  openai:
-    api-key: ${OPENAI_API_KEY:default-dev-key}
-    temperature: 0.7
-```
-
-```java
-@Component
-public class OpenAiGateway {
-
-    @Value("${ai.openai.api-key}")
-    private String apiKey;
-
-    @Value("${ai.openai.temperature:0.2}") // 0.2 is fallback default
-    private double temperature;
-}
-```
+| Code Statement | Plain-English Explanation |
+|:---|:---|
+| `@Configuration` | Marks the class as a factory definition file for Spring beans. |
+| `@Bean @Primary public ChatModel openAiModel()` | Registers `OpenAiModel` in the container and marks it as the default choice when a `ChatModel` is requested without qualifications. |
+| `@Bean public ChatModel ollamaModel()` | Registers `OllamaModel` as an alternative bean named `"ollamaModel"` in the container. |
+| `CustomerChatService(ChatModel chatModel)` | Requests a `ChatModel`. Because two beans exist, Spring checks for `@Primary` and injects `openAiModel`. |
+| `@Qualifier("ollamaModel") ChatModel localModel` | Tells Spring to bypass `@Primary` and specifically inject the bean whose method name is `"ollamaModel"`. |
 
 ---
 
-### 3.4 Type-Safe Configuration Properties with Java Records
+## 🔑 Key Terminology
 
-For complex hierarchical configurations, `@Value` becomes unmanageable. Modern Spring Boot allows binding YAML blocks directly into **Java Records**:
-
-```yaml
-app:
-  ai:
-    model-name: gpt-4o
-    max-tokens: 4096
-    temperature: 0.5
-    streaming-enabled: true
-```
-
-```java
-package com.javagenai.day11;
-
-import org.springframework.boot.context.properties.ConfigurationProperties;
-
-@ConfigurationProperties(prefix = "app.ai")
-public record AIModelProperties(
-    String modelName,
-    int maxTokens,
-    double temperature,
-    boolean streamingEnabled
-) {
-    // Compact constructor validation!
-    public AIModelProperties {
-        if (temperature < 0.0 || temperature > 2.0) {
-            throw new IllegalArgumentException("Invalid temperature: " + temperature);
-        }
-    }
-}
-```
+| Term | Plain-English Meaning |
+|:---|:---|
+| **`@Configuration`** | A class-level annotation indicating that the class contains `@Bean` factory definitions. |
+| **`@Bean`** | A method-level annotation instructing Spring to register the returned object as a managed bean. |
+| **`@Primary`** | Designates a default bean candidate when multiple beans of the same type exist. |
+| **`@Qualifier`** | Specifies by name the exact bean that should be wired into an injection point. |
+| **`@Profile`** | Restricts a bean or configuration class to be loaded only when a matching environment profile is active. |
+| **`@Value`** | Injects individual property values from configuration files or environment variables into fields or parameters. |
 
 ---
 
-### 3.5 Multi-Environment Deployment with Spring Profiles (`@Profile`)
+## ⚠️ Common Beginner Mistakes
 
-Switch between free local development and cloud production without touching Java code:
+### 1. Ambiguity Crash (`NoUniqueBeanDefinitionException`)
+Defining two beans of the same interface without designating a `@Primary` bean or using `@Qualifier` causes Spring to abort startup.
 
+❌ **Wrong Way**:
 ```java
-@Configuration
-@Profile("dev")
-public class DevAIConfig {
-    @Bean
-    public ChatModel chatModel() {
-        System.out.println("[CONFIG] DEV mode active: Connecting to local Ollama (Free)...");
-        return new OllamaChatModel("http://localhost:11434");
-    }
-}
-```
-
-```java
-@Configuration
-@Profile("prod")
-public class ProdAIConfig {
-    @Bean
-    public ChatModel chatModel(@Value("${ai.openai.api-key}") String apiKey) {
-        System.out.println("[CONFIG] PROD mode active: Connecting to OpenAI Enterprise...");
-        return new OpenAiChatModel(apiKey);
-    }
-}
-```
-
-Activate via `application.yml` (`spring.profiles.active: dev`) or command-line:
-`java -jar app.jar --spring.profiles.active=prod`.
-
----
-
-### 3.6 Building an Intelligent AI Model Router
-
-```java
-package com.javagenai.day11;
-
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.stereotype.Service;
-
+// Two beans of type VectorStore in the context, but no @Primary or @Qualifier:
 @Service
-public class AIModelRouter {
-    private final ChatModel fastModel;
-    private final ChatModel deepModel;
-
-    public AIModelRouter(
-        @Qualifier("fastModel") ChatModel fastModel,
-        @Qualifier("deepModel") ChatModel deepModel
-    ) {
-        this.fastModel = fastModel;
-        this.deepModel = deepModel;
-    }
-
-    public String routeAndExecute(String prompt) {
-        if (prompt.length() < 100) {
-            System.out.println("[ROUTER]: Routing short query to fast local model.");
-            return fastModel.call(prompt);
-        } else {
-            System.out.println("[ROUTER]: Routing complex query to deep reasoning model.");
-            return deepModel.call(prompt);
-        }
-    }
+public class SearchService {
+    public SearchService(VectorStore store) { ... } // CRASH! Spring cannot choose between store A and store B.
 }
 ```
 
----
-
-# 4. Prerequisite & Supporting Concepts
-
-### Prerequisite / Supporting Concept: YAML Configuration Syntax & Hierarchy
-
-YAML uses 2-space indentation to represent nested key-value pairs:
-- `app.ai.model-name` maps to nested blocks in YAML.
-- Environment variables can be referenced via `${ENV_VAR:defaultValue}` syntax.
+✅ **Right Way**:
+Add `@Primary` to the default store, or add `@Qualifier("pineconeStore")` to the constructor parameter.
 
 ---
 
-### Prerequisite / Supporting Concept: Immutability (final fields) in Dependency Management
+### 2. Misspelling Qualifier Bean Names
+`@Qualifier("ollamaChatModel")` is matched by string. If you make a typo (e.g., `@Qualifier("olamaModel")`), Spring fails with `NoSuchBeanDefinitionException`.
 
-Marking dependencies `final` guarantees that once Spring injects the reference during construction, it can never be reassigned or set to `null` by any method, preventing subtle multi-threading defects.
-
----
-
-### Prerequisite / Supporting Concept: Spring Expression Language (SpEL) in @Value
-
-`@Value` supports SpEL expressions enclosed in `#{...}` for runtime arithmetic or method invocations (e.g., `@Value("#{systemProperties['user.home']}")`).
-
----
-
-# 5. Advanced Depth (Intermediate → Advanced)
-
-### 5.1 Senior Deep Dive: Dynamic Map Injection for Multi-Provider AI Systems
-
-Instead of hardcoding qualifiers for 5 different AI providers, Spring allows injecting a **Map of all beans implementing an interface**:
-
+❌ **Wrong Way**:
 ```java
-@Service
-public class MultiProviderRouter {
-    // Spring automatically injects ALL ChatModel beans keyed by their bean names!
-    private final Map<String, ChatModel> modelsByName;
-
-    public MultiProviderRouter(Map<String, ChatModel> modelsByName) {
-        this.modelsByName = modelsByName;
-    }
-
-    public String executeOnProvider(String providerName, String prompt) {
-        ChatModel model = modelsByName.get(providerName.toLowerCase() + "ChatModel");
-        if (model == null) {
-            throw new IllegalArgumentException("Unknown AI provider: " + providerName);
-        }
-        return model.call(prompt);
-    }
-}
+public DocumentService(@Qualifier("pineConeStore") VectorStore store) { ... } // Typo: 'Cone' instead of 'cone'
 ```
 
----
-
-### 5.2 Custom Qualifier Annotations for Enterprise Safety
-
-Instead of string-based qualifiers prone to typos (`@Qualifier("openAiChatModel")`), senior architects create custom meta-annotations:
-
-```java
-@Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
-@Retention(RetentionPolicy.RUNTIME)
-@Qualifier
-public @interface CloudAI {}
-```
-
-Usage: `@CloudAI` placed directly on both the `@Bean` definition and the constructor parameter!
+✅ **Right Way**:
+Ensure the string inside `@Qualifier` matches the bean method name or component name exactly.
 
 ---
 
-### 5.3 Common Mistakes & Misconceptions (With Bad vs. Good Code)
-
-#### Mistake 1: Multiple Beans Without `@Primary` or `@Qualifier`
-**Result**: Application terminates at startup with `NoUniqueBeanDefinitionException`.
-**Fix**: Mark one bean `@Primary` or specify `@Qualifier("exactName")` at injection points.
-
-#### Mistake 2: Storing Sensitive API Keys in Git
-**Bad Practice**: Hardcoding `api-key: sk-proj-12345` inside `application.yml`.
-**Correct Practice**: Use environment variable substitution: `api-key: ${OPENAI_API_KEY}`.
+### 3. Calling `@Bean` Methods Directly as Normal Java Methods
+If you invoke a `@Bean` method directly from another method inside a `@Configuration` class, Spring's CGLIB proxy intercepts the call and ensures you always get the **exact same singleton instance**, not a duplicate object. Calling it outside a configuration class creates unmanaged duplicate objects.
 
 ---
 
-### 5.4 Architectural Trade-Offs: Static Binding vs. Dynamic Routing
+## ✅ Best Practices
 
-- **Static Qualifier Binding**: Compile-time clear, visible in IDE dependency graphs.
-- **Dynamic Map Injection**: Highly extensible (new model beans are added without altering router code), but requires runtime validation.
-
----
-
-# 6. Quick Recap
-
-| Annotation / Concept | Purpose |
-| :--- | :--- |
-| **Constructor Injection**| Enterprise gold standard: guarantees immutability and easy testing. |
-| **Field Injection** | Discouraged anti-pattern using `@Autowired` on private fields. |
-| **`@Primary`** | Marks a bean as the default when multiple matching types exist. |
-| **`@Qualifier("name")`** | Selects a specific bean by name, overriding `@Primary`. |
-| **`@Value("${prop}")`** | Injects scalar configuration values from YAML or environment. |
-| **`@ConfigurationProperties`**| Binds structured YAML hierarchies into immutable Java Records. |
-| **`@Profile("dev/prod")`** | Selectively activates beans based on active runtime environment. |
+1. **Always Use Constructor Injection with `@Qualifier`**: Put `@Qualifier` directly on the constructor parameter: `public Service(@Qualifier("myBean") Model m)`.
+2. **Use `@Primary` for the Production Standard**: Designate your main production provider as `@Primary`, and use `@Qualifier` only for specialized use cases (like background batch processing).
+3. **Use Environment Profiles for Switching Implementations**: Instead of littering code with `if (isDev)` checks, annotate development beans with `@Profile("dev")` and production beans with `@Profile("prod")`.
 
 ---
 
-# 7. Self-Check Questions & Practice Exercises
-
-### Self-Check Questions (Basic to Advanced)
-
-1. **Why is Constructor Injection superior to Field Injection?**
-   - *Answer*: It enables field immutability (`final`), makes dependencies explicit, prevents incomplete object construction, and allows straightforward unit testing without Spring or reflection.
-2. **What exception does Spring throw if two beans match a dependency type and neither is marked `@Primary`?**
-   - *Answer*: `NoUniqueBeanDefinitionException`.
-3. **What is the difference between `@Primary` and `@Qualifier`?**
-   - *Answer*: `@Primary` is placed on a bean definition to establish it as the default choice when no qualifier is specified. `@Qualifier("name")` is placed at the injection point to explicitly select a specific named bean, overriding `@Primary`.
-4. **How do you bind configuration properties to a Java Record?**
-   - *Answer*: Place `@ConfigurationProperties(prefix = "...")` on the record declaration and enable it via `@EnableConfigurationProperties(MyRecord.class)` or `@ConfigurationPropertiesScan`.
-5. **How does `@Profile("prod")` protect company costs in development?**
-   - *Answer*: It prevents expensive cloud API beans (like paid OpenAI/Anthropic models) from being instantiated during local development or CI/CD pipelines, substituting free local mocks or Ollama instances instead.
+## 🔭 Looking Ahead
+In **Day_12**, we will discover **Spring Boot Auto-Configuration Magic** — understanding how Spring automatically configures database connection pools, JSON parsers, and web servers by scanning your classpath dependencies.
 
 ---
 
-### Hands-On Practice Exercises with Full Solutions
-
-#### 🏋️ Exercise 1: Build an Intelligent AI Model Router
-**Objective**: Build an `AIModelRouter` service that accepts both a `@Qualifier("fastModel")` and a `@Qualifier("deepModel")`, routing short prompts ($< 100$ characters) to `fastModel` and long prompts to `deepModel`.
-
-```java
-package com.javagenai.day11;
-
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.stereotype.Service;
-
-@Service
-public class AIModelRouter {
-    private final ChatModel fastModel;
-    private final ChatModel deepModel;
-
-    public AIModelRouter(
-        @Qualifier("fastModel") ChatModel fastModel,
-        @Qualifier("deepModel") ChatModel deepModel
-    ) {
-        this.fastModel = fastModel;
-        this.deepModel = deepModel;
-    }
-
-    public String routeAndExecute(String prompt) {
-        if (prompt.length() < 100) {
-            System.out.println("[ROUTER]: Prompt is short. Routing to fast lightweight model.");
-            return fastModel.call(prompt);
-        } else {
-            System.out.println("[ROUTER]: Prompt is long/complex. Routing to deep reasoning model.");
-            return deepModel.call(prompt);
-        }
-    }
-}
-```
+## 📝 Quick Recap
+- When multiple beans share an interface, use **`@Primary`** to declare a default, and **`@Qualifier`** to specify an exact bean by name.
+- Use **`@Configuration`** and **`@Bean`** to instantiate and register third-party library classes that you cannot modify with `@Component`.
+- Spring **Profiles (`@Profile`)** allow you to activate different beans depending on the runtime environment (`dev`, `test`, `prod`).
+- Constructor injection remains the safest, cleanest mechanism to inject qualified dependencies.
 
 ---
 
-#### 🏋️ Exercise 2: Type-Safe Vector Store Configuration Record
-**Objective**: Create a record `VectorStoreProperties` bound to prefix `app.vectorstore` containing: `String host`, `int port`, `String indexName`, `int vectorDimensions`, validating that `vectorDimensions` is positive.
+## 🧪 Try It Yourself
 
-```java
-package com.javagenai.day11;
-
-import org.springframework.boot.context.properties.ConfigurationProperties;
-
-@ConfigurationProperties(prefix = "app.vectorstore")
-public record VectorStoreProperties(
-    String host,
-    int port,
-    String indexName,
-    int vectorDimensions
-) {
-    public VectorStoreProperties {
-        if (vectorDimensions <= 0) {
-            throw new IllegalArgumentException("Vector dimensions must be > 0. Received: " + vectorDimensions);
-        }
-        if (host == null || host.isBlank()) {
-            host = "localhost";
-        }
-    }
-}
-```
-
----
-
-<p align="center">
-  <b>Day 11 Complete! 🎉</b><br>
-  Proceed to <b>Day 12</b>: <b>Spring Boot Auto-Configuration Magic</b>.<br>
-  <a href="../Day_12_Spring_Boot_Auto_Configuration/Day_12_Spring_Boot_Auto_Configuration.md"><b>Continue to Day 12 →</b></a>
-</p>
+1. **Configure Two Model Beans**: Create a `@Configuration` class that provides two `ChatModel` beans: `"fastModel"` and `"reasoningModel"`. Mark `"fastModel"` as `@Primary`.
+2. **Inject by Qualifier**: Create a service `ComplexAnalysisService` that uses `@Qualifier("reasoningModel")` in its constructor. Verify that it receives the reasoning model while another unqualified service receives the fast model.
+3. **Profile Toggling**: Annotate a `MockAiModel` bean with `@Profile("dev")` and a `LiveAiModel` bean with `@Profile("prod")`. Test running your application with `-Dspring.profiles.active=dev` and observe which model bean Spring boots up!
