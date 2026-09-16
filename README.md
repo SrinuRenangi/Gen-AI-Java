@@ -1,11 +1,11 @@
-# 🚀 60-Day Java Generative AI Masterclass — From Zero to Senior Engineer
+# 🚀 Java → GenAI Masterclass: Zero to 3-Years-Experienced
 
-> **For developers who want to master Java, Spring Boot, Spring AI & LangChain4j from scratch.**
+> **For developers who want to master Core Java, JVM Internals, Spring Boot, Microservices, and Production GenAI (Spring AI & LangChain4j).**
 >
-> Every concept explained through **real-world analogies, runnable Java code, ASCII diagrams, and Mermaid flowcharts.**
+> Every concept explained through **real-world analogies, runnable Java code, ASCII diagrams, Mermaid flowcharts, and memory models.**
 > No unexplained annotations. No assumed knowledge. No shortcuts.
 >
-> After completing this course, your knowledge matches a **3-year experienced Java backend engineer building production AI systems**.
+> Target Bar: **A competent 3-years-experienced Java backend engineer who builds, deploys, and operates production GenAI systems.**
 
 ---
 
@@ -14,11 +14,11 @@
 | Rule | Description |
 | :---: | :--- |
 | **1** | No concept is introduced without a **real-world analogy FIRST**. |
-| **2** | Every concept is shown as **runnable Java code** (no unexplained annotations). |
-| **3** | Each day builds **ONLY on what previous days taught**. |
-| **4** | **ASCII diagrams, Mermaid flowcharts, and architecture visuals** for every concept. |
-| **5** | Every Spring annotation is explained **WHY it exists**, not just how. |
-| **6** | Every day includes **exercises with full solutions**. |
+| **2** | Every concept is shown as **runnable Java code** (no unexplained magic). |
+| **3** | Each day builds **ONLY on what previous days taught** — never skip ahead. |
+| **4** | **ASCII diagrams, Mermaid flowcharts, and memory perspective maps** for every concept. |
+| **5** | Every framework pattern & annotation is explained **WHY it exists**, not just how. |
+| **6** | Depth caps strictly at what a **real 3-years-experienced production engineer** needs. |
 
 ---
 
@@ -28,14 +28,14 @@
 
 | Tool | Version | Purpose |
 | :--- | :--- | :--- |
-| **Java JDK** | 21 (LTS) | Core language runtime |
+| **Java JDK** | 21 (LTS) | Core language runtime & Virtual Threads |
 | **Maven** | 3.9+ | Build tool & dependency management |
-| **IntelliJ IDEA** | Community (Free) or Ultimate | IDE (VS Code with Java Extension Pack also works) |
-| **Docker Desktop** | Latest | Running PostgreSQL, pgvector, Ollama locally |
-| **Git** | Latest | Version control |
-| **Ollama** | Latest | Running open-weight LLMs locally (100% free) |
+| **IntelliJ IDEA / VS Code** | Latest | Recommended IDE with Java extension pack |
+| **Docker Desktop** | Latest | Running PostgreSQL, pgvector, Redis & Ollama |
+| **Git** | Latest | Version control & team workflows |
+| **Ollama** | Latest | Local open-weight LLMs (100% free & private) |
 
-### Quick Setup (Day 01 covers this in detail)
+### Quick Setup
 
 ```bash
 # 1. Verify Java 21
@@ -44,158 +44,178 @@ java --version    # Should show 21.x.x
 # 2. Verify Maven
 mvn --version     # Should show 3.9+
 
-# 3. Start local infrastructure
-docker-compose up -d    # PostgreSQL + pgvector + Ollama
+# 3. Start local infrastructure (PostgreSQL + pgvector + Ollama)
+docker-compose up -d
 
-# 4. Pull a local LLM (free, no API key needed!)
+# 4. Pull a local LLM
 ollama pull llama3.2
 ```
 
 ---
 
-## 🗺️ 60-Day Roadmap
+## 🗺️ 67-Day Roadmap (9 Phases)
 
-### 🟢 Phase 1: Java Foundations for AI Engineers (Days 01–08)
-
-> *From basic syntax to Virtual Threads — every concept taught through the lens of "you'll need this when building AI systems."*
-
-| Day | Topic | Status |
-| :---: | :--- | :---: |
-| [Day 01](Phase_01_Java_Foundations/Day_01_Java_Ecosystem_and_Setup/Day_01_Java_Ecosystem_and_Setup.md) | Java Ecosystem & Setup — JDK 21, Maven, Project Structure | ✅ Complete |
-| [Day 02](Phase_01_Java_Foundations/Day_02_OOP_Classes_Objects_Memory/Day_02_OOP_Classes_Objects_Memory.md) | OOP — Classes, Objects & Memory (Stack vs Heap) | ✅ Complete |
-| [Day 03](Phase_01_Java_Foundations/Day_03_Inheritance_Interfaces_Polymorphism/Day_03_Inheritance_Interfaces_Polymorphism.md) | Inheritance, Interfaces & Polymorphism | ✅ Complete |
-| [Day 04](Phase_01_Java_Foundations/Day_04_Generics_Collections_DataStructures/Day_04_Generics_Collections_DataStructures.md) | Generics, Collections & Data Structures | ✅ Complete |
-| [Day 05](Phase_01_Java_Foundations/Day_05_Modern_Java_Records_Optional_Sealed/Day_05_Modern_Java_Records_Optional_Sealed.md) | Modern Java: Records, Optional & Sealed Types | ✅ Complete |
-| [Day 06](Phase_01_Java_Foundations/Day_06_Functional_Programming_Streams/Day_06_Functional_Programming_Streams.md) | Functional Programming & Stream API | ✅ Complete |
-| [Day 07](Phase_01_Java_Foundations/Day_07_Concurrency_Virtual_Threads/Day_07_Concurrency_Virtual_Threads.md) | Concurrency & Virtual Threads (Project Loom) | ✅ Complete |
-| [Day 08](Phase_01_Java_Foundations/Day_08_IO_HTTP_JSON_Testing/Day_08_IO_HTTP_JSON_Testing.md) | I/O, HTTP Client, JSON & Testing (JUnit 5 + Mockito) | ✅ Complete |
-
-### 🟢 Phase 2: Spring Core & Dependency Injection (Days 09–14)
-
-> *Understand WHY Spring exists. Master IoC/DI from scratch. This phase makes all of Spring Boot, Spring AI, and enterprise Java click.*
+### 🟢 Phase_01 — Java Foundations (Days 01–08)
+> *From basic syntax to Virtual Threads — building your core programming engine.*
 
 | Day | Topic | Status |
 | :---: | :--- | :---: |
-| [Day 09](Phase_02_Spring_Core_and_DI/Day_09_Problem_Spring_Solves_Dependency_Hell/Day_09_Problem_Spring_Solves_Dependency_Hell.md) | The Problem Spring Solves — Dependency Hell | ✅ Complete |
-| [Day 10](Phase_02_Spring_Core_and_DI/Day_10_Spring_IoC_Container_Bean_Lifecycle/Day_10_Spring_IoC_Container_Bean_Lifecycle.md) | Spring IoC Container & Bean Lifecycle | ✅ Complete |
-| [Day 11](Phase_02_Spring_Core_and_DI/Day_11_Dependency_Injection_In_Depth/Day_11_Dependency_Injection_In_Depth.md) | Dependency Injection In-Depth | ✅ Complete |
-| [Day 12](Phase_02_Spring_Core_and_DI/Day_12_Spring_Boot_Auto_Configuration/Day_12_Spring_Boot_Auto_Configuration.md) | Spring Boot Auto-Configuration Magic | ✅ Complete |
-| [Day 13](Phase_02_Spring_Core_and_DI/Day_13_AOP_Cross_Cutting_Concerns/Day_13_AOP_Cross_Cutting_Concerns.md) | AOP — Cross-Cutting Concerns | ✅ Complete |
-| [Day 14](Phase_02_Spring_Core_and_DI/Day_14_Actuator_Production_Readiness/Day_14_Actuator_Production_Readiness.md) | Spring Boot Actuator & Production Readiness | ✅ Complete |
-
-### 🟢 Phase 3: Spring Web — Building REST APIs (Days 15–20)
-
-| Day | Topic | Status |
-| :---: | :--- | :---: |
-| [Day 15](Phase_03_Spring_Web_REST_APIs/Day_15_HTTP_Deep_Dive_First_REST_Controller/Day_15_HTTP_Deep_Dive_First_REST_Controller.md) | HTTP Deep Dive & Your First REST Controller | ✅ Complete |
-| [Day 16](Phase_03_Spring_Web_REST_APIs/Day_16_Validation_DTOs_Response_Design/Day_16_Validation_DTOs_Response_Design.md) | Request Validation, DTOs & Response Design | ✅ Complete |
-| [Day 17](Phase_03_Spring_Web_REST_APIs/Day_17_Exception_Handling_Global_Strategy/Day_17_Exception_Handling_Global_Strategy.md) | Exception Handling & Global Error Strategy | ✅ Complete |
-| [Day 18](Phase_03_Spring_Web_REST_APIs/Day_18_Async_Streaming_SSE/Day_18_Async_Streaming_SSE.md) | Async APIs, Streaming & SSE | ✅ Complete |
-| [Day 19](Phase_03_Spring_Web_REST_APIs/Day_19_API_Documentation_OpenAPI/Day_19_API_Documentation_OpenAPI.md) | API Documentation & OpenAPI | ✅ Complete |
-| [Day 20](Phase_03_Spring_Web_REST_APIs/Day_20_Testing_REST_APIs/Day_20_Testing_REST_APIs.md) | Testing REST APIs End-to-End | ✅ Complete |
-
-### 🟢 Phase 4: Spring Data JPA & Database Mastery (Days 21–26)
-
-| Day | Topic | Status |
-| :---: | :--- | :---: |
-| [Day 21](Phase_04_Spring_Data_JPA_Database/Day_21_JPA_Hibernate_Foundations/Day_21_JPA_Hibernate_Foundations.md) | JPA & Hibernate Foundations | ✅ Complete |
-| [Day 22](Phase_04_Spring_Data_JPA_Database/Day_22_Spring_Data_Repositories_Queries/Day_22_Spring_Data_Repositories_Queries.md) | Spring Data Repositories & Query Methods | ✅ Complete |
-| [Day 23](Phase_04_Spring_Data_JPA_Database/Day_23_Entity_Relationships_Fetch_Strategies/Day_23_Entity_Relationships_Fetch_Strategies.md) | Entity Relationships & Fetch Strategies | ✅ Complete |
-| [Day 24](Phase_04_Spring_Data_JPA_Database/Day_24_Transactions_Concurrency_Auditing/Day_24_Transactions_Concurrency_Auditing.md) | Transactions, Concurrency & Auditing | ✅ Complete |
-| [Day 25](Phase_04_Spring_Data_JPA_Database/Day_25_Database_Migrations_Docker/Day_25_Database_Migrations_Docker.md) | Database Migrations (Flyway) & Docker | ✅ Complete |
-| [Day 26](Phase_04_Spring_Data_JPA_Database/Day_26_PostgreSQL_pgvector_Vector_Database/Day_26_PostgreSQL_pgvector_Vector_Database.md) | PostgreSQL pgvector — Your Vector Database | ✅ Complete |
-
-### 🟠 Phase 5: Spring Security (Days 27–31)
-
-| Day | Topic | Status |
-| :---: | :--- | :---: |
-| [Day 27](Phase_05_Spring_Security/Day_27_Security_Fundamentals_Architecture/Day_27_Security_Fundamentals_Architecture.md) | Security Fundamentals & Architecture | ✅ Complete |
-| [Day 28](Phase_05_Spring_Security/Day_28_JWT_Authentication/Day_28_JWT_Authentication.md) | JWT Authentication from Scratch | ✅ Complete |
-| [Day 29](Phase_05_Spring_Security/Day_29_RBAC_Method_Level_Security/Day_29_RBAC_Method_Level_Security.md) | Role-Based Access Control (RBAC) | ✅ Complete |
-| [Day 30](Phase_05_Spring_Security/Day_30_OAuth2_Social_Login/Day_30_OAuth2_Social_Login.md) | OAuth2 & Social Login | ✅ Complete |
-| [Day 31](Phase_05_Spring_Security/Day_31_Rate_Limiting_CORS_API_Security/Day_31_Rate_Limiting_CORS_API_Security.md) | Rate Limiting, CORS & API Security | ✅ Complete |
-
-### 🔴 Phase 6: Spring AI — Enterprise AI Framework (Days 32–42)
-
-> *THE CORE. Where Java meets LLMs, embeddings, vector stores, RAG, tool calling, and multimodal AI.*
-
-| Day | Topic | Status |
-| :---: | :--- | :---: |
-| [Day 32](Phase_06_Spring_AI/Day_32_Introduction_to_Spring_AI/Day_32_Introduction_to_Spring_AI.md) | Introduction to Spring AI — The Big Picture | ✅ Complete |
-| [Day 33](Phase_06_Spring_AI/Day_33_ChatClient_Fluent_Conversational_API/Day_33_ChatClient_Fluent_Conversational_API.md) | ChatClient — The Fluent Conversational API | ✅ Complete |
-| [Day 34](Phase_06_Spring_AI/Day_34_Prompt_Engineering_in_Java/Day_34_Prompt_Engineering_in_Java.md) | Prompt Engineering in Java | ✅ Complete |
-| [Day 35](Phase_06_Spring_AI/Day_35_Structured_Output_Java_Objects/Day_35_Structured_Output_Java_Objects.md) | Structured Output — LLMs That Return Java Objects | ✅ Complete |
-| [Day 36](Phase_06_Spring_AI/Day_36_Streaming_Responses/Day_36_Streaming_Responses.md) | Streaming Responses — The ChatGPT Typewriter Effect | ✅ Complete |
-| [Day 37](Phase_06_Spring_AI/Day_37_Embedding_Models_Text_to_Vectors/Day_37_Embedding_Models_Text_to_Vectors.md) | Embedding Models — Turning Text into Vectors | ✅ Complete |
-| [Day 38](Phase_06_Spring_AI/Day_38_Vector_Stores_Semantic_Memory/Day_38_Vector_Stores_Semantic_Memory.md) | Vector Stores — Semantic Memory for Your App | ✅ Complete |
-| [Day 39](Phase_06_Spring_AI/Day_39_RAG_Retrieval_Augmented_Generation/Day_39_RAG_Retrieval_Augmented_Generation.md) | RAG — Retrieval-Augmented Generation | ✅ Complete |
-| [Day 40](Phase_06_Spring_AI/Day_40_Advanced_RAG_Query_ReRanking/Day_40_Advanced_RAG_Query_ReRanking.md) | Advanced RAG — Query Transformation & Re-Ranking | ✅ Complete |
-| [Day 41](Phase_06_Spring_AI/Day_41_Tool_Calling_LLMs_Execute_Java/Day_41_Tool_Calling_LLMs_Execute_Java.md) | Tool Calling — LLMs That Execute Java Methods | ✅ Complete |
-| [Day 42](Phase_06_Spring_AI/Day_42_Multimodal_AI_Vision_Audio_Images/Day_42_Multimodal_AI_Vision_Audio_Images.md) | Multimodal AI — Vision, Audio & Images | ✅ Complete |
-
-### 🔴 Phase 7: LangChain4j — The Community Powerhouse (Days 43–49)
-
-| Day | Topic | Status |
-| :---: | :--- | :---: |
-| [Day 43](Phase_07_LangChain4j/Day_43_LangChain4j_Introduction_AiServices/Day_43_LangChain4j_Introduction_AiServices.md) | LangChain4j Introduction & AiServices | ✅ Complete |
-| [Day 44](Phase_07_LangChain4j/Day_44_Memory_Conversation_Management/Day_44_Memory_Conversation_Management.md) | Memory & Conversation Management | ✅ Complete |
-| [Day 45](Phase_07_LangChain4j/Day_45_Structured_Extraction_Guardrails/Day_45_Structured_Extraction_Guardrails.md) | Structured Extraction & Guardrails | ✅ Complete |
-| [Day 46](Phase_07_LangChain4j/Day_46_RAG_Pipeline_in_LangChain4j/Day_46_RAG_Pipeline_in_LangChain4j.md) | RAG Pipeline in LangChain4j | ✅ Complete |
-| [Day 47](Phase_07_LangChain4j/Day_47_Advanced_RAG_Chunking_ReRanking/Day_47_Advanced_RAG_Chunking_ReRanking.md) | Advanced RAG — Chunking, Scoring & Re-Ranking | ✅ Complete |
-| [Day 48](Phase_07_LangChain4j/Day_48_Tool_Execution_Function_Calling/Day_48_Tool_Execution_Function_Calling.md) | Tool Execution & Function Calling | ✅ Complete |
-| [Day 49](Phase_07_LangChain4j/Day_49_Building_ReAct_Agent_in_Java/Day_49_Building_ReAct_Agent_in_Java.md) | Building a ReAct Agent in Java | ✅ Complete |
-
-### 🟣 Phase 8: Enterprise Production & Deployment (Days 50–55)
-
-| Day | Topic | Status |
-| :---: | :--- | :---: |
-| [Day 50](Phase_08_Enterprise_Production/Day_50_Model_Context_Protocol_MCP/Day_50_Model_Context_Protocol_MCP.md) | Model Context Protocol (MCP) in Java | ✅ Complete |
-| [Day 51](Phase_08_Enterprise_Production/Day_51_Prompt_Injection_AI_Security/Day_51_Prompt_Injection_AI_Security.md) | Prompt Injection Defense & AI Security | ✅ Complete |
-| [Day 52](Phase_08_Enterprise_Production/Day_52_Observability_OpenTelemetry_Langfuse/Day_52_Observability_OpenTelemetry_Langfuse.md) | Observability — OpenTelemetry & Langfuse | ✅ Complete |
-| [Day 53](Phase_08_Enterprise_Production/Day_53_Caching_Rate_Limiting_Cost_Optimization/Day_53_Caching_Rate_Limiting_Cost_Optimization.md) | Caching, Rate Limiting & Cost Optimization | ✅ Complete |
-| [Day 54](Phase_08_Enterprise_Production/Day_54_Docker_CICD_Cloud_Deployment/Day_54_Docker_CICD_Cloud_Deployment.md) | Docker, CI/CD & Cloud Deployment | ✅ Complete |
-| [Day 55](Phase_08_Enterprise_Production/Day_55_Capstone_Enterprise_AI_Platform/Day_55_Capstone_Enterprise_AI_Platform.md) | Capstone — Enterprise AI Platform Architecture | ✅ Complete |
-
-### 🟣 Phase 9: Advanced Topics & Graduation (Days 56–60)
-
-| Day | Topic | Status |
-| :---: | :--- | :---: |
-| [Day 56](Phase_09_Advanced_Topics_Graduation/Day_56_Running_Local_Models_Ollama/Day_56_Running_Local_Models_Ollama.md) | Running Open-Weight Models Locally (Ollama) | ✅ Complete |
-| [Day 57](Phase_09_Advanced_Topics_Graduation/Day_57_Multi_Agent_Orchestration/Day_57_Multi_Agent_Orchestration.md) | Multi-Agent Orchestration | ✅ Complete |
-| [Day 58](Phase_09_Advanced_Topics_Graduation/Day_58_Evaluation_Testing_AI_Systems/Day_58_Evaluation_Testing_AI_Systems.md) | Evaluation & Testing AI Systems | ✅ Complete |
-| [Day 59](Phase_09_Advanced_Topics_Graduation/Day_59_Vector_Database_Deep_Dive/Day_59_Vector_Database_Deep_Dive.md) | Vector Database Deep Dive | ✅ Complete |
-| [Day 60](Phase_09_Advanced_Topics_Graduation/Day_60_Graduation_Portfolio_Career/Day_60_Graduation_Portfolio_Career.md) | Graduation — Portfolio & Career Roadmap | ✅ Complete |
+| [Day 01](Phase_01_Java_Foundations/Day_01_Java_Ecosystem_and_Setup/Day_01_Java_Ecosystem_and_Setup.md) | Java Ecosystem & Setup — JDK 21, Compilation, Bytecode, Maven | ✅ Complete |
+| [Day 02](Phase_01_Java_Foundations/Day_02_OOP_Classes_Objects_Memory/Day_02_OOP_Classes_Objects_Memory.md) | OOP — Classes, Objects & Memory (Stack vs Heap, Scopes, GC Roots) | ✅ Complete |
+| [Day 03](Phase_01_Java_Foundations/Day_03_Inheritance_Interfaces_Polymorphism/Day_03_Inheritance_Interfaces_Polymorphism.md) | Inheritance, Interfaces & Polymorphism | 🔄 Next Up |
+| [Day 04](Phase_01_Java_Foundations/Day_04_Generics_Collections_DataStructures/Day_04_Generics_Collections_DataStructures.md) | Generics, Collections & Data Structures | 📅 Planned |
+| [Day 05](Phase_01_Java_Foundations/Day_05_Modern_Java_Records_Optional_Sealed/Day_05_Modern_Java_Records_Optional_Sealed.md) | Modern Java: Records, Optional & Sealed Types | 📅 Planned |
+| [Day 06](Phase_01_Java_Foundations/Day_06_Functional_Programming_Streams/Day_06_Functional_Programming_Streams.md) | Functional Programming & Stream API | 📅 Planned |
+| [Day 07](Phase_01_Java_Foundations/Day_07_Concurrency_Virtual_Threads/Day_07_Concurrency_Virtual_Threads.md) | Concurrency & Virtual Threads (Project Loom) | 📅 Planned |
+| [Day 08](Phase_01_Java_Foundations/Day_08_IO_HTTP_JSON_Testing/Day_08_IO_HTTP_JSON_Testing.md) | I/O, HTTP Client, JSON & Testing Basics | 📅 Planned |
 
 ---
 
-## 📂 Repository Structure
+### 🟢 Phase_02 — Advanced Core Java, JVM Internals & Design Foundations (Days 01–09)
+> *Write robust, idiomatic Java, master JVM memory and GC, and apply real design patterns.*
+
+| Day | Topic | Memory Angle |
+| :---: | :--- | :---: |
+| Day 01 | Exception Handling Deep Dive & Stack Traces | Chained root causes & resource leak prevention |
+| Day 02 | String Internals & Text Processing | 🧠 JVM Heap & String Constant Pool |
+| Day 03 | Enums, Annotations & Reflection Basics | Metaspace & dynamic bytecode inspection |
+| Day 04 | JVM Internals: Class Loading & Memory Areas | 🧠 JVM Stack/Heap & Object Lifecycle |
+| Day 05 | Garbage Collection, Conceptually | 🧠 JVM Heap & Generational GC (G1/ZGC) |
+| Day 06 | SOLID Principles & Clean Code | Refactoring patterns and clean architecture |
+| Day 07 | Core Design Patterns I (Creational) | Singleton, Factory Method, Builder |
+| Day 08 | Core Design Patterns II (Behavioral & Structural) | Strategy, Observer, Decorator |
+| Day 09 | Build Tools Deep Dive: Maven & Gradle | Dependency management, lifecycles, multi-module |
+
+---
+
+### 🟢 Phase_03 — Databases & Persistence (Days 01–07)
+> *Design, query, and persist data; master connection pooling, ORM, and avoid N+1 query traps.*
+
+| Day | Topic | Focus |
+| :---: | :--- | :---: |
+| Day 01 | SQL Fundamentals & Indexing | Queries, JOINs, aggregations, B-Tree indexes |
+| Day 02 | Transactions & ACID | ACID properties, transaction isolation levels |
+| Day 03 | JDBC Fundamentals & HikariCP | 🧠 Resource & connection socket buffering |
+| Day 04 | ORM Concepts & JPA Basics | Entity mappings, persistence context |
+| Day 05 | Relationships, Fetch Types & The N+1 Problem | LAZY vs EAGER, solving N+1 queries |
+| Day 06 | Spring Data JPA | Repositories, derived queries, pagination |
+| Day 07 | Migrations (Flyway) & NoSQL Basics | Schema versioning, Redis/MongoDB practical intro |
+
+---
+
+### 🟢 Phase_04 — Building APIs with Spring Boot (Days 01–09)
+> *Build, secure, validate, and document production REST APIs backed by relational databases.*
+
+| Day | Topic | Focus |
+| :---: | :--- | :---: |
+| Day 01 | Spring Core: IoC & Dependency Injection | Inversion of Control, beans, constructor DI |
+| Day 02 | Spring Boot Fundamentals | Auto-configuration, starters, application.yml |
+| Day 03 | Building REST Controllers | Controller mapping, DTO pattern, HTTP semantics |
+| Day 04 | Request Validation & Error Handling | Bean Validation, @ControllerAdvice, RFC 7807/9457 |
+| Day 05 | Connecting Spring Boot to the Database | Wiring JPA layer into working services |
+| Day 06 | API Documentation: OpenAPI & Swagger | Swagger UI, interactive OpenAPI specs |
+| Day 07 | Spring Security Basics & JWT | Filter chains, stateless authentication, JWT |
+| Day 08 | Configuration & Profiles | Multi-environment config, profiles, secrets |
+| Day 09 | Capstone: A Complete CRUD API | Complete enterprise CRUD service |
+
+---
+
+### 🟢 Phase_05 — Testing, Quality & Architecture (Days 01–06)
+> *Catch bugs before production with unit, mock, and integration tests; structure code cleanly.*
+
+| Day | Topic | Focus |
+| :---: | :--- | :---: |
+| Day 01 | Unit Testing with JUnit 5 | Test lifecycle, assertions, parameterized tests |
+| Day 02 | Mocking with Mockito | Isolating units under test, verifying interactions |
+| Day 03 | Integration Testing & Testcontainers | Testing against real disposable Docker PostgreSQL |
+| Day 04 | The TDD Mindset & Pragmatism | Red-Green-Refactor, realistic testing strategies |
+| Day 05 | Layered / Clean Architecture | Controller-Service-Repository separation |
+| Day 06 | API Design & Code Review Culture | REST conventions, static analysis, team PRs |
+
+---
+
+### 🟢 Phase_06 — Microservices & Distributed Systems Basics (Days 01–07)
+> *Understand microservice tradeoffs, inter-service messaging, caching, resilience, and telemetry.*
+
+| Day | Topic | Focus |
+| :---: | :--- | :---: |
+| Day 01 | Monolith vs. Microservices | Honest tradeoffs, domain boundaries, right calls |
+| Day 02 | Inter-Service Communication | Synchronous REST vs async messaging (Kafka/RabbitMQ) |
+| Day 03 | API Gateway & Service Discovery | Reverse proxies, edge routing, Spring Cloud Gateway |
+| Day 04 | Caching Strategies & Redis | 🧠 Resource buffering (Redis vs JVM memory) |
+| Day 05 | Resilience Patterns (Resilience4j) | Circuit breakers, retries, timeouts, bulkheads |
+| Day 06 | System Design Basics & Scalability | Horizontal scaling, load balancing, CAP theorem |
+| Day 07 | Observability Basics | Structured logging, metrics, Actuator, OpenTelemetry |
+
+---
+
+### 🟢 Phase_07 — DevOps & Deployment Literacy (Days 01–06)
+> *Containerize, test, ship, and monitor services self-sufficiently.*
+
+| Day | Topic | Focus |
+| :---: | :--- | :---: |
+| Day 01 | Git Workflows for Teams | Branching, interactive rebase, PR reviews |
+| Day 02 | Docker Fundamentals for Java | Multi-stage Dockerfiles, caching, compose |
+| Day 03 | CI/CD Basics (GitHub Actions) | Automated build/test/deploy pipelines |
+| Day 04 | Cloud Fundamentals (AWS/GCP/Azure) | Compute, storage, RDS, secrets in the cloud |
+| Day 05 | Kubernetes: Just Enough to Understand It | Pods, Deployments, Services, ConfigMaps |
+| Day 06 | Production Monitoring & Alerting Basics | SLIs/SLOs, Grafana, alerting mindset |
+
+---
+
+### 🟢 Phase_08 — GenAI Foundations & Java Integration (Days 01–08)
+> *Understand LLM mechanics, invoke APIs from Java, master embeddings, vector search, and tools.*
+
+| Day | Topic | Focus |
+| :---: | :--- | :---: |
+| Day 01 | How LLMs Actually Work, Practically | Tokens, context window, autoregressive generation |
+| Day 02 | Prompt Engineering Fundamentals | Few-shot, delimiters, role assignment |
+| Day 03 | Calling LLM APIs from Java | Raw HttpClient, streaming SSE tokens |
+| Day 04 | Embeddings, Explained | Semantic spaces, dot product, cosine similarity |
+| Day 05 | Vector Databases & pgvector | 🧠 Vector-store / embedding memory & indexing |
+| Day 06 | Retrieval-Augmented Generation (RAG) | RAG triad, private data search, ground truth |
+| Day 07 | Spring AI & LangChain4j Introduction | ChatClient, AiServices, vendor portability |
+| Day 08 | Function / Tool Calling & Structured Output | @Tool execution, guaranteed JSON objects |
+
+---
+
+### 🟢 Phase_09 — Building & Operating Production GenAI Systems (Days 01–07)
+> *ReAct agents, conversation memory, RAG evaluation, safety, and the final Capstone project.*
+
+| Day | Topic | Focus |
+| :---: | :--- | :---: |
+| Day 01 | AI Agents & the ReAct Pattern | Reasoning + Acting loops, multi-step workflows |
+| Day 02 | Conversation Memory Management | 🧠 Context-window limits & database-backed memory |
+| Day 03 | Building a Complete RAG Pipeline in Java | End-to-end ingestion, chunking, retrieval, generation |
+| Day 04 | Evaluating LLM Outputs & Guardrails | Hallucination detection, evaluation metrics |
+| Day 05 | Cost, Latency & Model Selection Tradeoffs | Token counting, response caching, model routing |
+| Day 06 | AI Security Basics | Prompt injection defense, PII masking, safety |
+| Day 07 | Capstone Project: Production RAG Assistant | Complete end-to-end enterprise Java AI application |
+
+---
+
+## 📂 Repository Layout
 
 ```
 JAVA GEN AI COURSE/
-├── README.md                              ← You are here (Course Hub)
-├── pom.xml                                ← Root Maven Multi-Module POM
-├── .gitignore                             ← Java/Maven/IDE gitignore
-├── docker-compose.yml                     ← PostgreSQL + pgvector + Ollama
+├── README.md                                          ← Course Hub (You are here)
+├── Java_GenAI_Roadmap.md                              ← Complete Detailed Roadmap Document
+├── pom.xml                                            ← Root Maven Multi-Module POM
+├── docker-compose.yml                                 ← PostgreSQL + pgvector + Redis + Ollama
 │
-├── Phase_01_Java_Foundations/             ← Days 01–08
-├── Phase_02_Spring_Core_and_DI/           ← Days 09–14
-├── Phase_03_Spring_Web_REST_APIs/         ← Days 15–20
-├── Phase_04_Spring_Data_JPA_Database/     ← Days 21–26
-├── Phase_05_Spring_Security/              ← Days 27–31
-├── Phase_06_Spring_AI/                    ← Days 32–42
-├── Phase_07_LangChain4j/                  ← Days 43–49
-├── Phase_08_Enterprise_Production/        ← Days 50–55
-└── Phase_09_Advanced_Topics_Graduation/   ← Days 56–60
+├── Phase_01_Java_Foundations/                         ← Days 01–08
+├── Phase_02_Advanced_Core_Java_JVM_Design/            ← Days 01–09
+├── Phase_03_Databases_and_Persistence/                ← Days 01–07
+├── Phase_04_Building_APIs_Spring_Boot/                ← Days 01–09
+├── Phase_05_Testing_Quality_Architecture/             ← Days 01–06
+├── Phase_06_Microservices_Distributed_Systems/        ← Days 01–07
+├── Phase_07_DevOps_Deployment_Literacy/               ← Days 01–06
+├── Phase_08_GenAI_Foundations_Java_Integration/       ← Days 01–08
+└── Phase_09_Production_GenAI_Systems_Capstone/        ← Days 01–07
 ```
-
----
-
-## 🔗 Sister Course
-
-This course is the **Java companion** to the [50-Day Python Gen AI Masterclass](../GEN%20AI%20COURSE/README.md). All AI/ML concepts are the same — this course focuses on **enterprise Java implementation**.
 
 ---
 
 <p align="center">
-  <b>Made with ❤️ for every developer who wants to build enterprise AI systems in Java.</b>
+  <b>Built for developers ready to master modern enterprise Java and ship real GenAI systems.</b>
 </p>

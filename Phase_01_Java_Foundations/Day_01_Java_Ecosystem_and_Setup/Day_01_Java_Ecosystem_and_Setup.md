@@ -1,53 +1,65 @@
-# Day_01 — Java Ecosystem, JVM Architecture, and Memory Hierarchy
+# Phase_01, Day_01 — Java Ecosystem, JVM Architecture, and Memory Hierarchy
 
 | ⬅️ Previous Day | 📚 Course Hub | ➡️ Next Day |
 |:---|:---:|---:|
-| *🚀 Course Inception* | [All 60 Days Overview](../../README.md) | [Day 02: OOP — Classes, Objects & Memory →](../Day_02_OOP_Classes_Objects_Memory/Day_02_OOP_Classes_Objects_Memory.md) |
+| *🚀 Course Inception* | [Course Hub](../../README.md) | [Day 02: OOP — Classes, Objects & Memory →](../Day_02_OOP_Classes_Objects_Memory/Day_02_OOP_Classes_Objects_Memory.md) |
 
 ---
 
 ## 🎯 What You'll Understand By the End
-- The structural nesting and mechanical differences between the **JDK**, **JRE**, and **JVM**, and how they interact with the host operating system.
-- How the operating system resolves binary pointers using `JAVA_HOME` and `PATH`, and how to troubleshoot path configuration errors.
-- The step-by-step compilation and execution lifecycle: from human-readable `.java` source code to `.class` bytecode, through the three phases of the **ClassLoader Subsystem** (**Loading**, **Linking**, **Initialization**), into native CPU execution via the **Interpreter** and **JIT HotSpot Compiler**.
-- Deep JVM memory architecture: the exact physical roles of **Metaspace**, **Heap Space**, **JVM Stack Frames** (Local Variable Array, Operand Stack, Frame Data), **Program Counter (PC) Registers**, and **Native Method Stacks**.
-- The **Memory-First Mandate**: how the JVM physically stores raw binary values for primitives versus memory address pointers for reference objects in RAM.
-- How Java package namespaces map 1-to-1 to physical disk directories, how imports work, and how access specifiers protect class boundaries.
-- How modern build tools like **Maven** and **Gradle** construct automated dependency trees and compile-time classpaths.
+
+- The physical and architectural boundaries between the **JDK**, **JRE**, and **JVM**, and why developers must install the JDK while end users only need a runtime.
+- How the host operating system resolves command-line binary pointers using `JAVA_HOME` and `PATH`, and how to debug path resolution failures.
+- The step-by-step lifecycle of Java code: from human-readable `.java` source code to platform-independent `.class` bytecode via `javac`, through the **ClassLoader Subsystem** (Loading, Linking, Initialization), and into raw native machine execution via the **Interpreter** and **HotSpot JIT Compiler**.
+- The internal memory architecture of the JVM: the physical roles of **Metaspace**, **Heap Space**, **JVM Thread Stacks** (including Local Variable Arrays, Operand Stacks, and Frame Data), **Program Counter (PC) Registers**, and **Native Method Stacks**.
+- The **Memory-First Mental Model**: how the JVM stores raw bits for primitive types directly on the Stack versus pointer memory addresses for reference objects living on the Heap.
+- Why modern Java applications organize code using package namespaces matching physical disk paths, and why build tools like **Maven** are required for dependency resolution.
+- How to set up and verify a production-ready Java 21 development environment with Maven and Docker.
 
 ---
 
-## 🧠 The Problem This Solves
+## 🧠 The Problem This Solves / Why This Comes Up
 
-Before Java was created in 1995, building production software suffered from three critical roadblocks:
+Before Java was created in 1995, building production software suffered from three crippling engineering bottlenecks:
 
-1. **Direct CPU Coupling (The Machine Code Dilemma)**: In older compiled languages like C and C++, source code translates directly into raw native machine code—the exact binary `0`s and `1`s understood by a specific processor chip (such as an Intel x86 chip).
-   - A binary compiled on Windows relied on the Windows kernel API and Intel instruction sets.
-   - Running that same application on an Apple Mac or a Linux cloud server failed immediately because operating system system calls and CPU architectures were completely different.
-   - Teams were forced to maintain divergent codebases, multiple toolchains, and recompile distinct binaries for every operating system and processor architecture.
+### 1. Direct CPU Coupling (The Machine Code Dilemma)
+In natively compiled languages like C and C++, source code translates directly into raw machine code — the exact sequence of binary `0`s and `1`s understood by a specific central processing unit (such as an Intel x86 chip):
 
 ```
 Older Native Compilers:
-Source Code (.c) ──(Compiler)──> Windows x86 Binary (Fails on macOS & Linux)
+Source Code (.c) ──(Compiler)──> Windows x86 Binary (Fails completely on macOS & Linux)
 ```
 
-2. **The Fragility of Pure Interpreters**: Scripting languages (like Python) solved platform portability by interpreting raw source code line-by-line at runtime. However, if an error or typo exists on line 800 of a script, the program runs lines 1 through 799 before crashing abruptly in front of a live user. Interpreting raw text on the fly also resulted in significantly slower runtime performance.
+- A binary compiled on Windows relied on the Windows kernel API and Intel instruction sets.
+- Running that exact same application on a Mac (ARM) or a Linux cloud server failed immediately because operating system system calls and CPU architectures were completely different.
+- Engineering teams were forced to maintain divergent codebases, separate build toolchains, and recompile distinct binaries for every operating system and processor architecture in production.
 
-3. **Manual Memory Management Disasters**: Developers had to manually request blocks of system RAM and remember to release them. Forgetting to free memory caused **memory leaks** (exhausting RAM until the server died), while freeing memory too early caused **dangling pointers**, memory corruption, and sudden segmentation faults.
+### 2. The Fragility of Pure Interpreters
+Scripting languages (like Python or JavaScript) attempted to solve portability by interpreting raw source code line-by-line at runtime. However, pure interpretation introduces two severe drawbacks:
+- **Runtime Crashes**: If a syntax error or type mismatch exists on line 800 of a script, the program runs lines 1 through 799 before crashing abruptly in front of a live user.
+- **Performance Deficits**: Interpreting and parsing human-readable text into CPU instructions on the fly during every loop execution is 10x to 50x slower than running compiled instructions.
 
-Java solved these challenges by separating compilation from hardware execution:
-- **Compile-Time Verification**: The Java compiler (`javac`) inspects your code upfront, catching type mismatches and syntax errors before the program ever runs.
-- **Universal Intermediate Format**: Instead of targeting a physical CPU, Java compiles into an optimized, platform-neutral instruction set called **bytecode** (`.class`).
+### 3. Manual Memory Management Disasters
+In older languages, developers had to manually request blocks of system RAM and remember to release them when finished:
+- **Memory Leaks**: Forgetting to free memory slowly consumed system RAM until the host server crashed.
+- **Dangling Pointers & Segmentation Faults**: Freeing memory while another part of the program was still using it corrupted data or triggered catastrophic segmentation faults.
+
+### How Java Solved All Three
+Java solved these challenges by decoupling compilation from physical hardware execution:
+- **Compile-Time Verification**: The Java compiler (`javac`) inspects your code upfront, catching type mismatches, missing symbols, and syntax errors before the program ever runs.
+- **Universal Intermediate Format**: Instead of targeting a physical CPU, Java compiles into an optimized, platform-neutral instruction set called **bytecode** (`.class` files).
 - **The Virtual Machine**: The **Java Virtual Machine (JVM)** runs on top of the host operating system, translating universal bytecode into native hardware instructions on the fly (**Write Once, Run Anywhere**).
 - **Automated Memory Safety**: Memory is partitioned into specialized runtime data areas, and an automated **Garbage Collector** safely reclaims unreferenced objects, eliminating manual memory deallocation bugs.
 
 ---
 
+# Section 1: Java Ecosystem Architecture — JDK vs. JRE vs. JVM
+
+---
+
 ## 📖 Core Concept, Explained Simply
 
-### 1. JDK vs. JRE vs. JVM Architecture
-
-To understand Java's ecosystem, visualize three concentric boxes nested inside each other:
+To master Java, you must visualize three concentric layers nested inside each other:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -69,439 +81,490 @@ To understand Java's ecosystem, visualize three concentric boxes nested inside e
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-#### The Gourmet Restaurant Franchise Analogy
-- **The JVM (Java Virtual Machine)** is the **Kitchen Crew**. A kitchen crew in Tokyo (macOS ARM) and a kitchen crew in London (Linux x86) use different stoves and appliances (local CPU instructions and OS system calls), but both know how to read and execute standardized recipe cards.
-- **The JRE (Java Runtime Environment)** is the **Fully Stocked Kitchen**. It includes the kitchen crew (the JVM) plus all standard ingredients, pots, pans, and spices (the core Java Class Libraries like `String`, `List`, and `Math`). An end-user who only wants to run an existing application needs a working kitchen (the JRE).
-- **The JDK (Java Development Kit)** is the **Culinary Research & Testing Institute**. It contains the entire kitchen (JRE), but adds recipe development tools, quality-control inspectors (`javac`), calorie meters, and diagnostic testing equipment. As software engineers creating applications from scratch, **we always install the JDK**.
+### 1. The JVM (Java Virtual Machine)
+The **JVM** is an abstract computing machine that lives inside your computer's RAM. It does not exist as a physical chip. Instead, it is a native program compiled for a specific operating system (Windows JVM, macOS JVM, Linux JVM). 
 
-> 💡 **New Word Alert — "Bytecode"**: A compact, numerical instruction set that does not target any physical processor chip, but is instead interpreted and executed by the Java Virtual Machine. Bytecode files always end with the `.class` extension.
+The JVM's job is singular and precise: **it accepts platform-independent bytecode (`.class` files) and translates it into the host machine's native CPU instructions.**
+Because Oracle, RedHat, and the open-source community have written distinct JVM implementations for Windows, macOS, and Linux, the exact same bytecode runs identically across all of them.
 
-> 💡 **New Word Alert — "JVM (Java Virtual Machine)"**: An abstract software execution engine that runs inside your computer's operating system memory. It loads compiled `.class` bytecode and translates it into native processor instructions on the fly.
+### 2. The JRE (Java Runtime Environment)
+The **JRE** is the execution package. It bundles:
+- The **JVM** runtime execution engine.
+- The **Core Java Class Libraries** (such as `java.lang`, `java.util`, `java.io`, `java.net`). These are the pre-compiled standard classes that provide basic building blocks like `String`, `ArrayList`, and networking utilities.
 
-> 💡 **New Word Alert — "JDK (Java Development Kit)"**: The complete software development package installed on an engineer's machine containing the compiler (`javac`), runtime launcher (`java`), and developer utilities.
+An end user who only wants to run a pre-packaged Java desktop application or game needs only the JRE.
+
+### 3. The JDK (Java Development Kit)
+The **JDK** is the complete software development toolkit for engineers. It contains:
+- The entire **JRE** (so you can run programs).
+- The **Java Compiler (`javac`)**: Translates `.java` source code into `.class` bytecode.
+- **Diagnostic & Profiling Tools**: `javap` (disassembler), `jcmd` (diagnostic commands), `jconsole` (monitoring GUI), `jstack` (thread dump analyzer), and `jstat` (garbage collection statistics).
+- **Archiving Utilities (`jar`)**: Packages compiled classes into compressed Java Archive (`.jar`) files.
+
+> 💡 **The Rule of Thumb**: As software engineers building backend and GenAI systems, **we always install the JDK**.
 
 ---
 
-### 2. Setting Up `JAVA_HOME` and `PATH`: How the OS Resolves Binary Pointers
+## 🧭 Real-World Analogy
 
-When you enter `javac` in your terminal, the operating system does not search your entire hard drive. It checks an environment variable list called `PATH`:
+Think of an **International Restaurant Franchise**:
+
+1. **The Recipe Card (Bytecode / `.class`)**: Written in an international culinary notation that describes ingredients, cooking temperatures, and steps. It does not mention whether the kitchen uses gas, electric, or induction stoves.
+2. **The Kitchen Crew (The JVM)**: The kitchen staff stationed in Tokyo, London, or New York. The Tokyo crew uses Japanese appliances and 100V electricity; the London crew uses British stoves and 230V electricity. Both crews read the **exact same recipe card** and produce identical gourmet dishes using their local equipment.
+3. **The Stocked Kitchen (The JRE)**: The kitchen crew plus the standardized pantry of ingredients, spices, pots, and measuring cups (the Java Standard Class Library).
+4. **The Culinary Culinary Research Academy (The JDK)**: The entire stocked kitchen, plus recipe development desks, test ovens, chef knives, chemical flavor testers, and quality control inspectors (`javac`).
+
+---
+
+# Section 2: The Compilation and Execution Lifecycle
+
+---
+
+## 📖 How Code Travels from Your Editor to the CPU
+
+When you write Java code, it goes through a multi-stage translation pipeline before the CPU executes a single instruction:
+
+```
+[ Your Editor ]
+      │
+      ▼ Source Code
+ MyProgram.java
+      │
+      ▼ Compile Stage (javac)
+ MyProgram.class (Platform-Neutral Bytecode)
+      │
+      ▼ ClassLoader Subsystem (Loading → Linking → Initialization)
+ JVM Runtime Memory (Metaspace, Heap, Stack)
+      │
+      ▼ Execution Engine
+ ┌─────────────────────────────────────────────────────────────┐
+ │  Interpreter: Reads bytecode line-by-line (immediate start) │
+ │       │                                                     │
+ │       ▼ Profiler spots "Hot Spots" (frequently executed)    │
+ │  JIT Compiler: Compiles hot loops into native machine code  │
+ └─────────────────────────────────────────────────────────────┘
+      │
+      ▼ Hardware
+ Host CPU Execution (Intel x86 / AMD / Apple Silicon ARM)
+```
+
+### Stage 1: Ahead-of-Time Compilation (`javac`)
+You write human-readable code in `MyProgram.java`. You invoke the compiler:
+```bash
+javac MyProgram.java
+```
+The compiler verifies type safety, checks syntax, and emits `MyProgram.class`. This file contains **bytecode** — an array of compact 8-bit opcodes (like `aload_0`, `invokevirtual`, `ireturn`).
+
+### Stage 2: The ClassLoader Subsystem
+When you run `java MyProgram`, the JVM does not dump the entire application into memory at once. It loads classes lazily on-demand through three phases:
+1. **Loading**: Reads the raw binary `.class` bytes from disk or network and creates a `java.lang.Class` object in memory.
+   - *Bootstrap ClassLoader*: Loads core JDK classes (`java.lang.*`).
+   - *Platform/Extension ClassLoader*: Loads platform modules.
+   - *Application ClassLoader*: Loads classes from your application's classpath.
+2. **Linking**:
+   - *Verification*: A critical security guard! The bytecode verifier inspects the `.class` file to guarantee it conforms to JVM specifications, does not corrupt memory, and does not cause stack overflows.
+   - *Preparation*: Allocates memory for `static` variables and initializes them to default values (e.g., `0`, `null`, `false`).
+   - *Resolution*: Replaces symbolic references (names of classes and methods) with direct memory pointers.
+3. **Initialization**: Executes `static` initialization blocks and assigns explicit initial values to static variables.
+
+### Stage 3: The Hybrid Execution Engine (Interpreter + JIT HotSpot)
+Why is Java so fast despite running inside a virtual machine? Because of its **hybrid execution engine**:
+- **The Interpreter**: Begins executing bytecode immediately, instruction by instruction. There is zero startup lag.
+- **The JIT (Just-In-Time) HotSpot Compiler**: As the interpreter runs, a background profiler monitors the code. It identifies **hot spots** — methods or loops executed hundreds or thousands of times. The JIT compiler takes those hot bytecode segments and compiles them directly into ultra-optimized, raw native machine code in RAM (Code Cache). Future executions run directly on the physical CPU at native C++ speeds!
+
+---
+
+# Section 3: JVM Runtime Memory Hierarchy
+
+---
+
+## 📖 Where Things Physically Live in RAM
+
+When the JVM boots, the host operating system allocates a block of RAM to the process. The JVM partitions this memory into five distinct runtime data areas:
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ JVM RUNTIME DATA AREAS (Process Memory Space)                                 │
+│                                                                              │
+│  SHARED ACROSS ALL THREADS:                                                  │
+│  ┌────────────────────────────────────────┐ ┌─────────────────────────────┐  │
+│  │ METASPACE (Native Memory)              │ │ HEAP SPACE (RAM)            │  │
+│  │  - Class metadata & method bytecode    │ │  - All objects (instances)  │  │
+│  │  - Static fields & runtime constants   │ │  - Object instance fields   │  │
+│  │  - String Constant Pool                │ │  - Managed by Garbage Coll. │  │
+│  └────────────────────────────────────────┘ └─────────────────────────────┘  │
+│                                                                              │
+│  ISOLATED PER THREAD (Created when thread starts, destroyed on exit):        │
+│  ┌────────────────────────────────────────────────────────────────────────┐  │
+│  │ THREAD 1                          THREAD 2                             │  │
+│  │  ┌───────────────────────────┐     ┌───────────────────────────┐       │  │
+│  │  │ JVM Stack                 │     │ JVM Stack                 │       │  │
+│  │  │  ┌─────────────────────┐  │     │  ┌─────────────────────┐  │       │  │
+│  │  │  │ Stack Frame (main)  │  │     │  │ Stack Frame (run)   │  │       │  │
+│  │  │  ├─────────────────────┤  │     │  ├─────────────────────┤  │       │  │
+│  │  │  │ Stack Frame (helper)│  │     │  │ Stack Frame (calc)  │  │       │  │
+│  │  │  └─────────────────────┘  │     │  └─────────────────────┘  │       │  │
+│  │  ├───────────────────────────┤     ├───────────────────────────┤       │  │
+│  │  │ PC Register (Line pointer)│     │ PC Register (Line pointer)│       │  │
+│  │  ├───────────────────────────┤     ├───────────────────────────┤       │  │
+│  │  │ Native Method Stack (JNI) │     │ Native Method Stack (JNI) │       │  │
+│  │  └───────────────────────────┘     └───────────────────────────┘       │  │
+│  └────────────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 1. Metaspace (Shared)
+- Lives in **native OS memory** (outside the JVM Heap limit).
+- Stores loaded class blueprints, method bytecodes, field descriptors, static variables, and the **String Constant Pool**.
+- Loaded once per class. It remains allocated as long as the application runs.
+
+### 2. Heap Space (Shared)
+- The memory pool where **all objects and arrays** live.
+- Whenever you write the keyword `new`, memory is allocated on the Heap.
+- Monitored and cleaned by the **Garbage Collector (GC)**. If the Heap fills up and the GC cannot reclaim enough memory, the JVM throws `java.lang.OutOfMemoryError: Java heap space`.
+
+### 3. JVM Thread Stacks (Per-Thread)
+- Every thread in Java receives its own private **Stack**.
+- Every time a method is called, a new **Stack Frame** is pushed onto the top of the Stack.
+- When the method returns, its Stack Frame is immediately popped off and destroyed.
+- Inside each Stack Frame lives:
+  - **Local Variable Array**: Holds method arguments and local variables. Primitives (`int`, `boolean`, `double`) hold raw binary values here. Reference variables hold memory address pointers pointing to objects out on the Heap.
+  - **Operand Stack**: The JVM's working scratchpad for calculations (e.g., loading two numbers, adding them, pushing the result).
+  - **Frame Data**: Exception dispatch tables and method return references.
+
+### 4. Program Counter (PC) Registers (Per-Thread)
+- A tiny memory pointer that stores the address of the currently executing JVM bytecode instruction for that thread.
+
+### 5. Native Method Stacks (Per-Thread)
+- Manages execution of native C/C++ libraries called through Java Native Interface (JNI) or modern Foreign Function & Memory APIs.
+
+---
+
+# Section 4: Packages, Namespaces, and Project Structure
+
+---
+
+## 📖 How Java Organizes Code
+
+In real-world enterprise development, projects contain thousands of classes. To prevent name collisions (e.g., your application has a `User` class, and a third-party security library also has a `User` class), Java uses **packages**.
+
+### The Disk-Path Mapping Rule
+A Java package declaration directly maps to physical folders on your disk:
+```java
+package com.genai.foundations;
+
+public class ModelConfig { ... }
+```
+This file **must physically reside** inside the directory:
+`src/main/java/com/genai/foundations/ModelConfig.java`
+
+### Standard Maven Project Layout
+Enterprise Java projects follow the standardized Maven directory convention:
+```
+my-java-project/
+├── pom.xml                     ← Project Object Model (dependencies & build instructions)
+└── src/
+    ├── main/
+    │   ├── java/               ← Production source code (.java files)
+    │   │   └── com/
+    │   │       └── company/
+    │   │           └── App.java
+    │   └── resources/          ← Config files, prompts, application.properties
+    └── test/
+        ├── java/               ← Automated test code (JUnit)
+        │   └── com/
+        │       └── company/
+        │           └── AppTest.java
+        └── resources/          ← Test configurations and mocks
+```
+
+---
+
+# Section 5: Setting Up and Verifying Your Environment
+
+---
+
+## 🛠️ Step-by-Step Tooling Configuration
+
+To develop modern Java applications (including Spring AI, virtual threads, and pgvector), you need three core tools installed:
+
+### 1. Java 21 JDK (LTS)
+We standardize on **Java 21 LTS** (Long-Term Support). Install a trusted distribution like **Eclipse Temurin** (Adoptium), **Amazon Corretto**, or **Azul Zulu**.
+
+#### Setting Up `JAVA_HOME` and `PATH`
+When you type `javac` in your terminal, the operating system looks through directory paths listed in your system `PATH` variable:
 
 ```
 Terminal Command: "javac MyCode.java"
           │
           ▼
-Does the OS Shell know where "javac" lives?
-          │
-          ▼
-Inspects the system PATH variable (left-to-right directory list):
-[C:\Windows\system32] ──────────► No javac.exe found
-[C:\Program Files\Git\cmd] ─────► No javac.exe found
+Operating System inspects PATH directories left-to-right:
+[C:\Windows\system32] ──────────► No javac found
+[C:\Program Files\Git\cmd] ─────► No javac found
 [%JAVA_HOME%\bin] ──────────────► FOUND javac.exe! ──► Executes binary
 ```
 
-- **`JAVA_HOME`**: An environment variable storing the absolute path to the root directory where your JDK is installed (e.g., `C:\Program Files\Eclipse Adoptium\jdk-21.0.2.13-hotspot` on Windows, or `/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home` on macOS). Build tools (like Maven and Gradle) and enterprise servers inspect `JAVA_HOME` to locate JDK libraries.
-- **`PATH`**: An operating system list of folder paths separated by semicolons (`;` on Windows) or colons (`:` on macOS/Linux). When you append `%JAVA_HOME%\bin` (or `$JAVA_HOME/bin`) to your `PATH`, the OS instantly finds the executable binaries (`javac.exe`, `java.exe`, `javap.exe`).
+- **Set `JAVA_HOME`**: Point this environment variable to the root directory of your JDK installation (e.g., `C:\Program Files\Eclipse Adoptium\jdk-21.0.x` or `/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home`).
+- **Add to `PATH`**: Add `%JAVA_HOME%\bin` (Windows) or `$JAVA_HOME/bin` (macOS/Linux) to your system `PATH`.
 
-#### Verification Commands
+### 2. Apache Maven
+Maven is the standard build automation and dependency management tool. It reads `pom.xml` to download third-party libraries (like Jackson, Spring, or LangChain4j) and compile your project.
+
+### 3. Docker Desktop
+Required for spinning up local infrastructure like PostgreSQL with `pgvector` for embedding storage, Redis for caching, and Ollama for running local AI models.
+
+### Verification Checklist
+Run these commands in your terminal to verify your setup:
+
 ```bash
-# Verify the runtime launcher version
-java -version
+# 1. Verify Java Compiler and Runtime
+javac --version
+# Expected: javac 21.x.x
 
-# Verify the compiler version
-javac -version
+java --version
+# Expected: openjdk 21.x.x (or build 21.x.x)
 
-# Inspect the configured JAVA_HOME path (PowerShell)
-$env:JAVA_HOME
+# 2. Verify Maven Build Engine
+mvn --version
+# Expected: Apache Maven 3.9.x
 
-# Inspect the configured JAVA_HOME path (macOS / Linux)
-echo $JAVA_HOME
+# 3. Verify Docker Engine
+docker --version
+# Expected: Docker version 24.x+ or 26.x+
 ```
 
 ---
 
-### 3. The Java Compilation & Execution Cycle
-
-The path from human-written text to CPU execution occurs across four structured steps:
+## 🗺️ Visual Overview: Compilation to Execution
 
 ```mermaid
 flowchart TD
-    subgraph Step1 ["1. Authoring"]
-        A["Source Code File<br><b>AiPipeline.java</b>"]
+    subgraph DevMachine ["1. DEVELOPMENT STAGE"]
+        Src["MyProgram.java\n(Source Code)"] -->|"javac compiler"| Bytecode["MyProgram.class\n(Universal Bytecode)"]
     end
 
-    subgraph Step2 ["2. Compile Time (javac)"]
-        B["Java Compiler<br><b>javac</b>"]
-        C["Bytecode Binary<br><b>AiPipeline.class</b><br><i>(Magic: 0xCAFEBABE)</i>"]
-        A -->|Lexical, Syntax & Type Analysis| B
-        B -->|Generates Bytecode| C
+    subgraph JVMRuntime ["2. JVM RUNTIME STAGE"]
+        Bytecode -->|"Classloader"| Loading["Loading & Verification"]
+        Loading -->|"Runtime Data Areas"| Memory["Metaspace + Heap + Stacks"]
+        
+        subgraph Engine ["Execution Engine"]
+            Memory --> Interp["Interpreter\n(Line-by-line execution)"]
+            Interp -->|"Spot Hot Loops"| Profiler["HotSpot Profiler"]
+            Profiler -->|"Compile Hot Methods"| JIT["JIT Compiler\n(C1/C2 Native Code)"]
+        end
     end
 
-    subgraph Step3 ["3. ClassLoader Subsystem"]
-        D["<b>Loading</b><br>Reads .class bytes into Metaspace"]
-        E["<b>Linking</b><br>• Verification (Security check)<br>• Preparation (Static zero-init)<br>• Resolution (Symbolic to memory pointers)"]
-        F["<b>Initialization</b><br>Executes static initializers & assigns real values"]
-        C --> D
-        D --> E
-        E --> F
-    end
-
-    subgraph Step4 ["4. JVM Execution Engine"]
-        G["Bytecode Interpreter<br>(Immediate line-by-line execution)"]
-        H["JIT HotSpot Compiler<br>(Translates hot loops to raw machine code)"]
-        I["Native CPU Machine Code<br>(x86-64 / ARM64)"]
-        F --> G
-        G -->|Profiles hot code paths| H
-        H -->|Direct native hardware execution| I
-        G -->|Interpreted execution| I
+    subgraph Hardware ["3. HARDWARE EXECUTION"]
+        Interp --> Native["Physical CPU Execution"]
+        JIT --> Native
     end
 ```
 
-*This diagram illustrates the complete execution pipeline. Source code (`.java`) is compiled by `javac` into universal bytecode (`.class`). The JVM ClassLoader loads, links, and initializes the class into memory, and the Execution Engine balances instant startup via the Interpreter with peak performance via the JIT HotSpot compiler.*
-
-#### The 3 Phases of the ClassLoader Subsystem
-When a class is first referenced in code, the JVM loads it on demand:
-1. **Loading**:
-   - Locates the `.class` file on disk, reads its raw byte stream into memory, and checks for the mandatory magic number `0xCAFEBABE`.
-   - Constructs a `java.lang.Class` instance inside **Metaspace** to represent the blueprint of the class.
-   - Follows the delegation hierarchy: **Bootstrap ClassLoader** (core Java runtime) → **Platform ClassLoader** (extensions/modules) → **Application ClassLoader** (your application's classpath).
-2. **Linking**:
-   - **Verification**: Inspects bytecode instructions to ensure structural safety. Verifies that code does not forge pointers, access illegal memory locations, or overflow operand stacks.
-   - **Preparation**: Allocates memory in Metaspace for all `static` variables and initializes them to **default zeros** (numeric values to `0`, booleans to `false`, object references to `null`). *User values are not assigned yet!*
-   - **Resolution**: Replaces symbolic names in the Runtime Constant Pool (such as `"java/lang/String"`) with **direct physical memory pointers**.
-3. **Initialization**:
-   - Executes all static initialization blocks (`static { ... }`) and assigns the actual programmer-defined values to `static` variables.
-
-#### The Execution Engine: Interpreter vs. JIT Compiler
-- **Interpreter**: Reads bytecode instructions one by one and executes them immediately. Delivers near-zero startup lag.
-- **JIT (Just-In-Time) HotSpot Compiler**: Identifies "hot spots" (methods and loops executed thousands of times) and compiles them directly into native machine code (C1 client compiler for quick compilation; C2 server compiler for aggressive vectorization and inlining). Caches the machine code so subsequent executions run at **bare-metal native hardware speed**.
-
 ---
 
-### 4. Deep JVM Memory Architecture & Runtime Data Areas
+## 💻 Code Walkthrough: Inspecting Your JVM Environment
 
-When the JVM starts up, the operating system assigns it a block of RAM. The JVM divides this RAM into five distinct runtime data areas:
-
-```mermaid
-graph TD
-    subgraph ProcessWide ["Shared Across All Threads (Process-Wide Memory)"]
-        subgraph MetaspaceArea ["Metaspace (Native OS Memory)"]
-            M1["Class Metadata & Bytecode"]
-            M2["Runtime Constant Pool"]
-            M3["Static Variables: DEFAULT_MODEL"]
-        end
-
-        subgraph HeapArea ["Heap Space (Managed by Garbage Collector)"]
-            H1["PromptPayload Object Instance<br>Address: <b>0x7F01</b><br>• userQuery -> 0x8A00 ('Summarize')<br>• temperature: 0.7"]
-            H2["String Literal Payload<br>Address: <b>0x8A00</b><br>'Summarize'"]
-        end
-    end
-
-    subgraph ThreadPrivate ["Thread-Private Memory (Per Running Thread)"]
-        subgraph ThreadStack ["JVM Stack: Thread 'main'"]
-            subgraph FrameMain ["Stack Frame: main()"]
-                LVA1["Local Variable Array:<br>[0] args pointer<br>[1] maxTokens = 1500 (primitive raw bits)<br>[2] promptRef = <b>0x7F01</b> (memory pointer)"]
-                OS1["Operand Stack (LIFO scratchpad for evaluation)"]
-                FD1["Frame Data (return address, exception dispatch)"]
-            end
-        end
-
-        PC["Program Counter (PC) Register<br>Points to bytecode instruction offset"]
-        NMS["Native Method Stack<br>Executes native OS C/C++ system calls (JNI)"]
-    end
-
-    LVA1 -.->|promptRef points to 0x7F01| H1
-    H1 -.->|Class header points to blueprint| M1
-```
-
-*This diagram visualizes the JVM Runtime Data Areas. Metaspace and Heap Space are shared across the entire application. In contrast, each thread receives its own private JVM Stack (divided into Stack Frames containing a Local Variable Array, Operand Stack, and Frame Data), a PC Register (tracking bytecode instruction offsets), and a Native Method Stack.*
-
----
-
-### 🔬 The 5 Runtime Data Areas Explained
-
-#### 1. Metaspace (Method Area)
-- **What lives here**: Class metadata (structural blueprints, field and method descriptors), method bytecodes, `static` variables, and the **Runtime Constant Pool** (string literals, numeric constants, and symbolic references).
-- **Physical Location**: Stored in **native operating system memory** (outside the JVM Heap). Unlike older Java versions (Java 7 and earlier, which used a fixed "PermGen" pool that caused frequent `OutOfMemoryError: PermGen space`), Metaspace expands dynamically based on available system RAM.
-- **Thread Sharing**: Shared across all threads in the application.
-
-#### 2. Heap Space
-- **What lives here**: Every single object created with the `new` keyword, all arrays, and the instance variables belonging to those objects.
-- **Thread Sharing**: Shared across all threads. Any thread with a reference pointer can read or modify heap objects.
-- **Lifecycle**: Managed entirely by the **Garbage Collector**. Objects remain in the Heap until no active Stack Frame or static variable holds a pointer to them.
-
-#### 3. JVM Stack & Stack Frames
-- **What lives here**: Each thread receives a private JVM Stack. Every time a method is invoked, the JVM pushes a new **Stack Frame** onto the stack.
-- **Anatomy of a Stack Frame**:
-  1. **Local Variable Array (LVA)**: An indexed array storing local primitive values and object reference pointers. Slot `0` in instance methods holds the `this` reference; subsequent slots store method parameters and locally declared variables.
-  2. **Operand Stack**: A pushdown LIFO (Last-In, First-Out) workspace where JVM bytecode instructions push values, perform mathematical operations, and pop results before saving them into the Local Variable Array.
-  3. **Frame Data**: Holds reference links to the class's Runtime Constant Pool, method return addresses, and exception handler tables.
-- **Lifecycle**: Strictly LIFO. When a method finishes, its Stack Frame is popped and its memory is instantly freed with **zero Garbage Collection overhead**.
-
-#### 4. Program Counter (PC) Register
-- **What it does**: A dedicated, thread-private register that stores the memory address of the JVM bytecode instruction currently being executed by that thread.
-- **Why it matters**: Modern CPUs use time-slicing to switch between threads (context switching). When a paused thread resumes, its PC Register tells the CPU exactly which bytecode offset to continue executing.
-
-#### 5. Native Method Stack
-- **What it does**: Tracks execution when Java invokes native C or C++ platform code using the **Java Native Interface (JNI)** (e.g., file system I/O, network socket creation, hardware interactions).
-
----
-
-### 🧭 Rule 9: Memory-First Mandate — Primitives vs. Reference Pointers
-
-Java strictly separates all data into two physical storage models:
-
-| Dimension | Primitive Types (`int`, `boolean`, `double`, `char`, etc.) | Reference Types (Objects, Strings, Arrays, Records) |
-|:---|:---|:---|
-| **What the variable holds** | The **actual raw binary bits** representing the value. | A **memory pointer (32-bit or 64-bit numerical address)** pointing to where the object lives on the Heap. |
-| **Storage Location** | Declared as local variable $\rightarrow$ **Stored directly in the Stack Frame**.<br>Declared as instance field $\rightarrow$ **Embedded directly inside the object on the Heap**. | Pointer variable is on the **Stack**; actual payload data is allocated on the **Heap**. |
-| **Copy Semantics** | **Pass-by-value of the bits**: Assigning or passing a primitive duplicates the raw number. | **Pass-by-value of the pointer**: Assigning or passing a reference duplicates the **memory address**, pointing to the identical Heap object! |
-
----
-
-## 💻 Concrete Code Walkthrough: Tracing Variable Allocations in Memory
-
-Let's trace a complete, runnable Java 17+ program line-by-line through compilation, class loading, and physical memory placement:
+Let's write a runnable Java program that inspects your runtime environment, CPU cores, memory limits, and system properties:
 
 ```java
 package com.genai.foundations;
 
-public class AiMemoryTracker {
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
 
-    // 1. Static constant: Lives in Metaspace (shared process-wide)
-    public static final String DEFAULT_PROVIDER = "Anthropic";
+/**
+ * Day 01: System Environment & JVM Inspector
+ * Inspects host architecture, CPU availability, and JVM Heap boundaries.
+ */
+public class SystemEnvironmentInspector {
 
     public static void main(String[] args) {
-        // 2. Local primitive: Raw binary value 1500 stored directly in main's Stack Frame
-        int maxTokens = 1500;
+        System.out.println("=================================================");
+        System.out.println("   🚀 JAVA ECOSYSTEM & JVM ENVIRONMENT INSPECTOR ");
+        System.out.println("=================================================");
 
-        // 3. Local reference: 'prompt' holds memory pointer 0x7F01 in main's Stack Frame;
-        //    The PromptPayload instance data lives on the Heap at address 0x7F01
-        PromptPayload prompt = new PromptPayload("Summarize research paper", 0.7);
+        // 1. Inspect Java Runtime Version and Vendor
+        String javaVersion = System.getProperty("java.version");
+        String javaVendor = System.getProperty("java.vendor");
+        String javaHome = System.getProperty("java.home");
 
-        // 4. Method call: Pushes a new Stack Frame for executePrompt()
-        int usedTokens = executePrompt(prompt, maxTokens);
+        System.out.println("Java Version : " + javaVersion);
+        System.out.println("Java Vendor  : " + javaVendor);
+        System.out.println("Java Home Dir: " + javaHome);
 
-        System.out.println("Execution finished using tokens: " + usedTokens);
-    }
+        // 2. Inspect Host Hardware & Operating System Architecture
+        String osName = System.getProperty("os.name");
+        String osArch = System.getProperty("os.arch");
+        int availableProcessors = Runtime.getRuntime().availableProcessors();
 
-    public static int executePrompt(PromptPayload payload, int tokenLimit) {
-        // A new Stack Frame is created here!
-        // 'payload' holds a COPIED pointer (0x7F01) pointing to the same Heap object
-        // 'tokenLimit' holds a COPIED primitive value (1500)
-        boolean isSafe = payload.temperature() <= 1.0;
-        int finalAllocation = isSafe ? tokenLimit : 0;
-        return finalAllocation;
-        // When this method returns, this Stack Frame is instantly popped and destroyed!
+        System.out.println("\n--- Host Hardware Telemetry ---");
+        System.out.println("Operating System : " + osName);
+        System.out.println("CPU Architecture : " + osArch);
+        System.out.println("Available Cores  : " + availableProcessors + " logical cores");
+
+        // 3. Inspect JVM Memory Boundaries (Heap Allocation)
+        Runtime runtime = Runtime.getRuntime();
+        long maxMemoryMB = runtime.maxMemory() / (1024 * 1024);
+        long totalMemoryMB = runtime.totalMemory() / (1024 * 1024);
+        long freeMemoryMB = runtime.freeMemory() / (1024 * 1024);
+
+        System.out.println("\n--- JVM Heap Memory Boundaries ---");
+        System.out.println("Max Heap Allowed (-Xmx)   : " + maxMemoryMB + " MB");
+        System.out.println("Current Allocated Heap    : " + totalMemoryMB + " MB");
+        System.out.println("Free Memory Within Heap   : " + freeMemoryMB + " MB");
+
+        // 4. Inspect Metaspace & Non-Heap Memory
+        MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
+        long nonHeapUsedMB = memoryBean.getNonHeapMemoryUsage().getUsed() / (1024 * 1024);
+        System.out.println("Non-Heap (Metaspace) Used : " + nonHeapUsedMB + " MB");
+
+        System.out.println("=================================================");
+        System.out.println("   ✅ ENVIRONMENT VERIFIED: READY FOR GENAI COURSE");
+        System.out.println("=================================================");
     }
 }
-
-// Immutable record representing prompt configuration
-record PromptPayload(String query, double temperature) {}
 ```
 
-### Physical Memory Allocation Trace Table
+### Line-by-Line Technical Breakdown
 
-| Execution Step | Memory Area | What Physically Happens in RAM |
+- **`package com.genai.foundations;`**: Declares that this class belongs to the `com.genai.foundations` namespace. The source file must be stored in `com/genai/foundations/SystemEnvironmentInspector.java`.
+- **`public class SystemEnvironmentInspector`**: Defines an accessible class blueprint. In Java, public classes must match their filename exactly (`SystemEnvironmentInspector.java`).
+- **`public static void main(String[] args)`**: The universal entrypoint of every Java application:
+  - `public`: Accessible by the JVM launcher from outside the class.
+  - `static`: Can be invoked without first instantiating an object on the Heap.
+  - `void`: Does not return any value to the operating system shell upon standard completion.
+  - `String[] args`: Accepts command-line arguments passed from the terminal.
+- **`System.getProperty("java.version")`**: Queries the JVM's runtime configuration dictionary for environment properties.
+- **`Runtime.getRuntime().availableProcessors()`**: Inspects the host operating system to determine how many CPU threads can be scheduled concurrently — critical later when tuning Virtual Threads and Thread Pools for AI workloads.
+- **`runtime.maxMemory()`**: Reads the upper boundary of RAM the JVM can allocate to the Heap before throwing `OutOfMemoryError`. This is configurable via the `-Xmx` JVM flag (e.g., `-Xmx4g`).
+
+---
+
+## 🔬 Let's Trace Through It: From Command Line to Console Output
+
+Let's trace the exact chronological sequence when you compile and run this class from your terminal:
+
+```bash
+# Step 1: Compile the source file
+javac -d target/classes src/main/java/com/genai/foundations/SystemEnvironmentInspector.java
+
+# Step 2: Run the compiled class
+java -cp target/classes com.genai.foundations.SystemEnvironmentInspector
+```
+
+| Phase | Component | What Physically Happens in Memory & Hardware |
 |:---|:---|:---|
-| **Class Loading** | **Metaspace** | The ClassLoader reads `AiMemoryTracker.class`. Class metadata, method bytecodes, and the static reference `DEFAULT_PROVIDER` are placed in Metaspace. |
-| `main()` Invocation | **JVM Stack** | The JVM pushes a new **Stack Frame** for `main()`. The thread's **PC Register** is set to instruction offset `0`. |
-| `int maxTokens = 1500;` | **Stack (Local Variable Array)** | Slot `1` in `main`'s Local Variable Array is loaded with the raw 32-bit binary integer representation of `1500`. |
-| `new PromptPayload(...)` | **Heap Space** | The JVM carves out a new object block at memory address `0x7F01` on the **Heap**. The string literal `"Summarize..."` is referenced from the constant pool, and `0.7` is written into the object's instance field. |
-| `PromptPayload prompt = ...` | **Stack (Local Variable Array)** | Slot `2` in `main`'s Local Variable Array receives the 64-bit memory pointer `0x7F01`. |
-| `executePrompt(prompt, maxTokens)` | **JVM Stack** | A **second Stack Frame** is pushed on top of `main`'s frame. Pointer `0x7F01` is copied into parameter slot `0` (`payload`), and raw value `1500` is copied into slot `1` (`tokenLimit`). |
-| `boolean isSafe = ...` | **Stack (Operand Stack & LVA)** | The Operand Stack evaluates the condition `0.7 <= 1.0` (push `0.7`, push `1.0`, compare), and stores boolean value `true` in slot `2`. |
-| `return finalAllocation;` | **JVM Stack** | The return value `1500` is passed back to `main()`. The `executePrompt()` Stack Frame is **popped off the stack and deallocated**. Memory is reclaimed immediately! |
+| **1. Compilation** | `javac` | Parses syntax, validates that `ManagementFactory` exists, verifies types, and writes `SystemEnvironmentInspector.class` bytecode containing opcodes to disk. |
+| **2. Process Launch** | OS Kernel & JVM | Operating system starts a new process, allocates a base virtual memory address space, and launches the JVM execution binary. |
+| **3. Class Loading** | Application ClassLoader | Reads the `.class` file, verifies bytecode safety, and loads class metadata and method descriptors into **Metaspace**. |
+| **4. Main Thread Spawn** | JVM Execution Engine | Spawns the `main` application thread, allocates a private **JVM Thread Stack**, and pushes the `main()` **Stack Frame** onto the top. |
+| **5. Interpretation & JNI** | Interpreter | Interpreter reads `Runtime.getRuntime()`, executes JNI calls into the host C++ runtime to read OS hardware properties, and pushes results into the Operand Stack. |
+| **6. Output & Exit** | Native Output Stream | Text bytes are written to the OS standard output buffer. The `main()` stack frame is popped, the main thread terminates, and the JVM process exits cleanly with code `0`. |
 
 ---
 
-### 5. Package Structures, Directory Mapping, and Access Specifiers
+## 🧩 Why It's Designed This Way
 
-In enterprise Java, applications are organized using hierarchical namespaces called **packages**.
+### Why not compile directly to native machine code like C/C++?
+If Java compiled directly to native machine code, we would lose **Write Once, Run Anywhere**. You would have to recompile and test separate binary distributions for Windows x86, Linux x86, macOS ARM64, and cloud servers. Furthermore, direct machine code compilation bypasses the security sandbox and automatic memory bounds checking that prevent memory corruption vulnerabilities.
 
-#### The Physical Directory Rule
-Java strictly enforces that your package declaration **must match your physical operating system folder layout**:
-
-```
-Project Root Folder:
-└── src/
-    └── main/
-        └── java/
-            └── com/
-                └── genai/
-                    └── foundations/
-                        └── AiMemoryTracker.java   <-- package com.genai.foundations;
-```
-
-If `AiMemoryTracker.java` declares `package com.genai.foundations;`, but you save it directly inside `src/AiMemoryTracker.java`, the compiler rejects the file with a fatal error: `Package declaration does not match directory path`.
-
-#### Access Specifiers: Guarding Class Boundaries
-
-Java provides four access levels to enforce encapsulation:
-
-```
-Most Restrictive ───────────────────────────────────────────► Most Accessible
-[private]  ──►  [package-private (default)]  ──►  [protected]  ──►  [public]
-```
-
-| Modifier | Keyword | Accessible from Same Class? | Accessible from Same Package? | Accessible from Subclass in Different Package? | Accessible from Anywhere in Universe? | Real-World Architecture Role |
-|:---|:---|:---:|:---:|:---:|:---:|:---|
-| **Private** | `private` | ✅ Yes | ❌ No | ❌ No | ❌ No | Internal fields (API keys, raw tokens, helper methods). |
-| **Package-Private** | *(no keyword)* | ✅ Yes | ✅ Yes | ❌ No | ❌ No | Internal package helpers; classes that collaborate within the package. |
-| **Protected** | `protected` | ✅ Yes | ✅ Yes | ✅ Yes | ❌ No | Extensible framework hooks for subclasses. |
-| **Public** | `public` | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | The official public API of your class or service. |
-
----
-
-### 6. Build Tools Overview: Maven and Gradle
-
-In modern enterprise AI systems, your code relies on third-party libraries:
-- HTTP clients to invoke OpenAI or Anthropic REST APIs.
-- JSON serialization libraries (like Jackson).
-- Vector database connectors.
-
-#### The "Jar Hell" Dilemma (Before Build Tools)
-In early Java development, engineers had to manually download compressed library files called **JARs** (Java ARchives) and copy them into a `/lib` folder.
-- If your code needed `Library-A` (v2.0), and `Library-A` depended on `Library-B` (v1.5), you had to manually track down and download `Library-B`. This is called a **transitive dependency**.
-- If another library needed `Library-B` (v1.0), the two versions clashed, causing runtime crashes known as **Jar Hell**.
-
-#### How Maven & Gradle Construct Classpaths
-Modern build tools automate the entire software lifecycle:
-1. **Automated Dependency Trees**: You declare what you need in a single configuration file (`pom.xml` for Maven, `build.gradle` for Gradle). The build tool queries Maven Central, downloads the exact library, recursively resolves its transitive dependencies, and constructs the compile-time and runtime **classpath**.
-2. **Standardized Directory Convention**: Every project follows an identical layout (`src/main/java`, `src/test/java`), allowing any Java developer to contribute immediately.
-3. **Build Lifecycle Automation**: A single command (`mvn clean package`) compiles your code, runs unit tests, and packages your application into an executable `.jar` file.
-
-#### Minimal Maven `pom.xml` Example
-```xml
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
-         https://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
-
-    <groupId>com.genai</groupId>
-    <artifactId>ai-memory-tracker</artifactId>
-    <version>1.0.0</version>
-
-    <properties>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
-
-    <dependencies>
-        <!-- Automated transitive dependency resolution -->
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>2.0.12</version>
-        </dependency>
-    </dependencies>
-</project>
-```
-
----
-
-## 🔑 Key Terminology
-
-| Term | Plain-English Meaning |
-|:---|:---|
-| **JVM (Java Virtual Machine)** | The abstract computing engine that executes compiled `.class` bytecode instructions. |
-| **JDK (Java Development Kit)** | The full developer kit containing the compiler (`javac`), runtime launcher (`java`), and developer tools. |
-| **Metaspace** | The native OS memory area where the JVM stores class blueprints, method bytecodes, and static variables. |
-| **Heap Space** | The shared memory area where all instantiated objects created with `new` and all arrays are allocated. |
-| **JVM Stack Frame** | A thread-local block of memory pushed onto the stack for a single method execution, containing local variables, the operand stack, and frame data. |
-| **Local Variable Array** | The zero-indexed array inside a Stack Frame storing local primitive values and object reference pointers. |
-| **Operand Stack** | A LIFO scratchpad inside a Stack Frame where bytecode instructions push operands, perform arithmetic, and pop results. |
-| **PC Register** | A thread-private register tracking the memory address of the bytecode instruction currently being executed. |
-| **Memory Pointer / Reference** | A numerical address in RAM pointing to where an object's actual data is physically located on the Heap. |
-| **Transitive Dependency** | A secondary library that your directly declared library depends upon to function. |
+### Why not use a pure interpreter like Python?
+A pure interpreter parses human-readable text on every single line execution. Java's two-step approach — compiling to bytecode first, then executing with a JIT compiler — gives the best of both worlds:
+1. **Ahead-of-time checking**: The compiler catches typos, invalid method calls, and type mismatches before runtime.
+2. **Peak execution speed**: The HotSpot JIT compiler compiles heavily executed bytecode directly into native machine code at runtime, matching or approaching the speed of raw C++ for long-running server processes.
 
 ---
 
 ## ⚠️ Common Beginner Mistakes
 
-### 1. Appending `.class` When Running the `java` Command
-Beginners often pass the file name with its extension to the `java` runtime command.
-
-❌ **Wrong Way**:
+### Mistake 1: Appending `.class` When Running the Application
 ```bash
-javac AiMemoryTracker.java
-java AiMemoryTracker.class    # Fails with: Could not find or load main class AiMemoryTracker.class
+# ❌ WRONG: Passing the file extension to the java launcher
+java com.genai.foundations.SystemEnvironmentInspector.class
+
+# Error: Could not find or load main class com.genai.foundations.SystemEnvironmentInspector.class
+```
+**Why it fails**: `javac` expects a **file path** (`MyClass.java`), but `java` expects a **fully qualified class name** (`com.package.MyClass`). When you add `.class`, the JVM searches for a nested class named `class` inside your class!
+```bash
+# ✅ CORRECT: Pass the fully qualified class name without extension
+java -cp target/classes com.genai.foundations.SystemEnvironmentInspector
 ```
 
-✅ **Right Way**:
-```bash
-javac AiMemoryTracker.java
-java AiMemoryTracker          # Provide the CLASS name only, never the file extension!
-```
-*Why it is wrong*: The `javac` compiler expects a **file path** (`AiMemoryTracker.java`), but the `java` runtime launcher expects a **fully-qualified class name** (`AiMemoryTracker`). Appending `.class` causes Java to look for a nested class named `class` inside a package named `AiMemoryTracker`.
-
----
-
-### 2. Appending `/bin` to the `JAVA_HOME` Environment Variable
-Setting `JAVA_HOME` directly to the `bin` folder breaks build tools.
-
-❌ **Wrong Way**:
-```bash
-JAVA_HOME="C:\Program Files\Eclipse Adoptium\jdk-21.0.2.13-hotspot\bin"
-```
-
-✅ **Right Way**:
-```bash
-JAVA_HOME="C:\Program Files\Eclipse Adoptium\jdk-21.0.2.13-hotspot"
-PATH="%JAVA_HOME%\bin;%PATH%"
-```
-*Why it is wrong*: Build tools like Maven and Gradle append `/bin` or `/lib` internally to find specific utilities. If your `JAVA_HOME` already contains `\bin`, Maven searches for `JAVA_HOME/bin/bin/java.exe` and crashes immediately.
-
----
-
-### 3. Assuming Object Assignment Creates a Duplicate Copy (The Pointer Trap)
-Beginners often assume assigning one object variable to another creates a separate duplicate copy of the object in memory.
-
-❌ **Wrong Way**:
+### Mistake 2: Directory Path Mismatching Package Declaration
 ```java
-PromptPayload p1 = new PromptPayload("Explain AI", 0.7);
-PromptPayload p2 = p1; // Does NOT duplicate the object!
-
-// Both p1 and p2 hold the IDENTICAL pointer (e.g., 0x7F01) pointing to the same Heap object!
+// File located on disk at: src/SystemEnvironmentInspector.java
+package com.genai.foundations; // ❌ Package declared, but folder structure is flat!
+```
+**Why it fails**: The Java ClassLoader strictly enforces that packages mirror directory paths. If the package is `com.genai.foundations`, the file must reside in `com/genai/foundations/`.
+```
+# ✅ CORRECT directory structure:
+src/main/java/com/genai/foundations/SystemEnvironmentInspector.java
 ```
 
-✅ **Right Way**:
-```java
-// If you need an independent object in Heap memory, allocate a new instance:
-PromptPayload p1 = new PromptPayload("Explain AI", 0.7);
-PromptPayload p2 = new PromptPayload(p1.query(), p1.temperature());
+### Mistake 3: Setting `PATH` to the JDK Root Instead of the `bin` Folder
+```bash
+# ❌ WRONG: Pointing PATH to the JDK root
+PATH=C:\Program Files\Java\jdk-21
+
+# Terminal output: 'javac' is not recognized as an internal or external command
 ```
-*Why it is wrong*: In Java, reference variables store memory addresses, not raw data payloads. Assigning `p2 = p1` merely duplicates the 64-bit pointer address. Both variables now point to the exact same physical memory block on the Heap.
+**Why it fails**: The executable binaries (`javac.exe`, `java.exe`) live inside the `bin` subdirectory.
+```bash
+# ✅ CORRECT: Point JAVA_HOME to root, and PATH to bin
+JAVA_HOME=C:\Program Files\Java\jdk-21
+PATH=%JAVA_HOME%\bin;%PATH%
+```
 
 ---
 
 ## ✅ Best Practices
 
-1. **Standardize on Modern LTS Java (Java 21)**: Always build on Long-Term Support releases like Java 21 to take advantage of native Metaspace optimizations, modern language features, and enhanced JIT compiler performance.
-2. **Keep Stack Frames Small and Ephemeral**: Write focused, short methods. Small methods keep Stack Frames compact and ensure memory is reclaimed almost instantaneously when the method returns, keeping your application fast.
-3. **Always Declare Explicit Packages**: Never place production Java classes in the default (unnamed) package. Always organize classes into reverse-domain packages (`com.company.module`) that match your directory structure.
-4. **Enforce Least Privilege with Access Modifiers**: Keep all instance fields `private`. Only expose methods as `public` if they are part of the class's official public API contract.
+1. **Standardize on LTS Releases**: In enterprise environments, always deploy to Long-Term Support (LTS) releases (Java 17 or Java 21). Java 21 is our standard for this course because it includes Virtual Threads and Sequenced Collections.
+2. **Explicitly Set `JAVA_HOME`**: Never rely on OS auto-detect wrappers. Always explicitly export `JAVA_HOME` in your shell profile (`.bashrc`, `.zshrc`, or Windows Environment Variables) so tools like Maven and Docker use the exact intended runtime.
+3. **Keep `src/main/java` Sacred**: Never place compiled `.class` files in your source directories. Always configure build output to a dedicated build folder (like `target/` in Maven or `build/` in Gradle) and ensure it is ignored in `.gitignore`.
+4. **Tune Heap Boundaries Consciously in Production**: When deploying containerized Java services, always set explicit JVM memory boundaries (e.g., `-XX:MaxRAMPercentage=75.0` or `-Xmx2g`) so the JVM cooperates cleanly with Docker container limits.
 
 ---
 
 ## 🔭 Looking Ahead
-In **Day_02**, we will build directly upon this foundation in **OOP Classes, Objects, and Memory**: exploring constructors, the `this` reference, heap object lifecycle, and how the **Garbage Collector** detects and cleans up abandoned objects in RAM.
+
+Now that your Java 21 environment is operational and you understand how the JVM compiles and executes bytecode, we are ready to dive into the core engine of Java: **Object-Oriented Programming and Memory Mechanics**.
+
+In **Day 02**, you will learn:
+- The mechanical difference between a **Class** in Metaspace and an **Object** allocated on the Heap.
+- How the JVM executes the **3-step allocation sequence** during `new ClassName()`.
+- What happens inside the invisible **Object Header** (Mark Word & Klass Word).
+- How the `this` reference is silently passed into Stack Frames as an implicit parameter.
+- How to prevent insidious reference corruption bugs using **defensive copying**.
 
 ---
 
 ## 📝 Quick Recap
-- The **JDK** contains the compiler and tools; the **JRE** provides the runtime libraries; the **JVM** is the virtual execution engine.
-- `javac` compiles `.java` source files into platform-neutral `.class` bytecode; the **JVM** executes bytecode using an **Interpreter** and a **JIT HotSpot Compiler**.
-- The **ClassLoader Subsystem** executes three phases: **Loading** (reading `.class` bytes), **Linking** (Verification, Preparation [zero-initialization], and Resolution [pointer mapping]), and **Initialization** (executing static blocks).
-- Physical RAM is divided into **Metaspace** (class metadata and static fields), **Heap Space** (objects and arrays), and thread-private **JVM Stacks** (Stack Frames holding local variables and operand stacks).
-- **Primitives** store raw binary values directly in the Stack Frame; **reference types** store memory pointers that point to object payloads living on the Heap.
-- Modern build tools like **Maven** and **Gradle** automate dependency tree resolution, classpath configuration, and project packaging.
+
+- **JDK** contains tools + compiler (`javac`) + runtime (JRE). **JRE** contains libraries + JVM. **JVM** executes bytecode on the host hardware.
+- The OS finds binaries by checking directory paths listed in the `PATH` environment variable.
+- Java source files (`.java`) compile into universal, platform-neutral bytecode (`.class`) via `javac`.
+- The JVM uses a **hybrid execution engine**: the **Interpreter** starts immediately, while the **HotSpot JIT Compiler** turns frequently called hot code into native CPU machine code for peak speed.
+- The JVM partitions memory into **Metaspace** (class blueprints & static data), **Heap Space** (objects & instances), and **Thread Stacks** (method execution frames, local variables, and calculation operands).
+- Packages prevent name collisions and must map directly to physical folder paths on disk.
 
 ---
 
 ## 🧪 Try It Yourself
 
-1. **Terminal Inspection**: Open your terminal. Run `javac -version` and `java -version`. Check that both commands report the exact same Java 21 LTS version, and verify that `JAVA_HOME` points to the JDK root.
-2. **Bytecode Disassembly with `javap`**: Compile `AiMemoryTracker.java` using `javac AiMemoryTracker.java`. Then run `javap -c -v AiMemoryTracker` in your terminal to inspect the constant pool, opcode instructions (`sipush`, `invokevirtual`, `ireturn`), and the maximum stack depth calculated for the Operand Stack.
-3. **Memory Experiment**: Inside a test class, create two reference variables pointing to the same instance (`p2 = p1`). Modify a mutable field on `p2` and observe how `p1` reflects the change, proving that both variables share the identical memory address on the Heap.
+1. **Verify Your Environment**:
+   Run `javac --version` and `java --version`. Verify that both report Java 21. If they differ, inspect your `PATH` and `JAVA_HOME` configuration to resolve the discrepancy.
+2. **Execute the Environment Inspector**:
+   Create a new file `SystemEnvironmentInspector.java` in the proper package directory (`src/main/java/com/genai/foundations/SystemEnvironmentInspector.java`). Compile it from your terminal using `javac` and run it using `java`. Observe how many CPU cores and how much Heap RAM your JVM allocates by default.
+3. **Experiment with JVM Heap Flags**:
+   Run the inspector again, but pass an explicit maximum Heap flag:
+   ```bash
+   java -Xmx512m -cp target/classes com.genai.foundations.SystemEnvironmentInspector
+   ```
+   Verify that `Max Heap Allowed` now prints approximately `512 MB`.
+
+---
+
+| ⬅️ Previous Day | 📚 Course Hub | ➡️ Next Day |
+|:---|:---:|---:|
+| *🚀 Course Inception* | [Course Hub](../../README.md) | [Day 02: OOP — Classes, Objects & Memory →](../Day_02_OOP_Classes_Objects_Memory/Day_02_OOP_Classes_Objects_Memory.md) |
