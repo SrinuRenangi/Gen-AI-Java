@@ -1,40 +1,41 @@
-# Day_07 — Concurrency, Multithreading, and Virtual Threads in Memory
+# Phase_01, Day_07 — Concurrency, Multithreading, and Virtual Threads in Memory
 
 | ⬅️ Previous Day | 📚 Course Hub | ➡️ Next Day |
 |:---|:---:|---:|
-| [← Day 06: Functional Programming & Streams](../Day_06_Functional_Programming_Streams/Day_06_Functional_Programming_Streams.md) | [All 60 Days Overview](../../README.md) | [Day 08: I/O, HTTP Client, JSON & Testing →](../Day_08_IO_HTTP_JSON_Testing/Day_08_IO_HTTP_JSON_Testing.md) |
+| [← Day 06: Functional Programming & Streams](../Day_06_Functional_Programming_Streams/Day_06_Functional_Programming_Streams.md) | [Course Hub](../../README.md) | [Day 08: I/O, HTTP Client, JSON & Testing Basics →](../Day_08_IO_HTTP_JSON_Testing/Day_08_IO_HTTP_JSON_Testing.md) |
 
 ---
 
 ## 🎯 What You'll Understand By the End
+
 - The physical memory anatomy of a **Platform Thread**: why each thread consumes a fixed 1 MB OS stack, and why this causes server crashes under heavy concurrent I/O.
 - The **Java Memory Model (JMM)**: how thread-local working memory (CPU registers, L1/L2 caches, Stack Frames) interacts with Main Memory (Heap/RAM).
 - How the **`volatile`** keyword forces memory barriers and cache invalidation, and why `volatile` guarantees visibility but **not** atomicity.
-- How **`synchronized`** operates under the hood via object monitor locks and Object Header Mark Word inflation (biased $\rightarrow$ thin $\rightarrow$ fat locks).
+- How **`synchronized`** operates under the hood via object monitor locks and Object Header Mark Word inflation (thin lock $\rightarrow$ fat OS mutex).
 - How atomic variables (`AtomicInteger`) achieve thread safety without locks using hardware **Compare-And-Swap (CAS)** CPU instructions.
 - The revolution of **Virtual Threads (Java 21 / Project Loom)**: how continuation call stacks live as lightweight objects on the **Heap** (bytes instead of megabytes), and how mounting/unmounting solves the I/O blocking dilemma.
 - The **Thread Pinning** trap and why modern Java architecture replaces `synchronized` with `ReentrantLock`.
 
 ---
 
-## 🧠 The Problem This Solves
+## 🧠 The Problem This Solves / Why This Comes Up
 
 Building high-scale GenAI systems exposes a fundamental flaw in traditional operating system threading:
 
-1. **The 1-to-1 Thread Memory Trap**:
-   In traditional Java, every Java thread is a **Platform Thread**, mapped 1-to-1 to an Operating System (OS) kernel thread.
-   - Each platform thread pre-allocates a fixed **1 MB of reserved memory** on the native operating system stack (`-Xss1m`).
-   - If your AI backend handles 5,000 concurrent user sessions, your server consumes **5 GB of RAM** just to keep the thread stacks alive in memory!
-   - When traffic spikes to 10,000 concurrent connections, the operating system kernel refuses to allocate more threads, crashing your application with:
-     `java.lang.OutOfMemoryError: unable to create native thread`.
+### 1. The 1-to-1 Thread Memory Trap
+In traditional Java, every Java thread is a **Platform Thread**, mapped 1-to-1 to an Operating System (OS) kernel thread:
+- Each platform thread pre-allocates a fixed **1 MB of reserved memory** on the native operating system stack (`-Xss1m`).
+- If your AI backend handles 5,000 concurrent user sessions, your server consumes **5 GB of RAM** just to keep the thread stacks alive in memory!
+- When traffic spikes to 10,000 concurrent connections, the operating system kernel refuses to allocate more threads, crashing your application with:
+  `java.lang.OutOfMemoryError: unable to create native thread`.
 
-2. **The Blocking I/O Bottleneck in GenAI**:
-   Calling a Large Language Model (like OpenAI, Anthropic, or local Ollama) is not a millisecond database query. It takes **1 to 10 full seconds** of waiting for streaming network I/O.
-   - Under the platform thread model, an expensive 1 MB OS thread sits completely frozen, idle, and blocked on a network socket, burning CPU scheduling cycles and memory.
-   - Historically, developers had to rewrite applications using complex "reactive" asynchronous frameworks (like WebFlux, Project Reactor, RxJava) to release threads during I/O. This turned readable, sequential code into unmaintainable callback mazes.
+### 2. The Blocking I/O Bottleneck in GenAI
+Calling a Large Language Model (like OpenAI, Anthropic, or local Ollama) is not a millisecond database query. It takes **1 to 10 full seconds** of waiting for streaming network I/O.
+- Under the platform thread model, an expensive 1 MB OS thread sits completely frozen, idle, and blocked on a network socket, burning CPU scheduling cycles and memory.
+- Historically, developers had to rewrite applications using complex "reactive" asynchronous frameworks (like WebFlux, Project Reactor) to release threads during I/O. This turned readable, sequential code into unmaintainable callback mazes.
 
-3. **Silent Data Corruption (Race Conditions)**:
-   When multiple threads read and write shared variables on the Heap simultaneously without memory synchronization, CPU hardware caches cause threads to read stale data, leading to corrupted token counts and billing discrepancies.
+### 3. Silent Data Corruption (Race Conditions)
+When multiple threads read and write shared variables on the Heap simultaneously without memory synchronization, CPU hardware caches cause threads to read stale data, leading to corrupted token counts and billing discrepancies.
 
 **Virtual Threads** (Java 21) eliminate the 1-to-1 OS thread limitation, allowing you to write simple, synchronous, blocking code while spinning up **millions** of concurrent lightweight tasks.
 
@@ -42,7 +43,9 @@ Building high-scale GenAI systems exposes a fundamental flaw in traditional oper
 
 # Section 1: Concurrency Mental Model & Thread Anatomy in Memory
 
-## 🔬 Platform Threads vs. OS Kernel Threads (Rule 9: Memory-First Mandate)
+---
+
+## 🔬 Platform Threads vs. OS Kernel Threads
 
 A **Platform Thread** is a Java wrapper around a native operating system kernel thread (created via `pthread_create` on Linux/macOS or `CreateThread` on Windows).
 
@@ -54,9 +57,9 @@ Operating System Kernel
   └── Native OS Thread N ──► Memory limit reached! (Cannot scale beyond ~5,000 threads)
 ```
 
-- **Thread-Private Memory**: Each platform thread owns an isolated **JVM Stack**. This stack holds method Stack Frames, local primitive variables, and reference pointers. No other thread can inspect another thread's stack.
-- **Shared Memory**: All threads share the same **Heap Space** and **Metaspace**. Any thread holding a memory address pointer can read and write objects on the Heap.
-- **Context Switching Cost**: When the OS switches CPU cores between platform threads, it must save CPU registers, switch kernel memory pages, and flush the CPU Translation Lookaside Buffer (TLB), incurring massive latency.
+- **Thread-Private Memory**: Each platform thread owns an isolated **JVM Stack**. This stack holds method Stack Frames, local primitive variables, and reference pointers. No thread can inspect another thread's stack.
+- **Shared Memory**: All threads share the same **Heap Space** and **Metaspace**. Any thread holding a reference pointer can read and write objects on the Heap.
+- **Context Switching Cost**: When the OS switches CPU cores between platform threads, it must save CPU registers, switch kernel memory pages, and flush CPU caches, incurring significant latency.
 
 ---
 
@@ -90,11 +93,11 @@ flowchart TD
     BARRIER -.->|Invalidates L1/L2 caches| REG2
 ```
 
-*This diagram illustrates the Java Memory Model. Each CPU core maintains local hardware caches. Without memory barriers, Thread A can write a new value to an object on the Heap, but the update remains trapped in Core 1's cache. Thread B continues reading the stale value from Core 2's cache.*
-
 ---
 
 # Section 2: Thread Safety & Memory Synchronization
+
+---
 
 ## ⚔️ Race Conditions: Why `count++` is Dangerous
 
@@ -120,7 +123,7 @@ Many developers assume a simple increment like `totalTokens++` is atomic. In phy
 Declaring a field `private volatile boolean isRunning = true;` instructs the Java compiler and CPU:
 
 1. **Bypasses CPU Hardware Caches**: Every read of a `volatile` variable reads directly from **Main Memory (RAM)**. Every write flushes immediately through the CPU cache to Main Memory.
-2. **Memory Barriers (Hardware Fences)**: Prevents the CPU and JIT compiler from reordering read and write instructions around the barrier.
+2. **Memory Barriers (Hardware Fences)**: Prevents the CPU and JIT compiler from reordering instructions across the barrier.
 3. **The Happens-Before Guarantee**: A write to a `volatile` field *happens-before* every subsequent read of that field by any other thread.
 
 > ⚠️ **The Critical Caveat**: `volatile` guarantees **visibility** (no stale cache reads), but it does **NOT guarantee atomicity**! Declaring `private volatile int count;` will **still suffer race conditions** on `count++` because `count++` requires three distinct operations!
@@ -133,7 +136,7 @@ Java provides mutual exclusion using the `synchronized` keyword. Every object on
 
 ### Lock Inflation in the Object Header Mark Word:
 When a thread enters `synchronized(lockObj)`:
-1. **Biased / Lightweight Locking (Thin Lock)**: The JVM attempts to acquire the lock using a fast CPU Compare-And-Swap (CAS) instruction, recording a lock record on the thread's Stack Frame. No operating system kernel calls are made.
+1. **Lightweight Locking (Thin Lock)**: The JVM attempts to acquire the lock using a fast CPU Compare-And-Swap (CAS) instruction, recording a lock record on the thread's Stack Frame. No operating system kernel calls are made.
 2. **Heavyweight Inflation (Fat Lock)**: If multiple threads contend for the lock simultaneously, the JVM inflates the lock. It alters the **Mark Word** in the Object Header to point to an operating system **Mutex / Monitor**. Contending threads are suspended by the OS kernel and placed in a wait queue, incurring heavy context switching overhead.
 
 ---
@@ -160,30 +163,13 @@ totalTokens.incrementAndGet(); // Atomic CPU hardware operation
 
 ---
 
-# Section 3: Thread Pools & Structured Execution
-
-Creating and destroying 1 MB platform threads on every request causes massive memory churn and Garbage Collection pauses. **Thread Pools (`ExecutorService`)** solve this by keeping a pool of worker threads alive on the Heap:
-
-```java
-// Pre-allocates a fixed pool of 10 platform threads (10 MB total stack memory)
-ExecutorService executor = Executors.newFixedThreadPool(10);
-
-Callable<String> task = () -> callOpenAiApi("Summarize prompt");
-Future<String> future = executor.submit(task);
-
-// Blocks until task finishes, or throws TimeoutException
-String result = future.get(5, TimeUnit.SECONDS); 
-```
-
-### Resource Exhaustion Risk with Thread Pools:
-- `Executors.newCachedThreadPool()`: Spawns an unbounded number of new platform threads whenever existing threads are busy. Under sudden traffic spikes, it can allocate 10,000+ OS threads, instantly crashing the server with native memory exhaustion.
-- `Executors.newFixedThreadPool(10)`: Uses an unbounded `LinkedBlockingQueue`. If tasks arrive faster than worker threads can process them, millions of tasks accumulate in the queue, exhausting Heap memory (`OutOfMemoryError: Java heap space`).
+# Section 3: Modern Concurrency: Virtual Threads (Java 21+)
 
 ---
 
-# Section 4: Modern Concurrency: Virtual Threads (Java 21+)
+## 🚀 The Virtual Thread Architecture
 
-**Virtual Threads** (introduced in Java 21 via Project Loom) decouple the Java thread abstraction from physical operating system kernel threads.
+**Virtual Threads** (Java 21 / Project Loom) decouple the Java thread abstraction from physical operating system kernel threads:
 
 ```mermaid
 sequenceDiagram
@@ -209,8 +195,6 @@ sequenceDiagram
     VT->>CT: Virtual Thread resumes execution seamlessly!
 ```
 
-*This diagram illustrates the lifecycle of a Virtual Thread. When a Virtual Thread issues a blocking I/O network call, the JVM unmounts it from the Carrier Thread, parking its stack on the Heap. The Carrier Thread is immediately free to run other tasks. When the network response returns, the Virtual Thread is remounted and resumes.*
-
 ---
 
 ## 🔬 Virtual Thread Memory Architecture: Heap Continuations vs. 1 MB Stacks
@@ -218,7 +202,7 @@ sequenceDiagram
 | Architectural Dimension | Platform Thread (Classic) | Virtual Thread (Java 21+) |
 |:---|:---|:---|
 | **OS Mapping** | **1-to-1**: Mapped directly to an OS kernel thread. | **M-to-N**: Millions of virtual threads multiplexed onto a few Carrier Threads. |
-| **Stack Memory Footprint** | **Fixed 1 MB pre-allocation** on native OS stack (`-Xss1m`). | **Dynamic Continuation on the Heap**: Starts at only **a few hundred bytes**! Expands/contracts as needed. |
+| **Stack Memory Footprint** | **Fixed 1 MB pre-allocation** on native OS stack (`-Xss1m`). | **Dynamic Continuation on the Heap**: Starts at only **a few hundred bytes**! Expands and contracts as needed. |
 | **Maximum Concurrency** | ~2,000 to 5,000 threads before OS memory exhaustion. | **1,000,000+ concurrent threads** running comfortably in standard RAM. |
 | **Blocking I/O Cost** | High: OS thread freezes, wasting 1 MB of RAM and scheduling cycles. | Near Zero: Unmounts from carrier thread; stack parked on Heap. |
 | **Creation Cost** | Expensive: Requires OS kernel system call (`pthread_create`). | Ultra-fast: Simple Java object allocation on the Heap. |
@@ -227,19 +211,19 @@ sequenceDiagram
 
 ## 🚫 The Thread Pinning Trap: `synchronized` vs. `ReentrantLock`
 
-> ⚠️ **Critical Modern Java Rule**: When a Virtual Thread enters a `synchronized` block/method or calls native code (JNI), the JVM **pins** the virtual thread to its underlying Carrier Thread!
+> ⚠️ **Critical Modern Java Rule**: When a Virtual Thread enters a `synchronized` block/method or calls native C code (JNI), the JVM **pins** the virtual thread to its underlying Carrier Thread!
 
 - **What Happens**: While pinned, the Virtual Thread **cannot unmount** during blocking I/O operations.
 - **The Consequence**: If 10 virtual threads execute blocking HTTP calls inside `synchronized` blocks, all 10 underlying Carrier Threads freeze, causing total application throughput starvation!
 
 ### The Modern Fix: Replace `synchronized` with `ReentrantLock`
 ```java
-// ANTI-PATTERN in Virtual Threads: Causes Thread Pinning!
+// ❌ ANTI-PATTERN in Virtual Threads: Causes Thread Pinning!
 public synchronized String callAiModel(String prompt) {
     return httpSocket.read(prompt); // Carrier thread is pinned and frozen!
 }
 
-// MODERN IDIOM: ReentrantLock allows Virtual Threads to unmount freely!
+// ✅ MODERN IDIOM: ReentrantLock allows Virtual Threads to unmount freely!
 private final ReentrantLock lock = new ReentrantLock();
 
 public String callAiModel(String prompt) {
@@ -254,18 +238,26 @@ public String callAiModel(String prompt) {
 
 ---
 
-## 💡 Guidelines for AI Workloads: When to Use Virtual Threads
+## 💡 Guidelines for AI Workloads
 
-1. **Never Pool Virtual Threads**: Virtual threads are not precious resources. Do not use `newFixedThreadPool()` for virtual threads. Create them on demand and let them be garbage collected using **`Executors.newVirtualThreadPerTaskExecutor()`**.
+1. **Never Pool Virtual Threads**: Virtual threads are not expensive resources. Do not use `newFixedThreadPool()` for virtual threads. Create them on demand and let them be garbage collected using **`Executors.newVirtualThreadPerTaskExecutor()`**.
 2. **Ideal for High-Throughput I/O**: Perfect for calling OpenAI/Anthropic REST APIs, executing vector searches against pgvector, streaming server-sent events (SSE), or reading documents from disk.
 3. **Not for CPU-Bound Crunching**: If tasks are doing heavy local matrix math, video encoding, or cryptographic hashing without I/O, Virtual Threads provide no speedup over platform threads.
 
 ---
 
-## 💻 Concrete Code Walkthrough: Virtual Threads & Atomic Memory
+## 🧭 Real-World Analogy
+
+### Traditional Threading vs. Virtual Threads: Dedicated Waiter vs. Smart Kitchen
+- **Platform Threads (1-to-1)**: Every restaurant customer is assigned their own dedicated waiter (1 MB OS thread). When the customer is thinking about their order or waiting for food to cook (blocking network I/O), the waiter stands frozen at the table doing nothing. A restaurant with 50 customers needs 50 waiters. With 5,000 customers, the building collapses from crowd congestion.
+- **Virtual Threads (M-to-N)**: A few agile waiters (Carrier Threads) serve thousands of customers. A customer gives their order, and while the kitchen is cooking (unmounting during I/O), the waiter immediately moves to serve another table. When the dish is ready, any free waiter delivers it (remounting).
+
+---
+
+## 💻 Code Walkthrough: Virtual Threads & Atomic Memory
 
 ```java
-package com.genai.foundations.day07;
+package com.genai.foundations.concurrency;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -287,7 +279,7 @@ public class VirtualThreadMemoryDemo {
         int taskCount = 1000;
         System.out.println("Launching " + taskCount + " Virtual Threads on standard RAM...");
 
-        // Executors.newVirtualThreadPerTaskExecutor() creates a lightweight user-space thread per task
+        // Creates a lightweight user-space thread per task
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             for (int i = 1; i <= taskCount; i++) {
                 final int taskId = i;
@@ -327,9 +319,11 @@ public class VirtualThreadMemoryDemo {
 }
 ```
 
-### Physical Memory Allocation Trace Table
+---
 
-| Operation / Code Step | Target Memory Area | Physical Under-the-Hood Operation |
+## 🔬 Let's Trace Through It: Memory Allocation Table
+
+| Operation | Target Area | Physical Under-the-Hood Operation |
 |:---|:---|:---|
 | `newVirtualThreadPerTaskExecutor()` | **Heap Space** | Allocates executor using the default `ForkJoinPool` carrier pool (matching CPU core count, e.g. 8 or 16 carrier threads). |
 | `executor.submit(...)` | **Heap Space** | Allocates a lightweight `VirtualThread` object on the Heap (~hundreds of bytes). **Zero native 1 MB OS stacks allocated.** |
@@ -339,83 +333,52 @@ public class VirtualThreadMemoryDemo {
 
 ---
 
-## 🔑 Key Terminology
+## 🧩 Why It's Designed This Way
 
-| Term | Plain-English Meaning |
-|:---|:---|
-| **Platform Thread** | A traditional Java thread mapped 1-to-1 to an OS kernel thread with a fixed 1 MB native stack. |
-| **Virtual Thread** | A lightweight thread managed by the JVM whose call stack lives as a dynamic continuation object on the Heap. |
-| **Carrier Thread** | An underlying OS platform thread that executes virtual threads while they are actively running CPU instructions. |
-| **Unmounting** | The JVM process of detaching a virtual thread from its carrier thread and parking its stack on the Heap during blocking I/O. |
-| **Thread Pinning** | When a virtual thread cannot unmount from its carrier thread because it is executing inside a `synchronized` block or native method. |
-| **Race Condition** | A concurrency flaw where multiple threads update shared memory concurrently, producing unpredictable corrupted results. |
-| **`volatile`** | A keyword that establishes memory barriers, forcing threads to read and write directly to Main Memory (RAM), preventing stale cache reads. |
-| **Compare-And-Swap (CAS)** | A native CPU instruction that updates a memory address atomically only if it matches an expected value, enabling lock-free concurrency. |
+### Why do Virtual Threads store continuation stacks on the Heap instead of the OS Stack?
+The native OS stack must be allocated with a fixed size upfront (1 MB) because native C code and hardware registers require contiguous memory. The JVM, however, has complete control over its own bytecode interpreter! By managing stacks as dynamic, relocatable Java objects on the Heap, the JVM can start a thread with just a few hundred bytes of memory and expand it dynamically on demand.
 
 ---
 
 ## ⚠️ Common Beginner Mistakes
 
 ### 1. Pooling Virtual Threads with `FixedThreadPool`
-Developers treat virtual threads like expensive platform threads and put them into fixed pools.
-
-❌ **Wrong Way**:
 ```java
-// TERRIBLE: Limits virtual threads to 50! Defeats the entire purpose of Project Loom!
+// ❌ TERRIBLE: Limits virtual threads to 50! Defeats the entire purpose of Project Loom!
 ExecutorService executor = Executors.newFixedThreadPool(50, Thread.ofVirtual().factory());
-```
 
-✅ **Right Way**:
-```java
-// IDIOMATIC: Use virtual-thread-per-task executor. Create on demand, let GC reclaim!
+// ✅ CORRECT: Virtual-thread-per-task executor. Create on demand, let GC reclaim!
 ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 ```
 
----
-
-### 2. Using `synchronized` in Virtual Threads (The Pinning Trap)
-Using `synchronized` around blocking network calls causes Carrier Thread starvation.
-
-❌ **Wrong Way**:
+### 2. Using `synchronized` Around Blocking Network Calls (The Pinning Trap)
 ```java
+// ❌ WRONG: Pins the underlying OS Carrier Thread during network I/O!
 public synchronized String fetchEmbedding(String text) {
-    return restClient.post(text); // Thread Pinning! Freezes the underlying OS carrier thread!
+    return restClient.post(text);
 }
-```
 
-✅ **Right Way**:
-```java
+// ✅ CORRECT: Use ReentrantLock to allow clean unmounting
 private final ReentrantLock lock = new ReentrantLock();
-
 public String fetchEmbedding(String text) {
     lock.lock();
     try {
-        return restClient.post(text); // Safe! Allows virtual thread to unmount cleanly!
+        return restClient.post(text);
     } finally {
         lock.unlock();
     }
 }
 ```
 
----
-
 ### 3. Assuming `volatile` Makes Compound Operations Thread-Safe
-Believing `volatile` prevents race conditions on counters.
-
-❌ **Wrong Way**:
 ```java
+// ❌ WRONG: Compound operation (read-modify-write) is NOT atomic!
 private volatile int tokenCounter = 0;
-public void addTokens(int n) {
-    tokenCounter += n; // RACE CONDITION! Read, add, write are not atomic!
-}
-```
+public void addTokens(int n) { tokenCounter += n; }
 
-✅ **Right Way**:
-```java
+// ✅ CORRECT: Use Atomic classes
 private final AtomicInteger tokenCounter = new AtomicInteger(0);
-public void addTokens(int n) {
-    tokenCounter.addAndGet(n); // Thread-safe atomic hardware operation!
-}
+public void addTokens(int n) { tokenCounter.addAndGet(n); }
 ```
 
 ---
@@ -430,11 +393,18 @@ public void addTokens(int n) {
 ---
 
 ## 🔭 Looking Ahead
-In **Day_08**, we will conquer **I/O, Modern HTTP Client, JSON Processing, and Testing**: mastering Java NIO (`Files`), asynchronous `HttpClient`, mapping JSON payloads to records using **Jackson**, and writing isolated unit tests using **JUnit 5** and **Mockito**.
+
+In **Day 08**, we conquer **I/O, Modern HTTP Client, JSON Processing, and Testing Basics**:
+- Heap Buffers vs. Direct Off-Heap Buffers and Zero-Copy I/O.
+- Memory-Mapped files (`MappedByteBuffer`) for multi-gigabyte vector datasets.
+- Modern `java.net.http.HttpClient` (sync vs async streaming).
+- Jackson JSON parsing memory trade-offs (`JsonNode` vs. Records).
+- Writing isolated, hermetic unit tests with **JUnit 5** and **Mockito**.
 
 ---
 
 ## 📝 Quick Recap
+
 - Traditional **Platform Threads** are mapped 1-to-1 to OS threads, pre-allocating a fixed 1 MB native stack that crashes under high concurrency.
 - The **Java Memory Model** dictates how local CPU caches synchronize with shared Heap Main Memory; **`volatile`** prevents stale cache reads.
 - **Race conditions** occur because operations like `count++` require separate read, modify, and write cycles; **Atomic variables** solve this via hardware **Compare-And-Swap (CAS)**.
@@ -449,3 +419,9 @@ In **Day_08**, we will conquer **I/O, Modern HTTP Client, JSON Processing, and T
 1. **Launch 10,000 Virtual Threads**: Write a program that spins up 10,000 virtual threads, each executing `Thread.sleep(1000)`. Observe your task manager's RAM usage (notice it stays under a few hundred megabytes). Then try launching 10,000 platform threads (`new Thread(...)`) and observe the operating system crash or freeze!
 2. **Observe Race Conditions**: Create a simple class with an `int count = 0;`. Launch 100 threads, each incrementing `count` 1,000 times without synchronization. Print the final count (it will be far below 100,000). Then replace it with `AtomicInteger` and verify that the final count is exactly 100,000.
 3. **Detect Thread Pinning**: Run your application with the JVM diagnostic flag: `-Djdk.tracePinnedThreads=full`. Intentionally place a `Thread.sleep()` inside a `synchronized` block and inspect the console output to observe the JVM's pinned thread warning.
+
+---
+
+| ⬅️ Previous Day | 📚 Course Hub | ➡️ Next Day |
+|:---|:---:|---:|
+| [← Day 06: Functional Programming & Streams](../Day_06_Functional_Programming_Streams/Day_06_Functional_Programming_Streams.md) | [Course Hub](../../README.md) | [Day 08: I/O, HTTP Client, JSON & Testing Basics →](../Day_08_IO_HTTP_JSON_Testing/Day_08_IO_HTTP_JSON_Testing.md) |
